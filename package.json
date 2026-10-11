@@ -1,0 +1,19 @@
+{
+  "name": "@edge-robot/claw-onshape",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "engines": {"node": ">=24.0.0"},
+  "files": ["dist", "openclaw.plugin.json", "README.md", "docs"],
+  "openclaw": {"extensions": ["./dist/index.js"]},
+  "peerDependencies": {"openclaw": "2026.9.9"},
+  "devDependencies": {"typescript": "5.9.3", "@types/node": "24.10.0"},
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "pretest": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "test:host": "node scripts/host-smoke.mjs",
+    "prepack": "npm run build"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "claw-onshape",
+  "name": "Claw-Onshape",
+  "version": "0.1.0",
+  "description": "Scoped Onshape REST reads and separate OAuth/MCP foundations",
+  "enabledByDefault": false,
+  "activation": {"onStartup": true},
+  "cliCommands": [{"name":"onshape","description":"Manage Onshape connections","hasSubcommands":true}],
+  "contracts": {"tools":["onshape_inspect"]},
+  "toolMetadata": {"onshape_inspect":{"optional":true}},
+  "uiHints": {
+    "bindings":{"label":"Authorized user, agent and Onshape context","help":"Exact trusted sender/channel/account bindings. Empty disables all tools."},
+    "liveReads":{"label":"Enable authorized REST reads","help":"Defaults off. Enable only after operator authorization."},
+    "oauth.clientId":{"label":"Your registered Onshape OAuth client ID"},
+    "oauth.clientSecretFile":{"label":"Private OAuth application secret file","help":"Absolute path provisioned by the operator; never put the secret value here."}
+  },
+  "configSchema": {
+    "type":"object","additionalProperties":false,"required":["bindings"],
+    "properties": {
+      "liveReads":{"type":"boolean","default":false},
+      "oauth":{"type":"object","additionalProperties":false,"required":["clientId","clientSecretFile"],"properties":{
+        "clientId":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
+        "clientSecretFile":{"type":"string","minLength":1,"maxLength":256,"pattern":"^/[^\\u0000-\\u001f]+$"}
+      }},
+      "bindings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,
+        "required":["agentId","requesterSenderId","messageChannel","agentAccountId","connectionRef","documentId","primaryWorkspaceId","workspaceId"],
+        "properties":{
+          "agentId":{"type":"string","pattern":"^[a-z][a-z0-9_-]{0,63}$"},
+          "requesterSenderId":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
+          "messageChannel":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
+          "agentAccountId":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
+          "connectionRef":{"type":"string","pattern":"^[a-z][a-z0-9_-]{0,63}$"},
+          "documentId":{"type":"string","pattern":"^[a-f0-9]{24}$"},
+          "primaryWorkspaceId":{"type":"string","pattern":"^[a-f0-9]{24}$"},
+          "workspaceId":{"type":"string","pattern":"^[a-f0-9]{24}$"}
+        }
+      }}
+    }
+  }
+}
