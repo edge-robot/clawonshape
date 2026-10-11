@@ -1,4 +1,4 @@
-export async function jsonRequest(fetcher: typeof fetch, url: string, init: RequestInit): Promise<unknown> {
+export async function jsonRequest(fetcher: typeof fetch, url: string, init: RequestInit, maxBytes=1024*1024): Promise<unknown> {
   try {
     const r = await fetcher(url, {...init,redirect:'error',signal:AbortSignal.timeout(10000)});
     if (!r.ok) throw new Error(r.status === 401 ? 'reconnect_required' : r.status === 403 ? 'provider_forbidden' : r.status === 404 ? 'provider_not_found' : r.status === 429 ? 'provider_rate_limited' : 'provider_unavailable');
@@ -11,7 +11,7 @@ export async function jsonRequest(fetcher: typeof fetch, url: string, init: Requ
       for (;;) {
         const {value,done} = await reader.read(); if (done) break;
         size += value.length;
-        if (size > 1024*1024) {await reader.cancel(); throw new Error('provider_protocol_error');}
+        if (size > maxBytes) {await reader.cancel(); throw new Error('provider_protocol_error');}
         chunks.push(value);
       }
     } finally { reader.releaseLock(); }

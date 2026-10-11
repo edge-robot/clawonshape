@@ -16,3 +16,23 @@ Tests cover manifest/package metadata, compiled entry import, optional agent exp
 The private-file SDK is mocked: tests inspect the call contract and validate the plugin's own file guards/lifecycle lock on temporary filesystem state. They do not certify native SDK atomicity, host loader behavior, real callback sockets or native OAuth/MCP authentication. Host SDK source and `src/infra/secret-file.test.ts` were inspected: symlink rejection is an explicit read option, and private atomic writes create owner-only files/directories. The plugin supplies that option and separately checks ownership, modes, hardlinks, private parents and canonical paths. Same-UID/root processes remain trusted; this is not a complete hostile-process filesystem boundary. No production secrets were read.
 
 ClawCAD historical provider acceptance is listed separately in migration-map.md. It is not live acceptance of this package. Native OpenClaw hook traversal and external MCP configurations are not protected by mock adapter tests. The deployed agent must leave hosted MCP disabled. REST writes and merge have no exposed execution path.
+
+## Current product verification — October 11
+
+31 offline tests, exact OpenClaw 2026.9.9 SDK typecheck and whitespace checks pass.
+Installed Claw-Onshape 0.2.0 loads on Engineer and Lead. Real native dashboard
+consent/callback, REST inspection, pinned PNG, signed A2A errors/success and actual
+Discord image delivery pass. User confirmed receipt after the 19:01 UTC request.
+The PNG is 800×800 at source microversion b83ee0a0efcda65537780ef8.
+
+The approved external Clawake global-grant change passed 48 focused tests and
+Ruff. Global and per-agent policies remain enforced. Native role files were
+updated with expectedHash/readback; a new Codex session resolved stale routing.
+Unsigned error transport was corrected without loosening identity checks.
+
+Fresh-grant live renewal returned HTTP 200 and passed strict validation but
+unchanged token values. A previous actual expired-grant response returned HTTP 200
+and failed validation without its shape being retained. Provider-expired renewal
+and rotation remain PARTIAL. No mutation, unrestricted MCP/REST or generalized
+multi-user consent is accepted. Detailed chronology and artifact evidence are in
+product-mvp-status.md and onshape-live-validation.md.

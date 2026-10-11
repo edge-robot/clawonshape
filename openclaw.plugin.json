@@ -1,40 +1,227 @@
 {
   "id": "claw-onshape",
   "name": "Claw-Onshape",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scoped Onshape REST reads and separate OAuth/MCP foundations",
   "enabledByDefault": false,
-  "activation": {"onStartup": true},
-  "cliCommands": [{"name":"onshape","description":"Manage Onshape connections","hasSubcommands":true}],
-  "contracts": {"tools":["onshape_inspect"]},
-  "toolMetadata": {"onshape_inspect":{"optional":true}},
+  "activation": {
+    "onStartup": true
+  },
+  "cliCommands": [
+    {
+      "name": "onshape",
+      "description": "Manage Onshape connections",
+      "hasSubcommands": true
+    }
+  ],
+  "contracts": {
+    "tools": [
+      "onshape_inspect",
+      "onshape_status",
+      "onshape_render",
+      "onshape_delegate_render"
+    ]
+  },
+  "toolMetadata": {
+    "onshape_inspect": {
+      "optional": true
+    },
+    "onshape_status": {
+      "optional": true
+    },
+    "onshape_render": {
+      "optional": true
+    },
+    "onshape_delegate_render": {
+      "optional": true
+    }
+  },
   "uiHints": {
-    "bindings":{"label":"Authorized user, agent and Onshape context","help":"Exact trusted sender/channel/account bindings. Empty disables all tools."},
-    "liveReads":{"label":"Enable authorized REST reads","help":"Defaults off. Enable only after operator authorization."},
-    "oauth.clientId":{"label":"Your registered Onshape OAuth client ID"},
-    "oauth.clientSecretFile":{"label":"Private OAuth application secret file","help":"Absolute path provisioned by the operator; never put the secret value here."}
+    "bindings": {
+      "label": "Authorized user, agent and Onshape context",
+      "help": "Exact trusted sender/channel/account bindings. Empty disables all tools."
+    },
+    "liveReads": {
+      "label": "Enable authorized REST reads",
+      "help": "Defaults off. Enable only after operator authorization."
+    },
+    "oauth.clientId": {
+      "label": "Your registered Onshape OAuth client ID"
+    },
+    "oauth.clientSecretFile": {
+      "label": "Private OAuth application secret file",
+      "help": "Absolute path provisioned by the operator; never put the secret value here."
+    },
+    "oauth.dashboardRedirectUri": {
+      "label": "Registered dashboard OAuth callback",
+      "help": "Operator registers the exact loopback Control UI origin and /plugins/claw-onshape/oauth/callback path."
+    },
+    "engineerAgentId": {
+      "label": "Mechanical Engineer agent ID"
+    },
+    "delegation.keyFile": {
+      "label": "Private delegation signing key file",
+      "help": "Clawake-provisioned shared private HMAC key; never the key value."
+    },
+    "delegation.transportTokenFile": {
+      "label": "Private A2A transport token file",
+      "help": "Optional; existing A2A_LEAD_TO_MECHANICAL environment is used otherwise."
+    },
+    "bindings.*.elementId": {
+      "label": "Authorized Camera Mount Plate Part Studio"
+    }
   },
   "configSchema": {
-    "type":"object","additionalProperties":false,"required":["bindings"],
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "bindings"
+    ],
     "properties": {
-      "liveReads":{"type":"boolean","default":false},
-      "oauth":{"type":"object","additionalProperties":false,"required":["clientId","clientSecretFile"],"properties":{
-        "clientId":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
-        "clientSecretFile":{"type":"string","minLength":1,"maxLength":256,"pattern":"^/[^\\u0000-\\u001f]+$"}
-      }},
-      "bindings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,
-        "required":["agentId","requesterSenderId","messageChannel","agentAccountId","connectionRef","documentId","primaryWorkspaceId","workspaceId"],
-        "properties":{
-          "agentId":{"type":"string","pattern":"^[a-z][a-z0-9_-]{0,63}$"},
-          "requesterSenderId":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
-          "messageChannel":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
-          "agentAccountId":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[^\\u0000-\\u001f]+$"},
-          "connectionRef":{"type":"string","pattern":"^[a-z][a-z0-9_-]{0,63}$"},
-          "documentId":{"type":"string","pattern":"^[a-f0-9]{24}$"},
-          "primaryWorkspaceId":{"type":"string","pattern":"^[a-f0-9]{24}$"},
-          "workspaceId":{"type":"string","pattern":"^[a-f0-9]{24}$"}
+      "liveReads": {
+        "type": "boolean",
+        "default": false
+      },
+      "oauth": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "clientId",
+          "clientSecretFile"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f]+$"
+          },
+          "clientSecretFile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^/[^\\u0000-\\u001f]+$"
+          },
+          "dashboardRedirectUri": {
+            "type": "string",
+            "maxLength": 256
+          }
         }
-      }}
+      },
+      "bindings": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "requesterSenderId",
+            "messageChannel",
+            "agentAccountId",
+            "connectionRef",
+            "documentId",
+            "primaryWorkspaceId",
+            "workspaceId"
+          ],
+          "properties": {
+            "agentId": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+            },
+            "requesterSenderId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001f]+$"
+            },
+            "messageChannel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001f]+$"
+            },
+            "agentAccountId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001f]+$"
+            },
+            "connectionRef": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+            },
+            "documentId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "primaryWorkspaceId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "workspaceId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "elementId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "discordChannelId": {
+              "type": "string",
+              "pattern": "^[0-9]{16,22}$"
+            }
+          }
+        }
+      },
+      "engineerAgentId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "delegation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "leadAgentId",
+          "engineerAgentId",
+          "peerSenderId",
+          "accountId",
+          "keyFile"
+        ],
+        "properties": {
+          "leadAgentId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "engineerAgentId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "peerSenderId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "accountId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "keyFile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^/"
+          },
+          "transportTokenFile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^/"
+          }
+        }
+      }
     }
+  },
+  "controlUi": {
+    "entry": "dist/control-ui/product/index.js"
   }
 }

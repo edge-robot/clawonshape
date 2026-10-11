@@ -1,25 +1,26 @@
 import {createHash} from 'node:crypto';
 export type Binding = Readonly<{
   agentId: string; requesterSenderId: string; messageChannel: string; agentAccountId: string;
-  connectionRef: string; documentId: string; primaryWorkspaceId: string; workspaceId: string;
+  connectionRef: string; documentId: string; primaryWorkspaceId: string; workspaceId: string; elementId?: string; discordChannelId?:string;
 }>;
-export type Config = Readonly<{bindings: readonly Binding[]; oauth?: Readonly<{clientId: string; clientSecretFile: string}>; liveReads: boolean}>;
+export type Delegation = Readonly<{leadAgentId:string; engineerAgentId:string; peerSenderId:string; accountId:string; keyFile:string; transportTokenFile?:string}>;
+export type Config = Readonly<{bindings: readonly Binding[]; oauth?: Readonly<{clientId: string; clientSecretFile: string; dashboardRedirectUri?:string}>; liveReads: boolean; engineerAgentId?:string; delegation?:Delegation}>;
 export const id = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
 export const ref = (value: unknown): value is string => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(value);
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !/[\x00-\x1f]/.test(v);
 export function parseConfig(value: unknown): Config {
-  if (!object(value) || Object.keys(value).some(k => !['bindings','oauth','liveReads'].includes(k)) ||
+  if (!object(value) || Object.keys(value).some(k => !['bindings','oauth','liveReads','engineerAgentId','delegation'].includes(k)) ||
       !Array.isArray(value.bindings) || value.bindings.length > 64 ||
       (value.liveReads !== undefined && typeof value.liveReads !== 'boolean')) throw new Error('invalid_configuration');
   const bindings: Binding[] = [];
   for (const b of value.bindings) {
-    if (!object(b) || Object.keys(b).length !== 8 || !ref(b.agentId) || !ref(b.connectionRef) ||
+    if (!object(b) || Object.keys(b).some(k=>!['agentId','requesterSenderId','messageChannel','agentAccountId','connectionRef','documentId','primaryWorkspaceId','workspaceId','elementId','discordChannelId'].includes(k)) || !ref(b.agentId) || !ref(b.connectionRef) ||
       !text(b.requesterSenderId) || !text(b.messageChannel) || !text(b.agentAccountId) ||
-      !id(b.documentId) || !id(b.primaryWorkspaceId) || !id(b.workspaceId)) throw new Error('invalid_binding');
+      !id(b.documentId) || !id(b.primaryWorkspaceId) || !id(b.workspaceId) || (b.elementId!==undefined && !id(b.elementId)) || (b.discordChannelId!==undefined && (typeof b.discordChannelId!=='string'||!/^\d{16,22}$/.test(b.discordChannelId)||b.messageChannel!=='discord'))) throw new Error('invalid_binding');
     bindings.push(Object.freeze({
       agentId:b.agentId,requesterSenderId:b.requesterSenderId,messageChannel:b.messageChannel,agentAccountId:b.agentAccountId,
-      connectionRef:b.connectionRef,documentId:b.documentId,primaryWorkspaceId:b.primaryWorkspaceId,workspaceId:b.workspaceId
+      connectionRef:b.connectionRef,documentId:b.documentId,primaryWorkspaceId:b.primaryWorkspaceId,workspaceId:b.workspaceId,...(b.elementId?{elementId:b.elementId}:{}),...(b.discordChannelId?{discordChannelId:b.discordChannelId}:{})
     }));
   }
   const keys = bindings.map(b => JSON.stringify([b.agentId,b.requesterSenderId,b.messageChannel,b.agentAccountId]));
@@ -34,18 +35,30 @@ export function parseConfig(value: unknown): Config {
   let oauth: Config['oauth'];
   if (value.oauth !== undefined) {
     const o = value.oauth;
-    if (!object(o) || Object.keys(o).length !== 2 || !text(o.clientId) || !text(o.clientSecretFile) || !o.clientSecretFile.startsWith('/')) throw new Error('invalid_oauth_configuration');
-    oauth = Object.freeze({clientId:o.clientId,clientSecretFile:o.clientSecretFile});
+    if (!object(o) || Object.keys(o).some(k=>!['clientId','clientSecretFile','dashboardRedirectUri'].includes(k)) || !text(o.clientId) || !text(o.clientSecretFile) || !o.clientSecretFile.startsWith('/') || (o.dashboardRedirectUri!==undefined && !dashboardRedirect(o.dashboardRedirectUri))) throw new Error('invalid_oauth_configuration');
+    oauth = Object.freeze({clientId:o.clientId,clientSecretFile:o.clientSecretFile,...(o.dashboardRedirectUri?{dashboardRedirectUri:o.dashboardRedirectUri as string}:{})});
   }
-  return Object.freeze({bindings:Object.freeze(bindings),oauth,liveReads:value.liveReads === true});
+  if(value.engineerAgentId!==undefined && !ref(value.engineerAgentId)) throw new Error('invalid_configuration');
+  let delegation:Delegation|undefined;
+  if(value.delegation!==undefined){const d=value.delegation;
+    if(!object(d)||Object.keys(d).some(k=>!['leadAgentId','engineerAgentId','peerSenderId','accountId','keyFile','transportTokenFile'].includes(k))||
+      !ref(d.leadAgentId)||!ref(d.engineerAgentId)||d.leadAgentId===d.engineerAgentId||!ref(d.peerSenderId)||!ref(d.accountId)||!text(d.keyFile)||!d.keyFile.startsWith('/')||
+      (d.transportTokenFile!==undefined&&(!text(d.transportTokenFile)||!d.transportTokenFile.startsWith('/')))||bindings.some(b=>b.agentId!==d.engineerAgentId))throw new Error('invalid_delegation');
+    delegation=Object.freeze({leadAgentId:d.leadAgentId,engineerAgentId:d.engineerAgentId,peerSenderId:d.peerSenderId,accountId:d.accountId,keyFile:d.keyFile,...(d.transportTokenFile?{transportTokenFile:d.transportTokenFile}:{})});
+  }
+  return Object.freeze({bindings:Object.freeze(bindings),oauth,liveReads:value.liveReads === true,...(value.engineerAgentId?{engineerAgentId:value.engineerAgentId as string}:{}),...(delegation?{delegation}:{})});
 }
-export type Identity = {agentId?: string; requesterSenderId?: string; messageChannel?: string; agentAccountId?: string};
+export function dashboardRedirect(value:unknown):boolean {
+  try{const u=new URL(value as string);return typeof value==='string' && value===u.href && ['http:','https:'].includes(u.protocol) && ['localhost','127.0.0.1'].includes(u.hostname) && !!u.port && !u.username && !u.password && !u.search && !u.hash && u.pathname==='/plugins/claw-onshape/oauth/callback';}catch{return false;}
+}
+export type Identity = {agentId?: string; requesterSenderId?: string; messageChannel?: string; agentAccountId?: string; sessionKey?:string; assertInvocationCurrent?:()=>void; deliveryContext?:{channel?:string;to?:string;accountId?:string}};
+export function channelMatches(b:Binding,ctx:Identity):boolean{return !b.discordChannelId || (ctx.deliveryContext?.channel==='discord'&&[b.discordChannelId,`channel:${b.discordChannelId}`].includes(ctx.deliveryContext.to??''));}
 export function connectionOwner(b:Binding):string {
   return createHash('sha256').update(JSON.stringify([b.requesterSenderId,b.messageChannel,b.agentAccountId])).digest('hex');
 }
 export function bindingFor(config: Config, ctx: Identity): Binding | undefined {
   return config.bindings.find(b => b.agentId === ctx.agentId && b.requesterSenderId === ctx.requesterSenderId &&
-    b.messageChannel === ctx.messageChannel && b.agentAccountId === ctx.agentAccountId);
+    b.messageChannel === ctx.messageChannel && b.agentAccountId === ctx.agentAccountId && channelMatches(b,ctx));
 }
 export function validateTarget(b: Binding, did: unknown, wid: unknown, write = false): void {
   if (!id(did) || !id(wid) || did !== b.documentId) throw new Error('target_denied');

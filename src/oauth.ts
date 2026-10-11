@@ -22,20 +22,22 @@ export class Consent {
   private readonly clientSecret:string;
   private readonly fetcher:typeof fetch;
   private readonly clock:()=>number;
-  constructor(clientId:string, clientSecret:string, fetcher:typeof fetch = fetch, clock:()=>number = Date.now) {
-    this.clientId=clientId;this.clientSecret=clientSecret;this.fetcher=fetcher;this.clock=clock;this.deadline=clock()+300000;
+  private readonly redirectUri:string;
+  constructor(clientId:string, clientSecret:string, fetcher:typeof fetch = fetch, clock:()=>number = Date.now, redirectUri=REDIRECT_URI) {
+    this.clientId=clientId;this.clientSecret=clientSecret;this.fetcher=fetcher;this.clock=clock;this.deadline=clock()+300000;this.redirectUri=redirectUri;
   }
   authorizationUrl(): string {
     const u = new URL(AUTHORIZE_URL);
-    u.search = new URLSearchParams({client_id:this.clientId,response_type:'code',redirect_uri:REDIRECT_URI,scope:'OAuth2Read',state:this.state}).toString();
+    u.search = new URLSearchParams({client_id:this.clientId,response_type:'code',redirect_uri:this.redirectUri,scope:'OAuth2Read',state:this.state}).toString();
     return u.toString();
   }
   cancel(): void {this.used=true;}
   async complete(path:string, host:string): Promise<Tokens> {
-    if (this.used || this.clock() >= this.deadline || host !== 'localhost:8765' || path.length > 8192 || !path.startsWith('/?')) throw new Error('oauth_callback_invalid');
-    const u = new URL(path,REDIRECT_URI); const p=u.searchParams;
+    const redirect=new URL(this.redirectUri);
+    if (this.used || this.clock() >= this.deadline || host !== redirect.host || path.length > 8192 || !path.startsWith(redirect.pathname+'?')) throw new Error('oauth_callback_invalid');
+    const u = new URL(path,this.redirectUri); const p=u.searchParams;
     const received=Buffer.from(p.get('state') ?? ''); const expected=Buffer.from(this.state);
-    if (u.origin !== REDIRECT_URI || u.pathname !== '/' || u.hash ||
+    if (u.origin !== redirect.origin || u.pathname !== redirect.pathname || u.hash ||
       [...p.keys()].some(k => !['state','code','error','error_description','error_uri'].includes(k) || p.getAll(k).length !== 1) ||
       received.length !== expected.length || !timingSafeEqual(received,expected)) throw new Error('oauth_callback_invalid');
     this.used=true;
@@ -43,7 +45,7 @@ export class Consent {
     if (!secret(p.get('code'))) throw new Error('oauth_callback_invalid');
     try {
       const response = await jsonRequest(this.fetcher,TOKEN_URL,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Accept:'application/json'},
-        body:new URLSearchParams({grant_type:'authorization_code',code:p.get('code')!,client_id:this.clientId,client_secret:this.clientSecret,redirect_uri:REDIRECT_URI})});
+        body:new URLSearchParams({grant_type:'authorization_code',code:p.get('code')!,client_id:this.clientId,client_secret:this.clientSecret,redirect_uri:this.redirectUri})});
       return parseTokens(response,this.clock());
     } catch {throw new Error('oauth_reconnect_required');}
   }

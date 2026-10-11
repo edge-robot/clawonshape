@@ -42,7 +42,7 @@ const tokens=()=>({accessToken:'fixture-access-DO-NOT-LOG',refreshToken:'fixture
 const fixtureStore=async(root)=> {const store=await credentials(root,binding.connectionRef,connectionOwner(binding));await store.save(tokens());return store;};
 const capture=(cfg=config()) => {
   let entry={enabled:true,config:cfg};const factories=[],cli=[];
-  plugin.register({pluginConfig:cfg,registerTool:(factory,opts)=>factories.push({factory,opts}),registerCli:(f,opts)=>cli.push({f,opts}),runtime:{config:{current:()=>({plugins:{entries:{'claw-onshape':entry}}})},state:{resolveStateDir:()=>'/tmp/fixture-openclaw'}}});
+  plugin.register({session:{controls:{registerSessionAction:()=>{}}},registerHttpRoute:()=>{},lifecycle:{registerRuntimeLifecycle:()=>{}},pluginConfig:cfg,registerTool:(factory,opts)=>factories.push({factory:factory.create??factory,opts}),registerCli:(f,opts)=>cli.push({f,opts}),runtime:{config:{current:()=>({plugins:{entries:{'claw-onshape':entry}}})},state:{resolveStateDir:()=>'/tmp/fixture-openclaw'}}});
   return {factories,cli,setEntry:v=>{entry=v;}};
 };
 
@@ -52,7 +52,7 @@ test('package entry loads; manifest/optional tool/CLI metadata agree (mock regis
   assert.deepEqual(pkg.openclaw.extensions,['./dist/index.js']);
   assert.equal(pkg.peerDependencies.openclaw,'2026.9.9');
   assert.equal(plugin.id,manifest.id);
-  const host=capture();assert.equal(host.factories.length,1);assert.equal(host.factories[0].opts.optional,true);
+  const host=capture();assert.equal(host.factories.length,4);assert.equal(host.factories[0].opts.optional,true);
   assert.equal(host.factories[0].factory(binding).name,manifest.contracts.tools[0]);
   assert.equal(host.cli[0].opts.descriptors[0].name,manifest.cliCommands[0].name);
   assert.equal(manifest.enabledByDefault,false);
