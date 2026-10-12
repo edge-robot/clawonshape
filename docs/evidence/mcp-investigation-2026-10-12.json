@@ -1,0 +1,141 @@
+{
+  "observedDate": "2026-10-12",
+  "evidence": "Unauthenticated public metadata only; no token values or CAD calls",
+  "clawonshapeHead": "42f41b3",
+  "clawcadReference": "6d8313267e86fca31f271b821d7fbbf940b9b0c1",
+  "hostVersion": "2026.9.9",
+  "protectedResource": {
+    "url": "https://fs-mcp.labs.onshape.app/.well-known/oauth-protected-resource",
+    "httpStatus": 200,
+    "metadata": {
+      "resource": "https://fs-mcp.labs.onshape.app",
+      "authorization_servers": [
+        "https://mcp-auth.labs.onshape.app"
+      ],
+      "bearer_methods_supported": [
+        "header"
+      ],
+      "scopes_supported": [
+        "OAuth2Read",
+        "OAuth2Write",
+        "OAuth2Delete",
+        "OAuth2ReadPII"
+      ]
+    }
+  },
+  "authorizationServer": {
+    "url": "https://mcp-auth.labs.onshape.app/.well-known/oauth-authorization-server",
+    "httpStatus": 200,
+    "metadata": {
+      "issuer": "https://mcp-auth.labs.onshape.app",
+      "authorization_endpoint": "https://mcp-auth.labs.onshape.app/authorize",
+      "token_endpoint": "https://mcp-auth.labs.onshape.app/token",
+      "jwks_uri": "https://mcp-auth.labs.onshape.app/.well-known/jwks.json",
+      "registration_endpoint": "https://mcp-auth.labs.onshape.app/register",
+      "revocation_endpoint": "https://mcp-auth.labs.onshape.app/revoke",
+      "scopes_supported": [
+        "OAuth2Read",
+        "OAuth2Write",
+        "OAuth2Delete",
+        "OAuth2ReadPII"
+      ],
+      "response_types_supported": [
+        "code"
+      ],
+      "grant_types_supported": [
+        "authorization_code",
+        "refresh_token",
+        "urn:ietf:params:oauth:grant-type:token-exchange"
+      ],
+      "code_challenge_methods_supported": [
+        "S256"
+      ],
+      "token_endpoint_auth_methods_supported": [
+        "none",
+        "private_key_jwt"
+      ],
+      "token_endpoint_auth_signing_alg_values_supported": [
+        "RS256",
+        "ES256"
+      ]
+    }
+  },
+  "unauthenticatedMcpGet": {
+    "url": "https://fs-mcp.labs.onshape.app/mcp",
+    "httpStatus": 401
+  },
+  "nativeMcpStatus": {
+    "server": "onshape",
+    "enabled": false,
+    "transport": "streamable-http",
+    "identity": "shared",
+    "configuredToolInclude": [
+      "test_featurescript"
+    ],
+    "reportedStoredState": "authorized",
+    "reportedExpiresAt": 1791557575598,
+    "reportedExpiryUtc": "2026-10-09T14:52:55.598000+00:00",
+    "currentAuthentication": "UNVERIFIED",
+    "currentCatalog": "UNKNOWN",
+    "schemaDiscoveryExecuted": false
+  },
+  "openapi": {
+    "url": "https://cad.onshape.com/api/openapi",
+    "build": "1.222.90730-c8d74e607a47",
+    "sha256": "d93a3c77e5f4a61f69ce865e815da4fe628178bb37cb6de4d91028f2c2bdc9aa",
+    "selectedSchemaFields": {
+      "BTFeatureDefinitionCall-1406": {
+        "properties": [
+          "btType",
+          "feature",
+          "libraryVersion",
+          "microversionSkew",
+          "rejectMicroversionSkew",
+          "serializationVersion",
+          "sourceMicroversion"
+        ],
+        "inheritedSchemas": []
+      },
+      "BTFeatureApiBase-1430": {
+        "properties": [
+          "btType",
+          "libraryVersion",
+          "microversionSkew",
+          "rejectMicroversionSkew",
+          "serializationVersion",
+          "sourceMicroversion"
+        ],
+        "inheritedSchemas": []
+      },
+      "BTFeatureStudioContents-2239": {
+        "properties": [
+          "btType"
+        ],
+        "inheritedSchemas": [
+          "#/components/schemas/BTFeatureApiBase-1430"
+        ]
+      }
+    },
+    "liveWriteTimeRejection": "NOT TESTED",
+    "advertisedServers": [
+      {
+        "url": "https://cad.onshape.com/api/v17",
+        "description": "Current"
+      }
+    ],
+    "repositoryApiVersion": "v10",
+    "v10Compatibility": "UNVERIFIED"
+  },
+  "alternativeProvider": {
+    "repository": "https://github.com/altendky/onshape-mcp",
+    "commit": "f78ddc48a445765f32fcf052d9d8e6d709497d56",
+    "installed": false
+  },
+  "validation": {
+    "offlineTestsPassed": 65,
+    "typecheck": "PASS",
+    "newConsentInitiated": false,
+    "cadWritesExecuted": false,
+    "productionGrantsChanged": false
+  }
+}

@@ -54,3 +54,35 @@ export const messages = {
 export type ReadinessCode = keyof typeof messages;
 export function state(code:ReadinessCode){return {code,message:messages[code]};}
 export function userError(error:unknown){const code=error instanceof Error && error.message in messages?error.message as ReadinessCode:'onshape_unavailable';return state(code);}
+
+// Operator dashboard metadata only; never attached to agent readiness results.
+export type McpReadiness = {
+  provider: 'onshape';
+  configured: boolean | null;
+  enabled: boolean | null;
+  oauth: {
+    status: 'CONNECTED' | 'DISCONNECTED' | 'UNKNOWN';
+    storedGrant: boolean | null;
+    expiresAt?: string;
+    expired?: boolean;
+    requiresOperatorAction: boolean | null;
+    reason: string;
+  };
+  discovery: {status: 'NOT_PERFORMED' | 'HISTORICAL' | 'VERIFIED' | 'UNKNOWN'; reason: string};
+  mutation: {status: 'BLOCKED'; blockers: string[]};
+  operatorAction: string;
+};
+export function unknownMcpReadiness(): McpReadiness {
+  return {
+    provider:'onshape',configured:null,enabled:null,
+    oauth:{status:'UNKNOWN',storedGrant:null,requiresOperatorAction:null,reason:'Native read-only MCP status is unavailable or invalid; no connection was attempted.'},
+    discovery:{status:'HISTORICAL',reason:'ClawCAD discovery was previously recorded on October 9, 2026. Claw-Onshape has not performed authenticated discovery; no current catalog is verified.'},
+    mutation:{status:'BLOCKED',blockers:[
+      'Unverified Candidate Workspace containment',
+      'Missing atomic revision enforcement',
+      'Unverified guarded native MCP invocation',
+      'Unverified Part Studio mutation contract',
+    ]},
+    operatorAction:'Inspect native OpenClaw MCP Settings/status. Keep production MCP disabled. Future consent must use native operator onboarding in an approved isolated profile.',
+  };
+}

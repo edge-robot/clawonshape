@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,readdir,readFile,writeFile,chmod,symlink} from 'node:fs/promises';
+import {mkdtemp,rm,readdir,readFile,writeFile,chmod,symlink,open} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
@@ -31,19 +31,25 @@ function provider(options={}){
     calls.push({url,method:init.method});const p=new URL(url).pathname;
     if(init.method==='POST'){
       posts++;assert.equal(p,`/api/v10/documents/d/${D}/workspaces`);
+      // Repository contract only: provider acceptance of v10 is a separate gate.
+      const body=JSON.parse(init.body);
+      assert.deepEqual(Object.keys(body).sort(),['microversionId','name']);
+      assert.equal(body.microversionId,M);
       if(options.onPost)await options.onPost();
       if(options.mode==='timeout')throw new Error('socket-DO-NOT-LOG');
       if(options.mode==='malformed')return json({});
       if(options.mode==='json')return new Response('provider-DO-NOT-LOG',{headers:{'Content-Type':'application/json'}});
       if(options.mode==='content-type')return new Response('provider-DO-NOT-LOG',{headers:{'Content-Type':'text/plain'}});
       if(options.mode==='foreign')return json({id:C,documentId:'9'.repeat(24)});
+      if(options.mode==='missing-document')return json({id:C});
       if(typeof options.mode==='number')return json({error:'provider-DO-NOT-LOG'},options.mode);
       return json({id:C,documentId:D});
     }
     if(p===`/api/v10/documents/${D}`)return json({id:D});
     if(p===`/api/v10/documents/d/${D}/workspaces`){
       if(posts&&options.verificationFailure)throw new Error('verification-DO-NOT-LOG');
-      return json([{id:W,documentId:D},{id:P,documentId:D},{id:C,documentId:D}]);
+      return json([{id:W,documentId:D},{id:P,documentId:D},
+        options.missingCandidateDocument?{id:C}:{id:C,documentId:D}]);
     }
     if(p===`/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`)return json({sourceMicroversion:M,features:Array.from({length:options.featureCount??1},()=>({featureId:'feature-DO-NOT-RETURN'}))});
     if(p===`/api/v10/documents/d/${D}/m/${M}/elements`)return json([{id:E,elementType:'PARTSTUDIO'}]);
@@ -57,7 +63,7 @@ const client=(stateDir,p,warnings=[],b=binding)=>{const config=parseConfig({bind
 
 test('creation requires persistent state; malformed/uncertain POSTs remain fenced across restart and changed requests',async()=>{
   const noStore=provider();assert.equal((await new RestClient(async()=>'fixture',noStore.fetcher).prepareCandidateWorkspace(binding,input)).reason,'agent_policy_denied');assert.equal(noStore.calls.length,0);
-  for(const mode of ['timeout','malformed','json','content-type',500,408,'foreign']){
+  for(const mode of ['timeout','malformed','json','content-type',500,408,'foreign','missing-document']){
     const stateDir=await state(),p=provider({mode}),logs=[];
     const result=await client(stateDir,p,logs).prepareCandidateWorkspace(binding,input);
     assert.equal(result.status,'unknown');assert.equal(result.attemptStatus,'UNKNOWN');assert.equal(p.posts,1);
@@ -71,6 +77,22 @@ test('creation requires persistent state; malformed/uncertain POSTs remain fence
     for(const log of logs){assert(!log.includes('DO-NOT-LOG'));assert(!log.includes('\n'));assert.match(log,/^WARNING:/);}
     assert(Buffer.byteLength(JSON.stringify(result))<=CANDIDATE_MAX_BYTES);
   }
+});
+
+test('optional provider document fields cannot establish candidate membership or trigger another POST',async()=>{
+  const existing=await state(),before=provider({missingCandidateDocument:true});
+  await assert.rejects(client(existing,before).prepareCandidateWorkspace(binding,{...input,candidateWorkspaceId:C}),/workspace_not_in_document/);
+  assert.equal(before.posts,0);
+  const stateDir=await state(),p=provider({missingCandidateDocument:true});
+  const result=await client(stateDir,p).prepareCandidateWorkspace(binding,input);
+  assert.equal(result.status,'created_unverified');assert.equal(p.posts,1);
+  assert.equal((await readRecord(stateDir)).record.status,'CREATED_UNVERIFIED');
+  const restart=provider({missingCandidateDocument:true});
+  assert.equal((await client(stateDir,restart).reconcileCandidateWorkspace(binding,result.attemptId)).status,'created_unverified');
+  assert.equal(restart.posts,0);
+  const recovered=provider();
+  assert.equal((await client(stateDir,recovered).reconcileCandidateWorkspace(binding,result.attemptId)).status,'ok');
+  assert.equal(recovered.posts,0);
 });
 
 test('POST cannot run until its UNKNOWN receipt is persisted; concurrent clients cannot duplicate creation',async()=>{
@@ -119,6 +141,54 @@ test('receipt persistence failures prevent dispatch or retain the original resta
   await chmod(receiptFile,0o600);
   assert.equal((await readRecord(after)).record.status,'UNKNOWN');
   const restart=provider();assert.equal((await client(after,restart).prepareCandidateWorkspace(binding,input)).status,'unknown');assert.equal(restart.calls.length,0);
+});
+
+test('strict receipt sync errors prevent POST and retain the restart fence, including EPERM',async(t)=>{
+  for(const code of ['EPERM','EIO']){
+    const stateDir=await state(),probe=await open(path.join(stateDir,'probe'),'w',0o600);
+    const prototype=Object.getPrototypeOf(probe),original=prototype.sync;await probe.close();
+    let failures=0;
+    const mock=t.mock.method(prototype,'sync',async function(){
+      if((await this.stat()).isFile()){
+        failures++;throw Object.assign(new Error('sync-error-DO-NOT-LOG'),{code});
+      }
+      return original.call(this);
+    });
+    const p=provider(),logs=[];
+    try{
+      await assert.rejects(client(stateDir,p,logs).prepareCandidateWorkspace(binding,input),/^Error: candidate_store_unavailable$/);
+      assert.equal(failures,1);assert.equal(p.posts,0);
+      assert.equal((await readRecord(stateDir)).record.status,'UNKNOWN');
+    }finally{mock.mock.restore();}
+    const restarted=provider();
+    assert.equal((await client(stateDir,restarted,logs).prepareCandidateWorkspace(binding,input)).status,'unknown');
+    assert.equal(restarted.calls.length,0);
+    assert(logs.some(line=>line.includes('candidate_repeat_blocked')));
+    assert(logs.every(line=>!line.includes('DO-NOT-LOG')));
+  }
+});
+
+test('strict sync failure after a successful POST preserves a known candidate without a duplicate POST',async(t)=>{
+  const stateDir=await state(),probe=await open(path.join(stateDir,'probe'),'w',0o600);
+  const prototype=Object.getPrototypeOf(probe),original=prototype.sync;await probe.close();
+  let syncs=0;
+  const mock=t.mock.method(prototype,'sync',async function(){
+    if((await this.stat()).isFile()&&++syncs>1)throw Object.assign(new Error('sync-error-DO-NOT-LOG'),{code:'EPERM'});
+    return original.call(this);
+  });
+  const p=provider(),logs=[];let result;
+  try{
+    result=await client(stateDir,p,logs).prepareCandidateWorkspace(binding,input);
+    assert.equal(result.status,'created_unverified');assert.equal(result.candidateWorkspaceId,C);
+    assert.equal(p.posts,1);
+    assert.equal((await readRecord(stateDir)).record.status,'CREATED_UNVERIFIED');
+  }finally{mock.mock.restore();}
+  const restarted=provider();
+  assert.equal((await client(stateDir,restarted,logs).prepareCandidateWorkspace(binding,input)).status,'created_unverified');
+  assert.equal(restarted.calls.length,0);
+  const reconcile=provider();
+  assert.equal((await client(stateDir,reconcile,logs).reconcileCandidateWorkspace(binding,result.attemptId)).status,'ok');
+  assert.equal(reconcile.posts,0);
 });
 
 test('confirmed HTTP denials and conflicts are recorded without automatic retry',async()=>{

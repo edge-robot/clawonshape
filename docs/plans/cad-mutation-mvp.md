@@ -95,13 +95,35 @@ Native Codex role changes require a deliberate fresh session because its first
 AGENTS.md snapshot remains frozen on resume. Actual role writes use native guarded
 Agent Files actions; config/grants/mounts remain Clawake-owned.
 
+## October 12 MCP investigation checkpoint
+
+REST candidate preparation is now implemented internally with exact source/candidate
+checks, trusted direct write authority and bounded persistent attempt fencing.
+It is not an agent tool or accepted live candidate creation. Do not repeat its
+implementation or treat signed A2A read contexts as write grants.
+
+[MCP investigation](../mcp-integration-investigation-2026-10-12.md) establishes
+separate native MCP resource/issuer and existing native Settings browser sign-in.
+Current production server remains disabled; current authenticated schemas are
+UNKNOWN. Hosted candidate containment, write CAS and Part Studio application remain
+NO-GO. Onshape's public REST feature contract exposes skew rejection, but its safe
+MCP composition and live operation acceptance are outstanding.
+
+## Read-only MCP readiness checkpoint (2026-10-12)
+
+Implemented offline: the existing operator dashboard separates REST capabilities
+from a bounded fixed-`onshape` projection of native `mcp status --json`. No native
+connection, refresh, discovery or tool invocation occurs. Historical ClawCAD
+discovery remains explicitly historical and CAD mutation stays BLOCKED.
+See [operator readiness contract](../mcp-dashboard-readiness.md).
+
 ## Exactly one next implementation task
 
-Add narrow REST candidate-workspace preparation with exact-source contract tests
-and protected-primary validation. Keep all MCP/CAD mutation execution disabled.
-This is the smallest control-plane prerequisite for Increment 2; it does not
-reintroduce a workflow engine or promise an unsafe mutation demo. Real mutation
-still depends on verified MCP containment and revision enforcement.
+Validate the read-only dashboard projection on the pinned OpenClaw 2026.9.9 host
+with the production connector still disabled. Check operator access and sanitized
+configured/disabled/expiry/UNKNOWN rendering, without consent, discovery, tool
+calls, grant changes or enabling MCP. This supplies native acceptance of the
+implemented CLI boundary; it does not unblock mutation.
 
 ## Deferred work
 

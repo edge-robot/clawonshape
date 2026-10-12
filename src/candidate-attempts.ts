@@ -76,6 +76,19 @@ export async function candidateAttempts(stateDir:string,binding:Binding){
           try{
             const native=await import('openclaw/plugin-sdk/secret-file-runtime');
             await native.writePrivateSecretFileAtomic({rootDir:stateDir,filePath,content,durable:'file'});
+            // The host overwrite fallback may suppress EPERM on file sync.
+            // Strictly sync the exact private receipt before any provider POST.
+            await privateDirectory(dir);
+            const file=await open(filePath,constants.O_RDONLY|constants.O_NOFOLLOW);
+            try{
+              const info=await file.stat();
+              if(!info.isFile()||info.nlink!==1||info.uid!==process.getuid?.()||(info.mode&0o077)||info.size!==Buffer.byteLength(content))throw new Error('candidate_store_unavailable');
+              const buffer=Buffer.alloc(CANDIDATE_MAX_BYTES+1),{bytesRead}=await file.read(buffer,0,buffer.length,0);
+              if(bytesRead!==info.size||!buffer.subarray(0,bytesRead).equals(Buffer.from(content)))throw new Error('candidate_store_unavailable');
+              await file.sync();
+              const published=await lstat(filePath);
+              if(published.isSymbolicLink()||published.dev!==info.dev||published.ino!==info.ino||published.nlink!==1||published.uid!==info.uid||(published.mode&0o077)||published.size!==info.size)throw new Error('candidate_store_unavailable');
+            }finally{await file.close();}
             // Persist the directory entry too before allowing a provider dispatch.
             const directory=await open(dir,constants.O_RDONLY|constants.O_DIRECTORY);
             try{await directory.sync();}finally{await directory.close();}

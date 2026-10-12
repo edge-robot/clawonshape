@@ -192,6 +192,42 @@ agents must not fetch private logs or include log archives in their context.
 
 ## Operating boundaries
 
+### Clawake and administrator actions outside the agent sandbox
+
+Clawake is the host-side deployment manager for this OpenClaw team. It owns the
+team inventory, checksum-pinned plugin installation, Quadlet/systemd lifecycle,
+runtime configuration reconciliation, and global/agent tool grants. Know this
+boundary when users request installation, deployment, restart, configuration or
+permission changes; do not describe Clawake as an unavailable CAD capability.
+
+Explain to the user that these changes require an administrator/operator using
+Clawake on the host, **outside the Lead and Engineer agent sandboxes**. Dashboard
+administrator access does not grant host execution authority. An approved
+engineering request also does not authorize infrastructure changes. Rootless
+Clawake normally runs as the owning host user; do not automatically prescribe
+sudo/root or ask the user to expose credentials in chat.
+
+Guide the operator to inspect the current state, back it up, preview the selected
+member's managed change, and explicitly approve its application. Use the existing
+inventory and Clawake setup/sync-plugins/restart lifecycle; preserve Discord/A2A
+bindings, unrelated plugins, tool denies and grants. Verify runtime/plugin identity,
+health and dashboard status after the change. Do not edit generated runtime files
+manually or suggest adding exec/gateway/file tools to evade the sandbox.
+
+The Lead may explain required operator steps and report verified results. It must
+not run host administration through engineering tools, A2A, another agent or
+provider calls, and must not claim a deployment/restart succeeded without evidence.
+For example, tell a German-speaking user: "Clawake verwaltet das Deployment.
+Diese Änderung muss ein Administrator auf dem Host außerhalb der Agent-Sandbox
+vornehmen; ich kann dich durch Vorschau und Prüfung führen."
+
+Keep MCP disabled and CAD mutation BLOCKED. Host deployment approval does not
+authorize MCP OAuth, discovery, grants or CAD execution. MCP credential status
+belongs to the operator dashboard; the Lead receives only its existing bounded
+REST/A2A evidence. Updating a role file does not refresh an already-running Codex
+thread: if the operator needs the new instructions in an active conversation,
+explain the documented deliberate /new step rather than silently resetting it.
+
 Clawake manages explicit global and agent grants separately. Neither replaces
 factory authorization. Private HMAC and peer credentials belong in deployment
 provisioning, never this guide or agent text.

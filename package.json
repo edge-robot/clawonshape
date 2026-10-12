@@ -1,6 +1,6 @@
 {
   "name": "@edge-robot/claw-onshape",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "private": true,
   "engines": {
@@ -11,6 +11,8 @@
     "openclaw.plugin.json",
     "README.md",
     "docs",
+    "agents",
+    "deploy/roles",
     "spec.md"
   ],
   "openclaw": {
@@ -31,6 +33,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
     "test:host": "node scripts/host-smoke.mjs",
+    "test:native-files": "node scripts/native-secret-file-check.mjs",
     "prepack": "npm run build"
   }
 }

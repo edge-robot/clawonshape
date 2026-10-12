@@ -2,7 +2,8 @@ import type {OpenClawPluginApi} from 'openclaw/plugin-sdk/core';
 import type {Config} from './config.ts';
 import {connectionLifecycle,CALLBACK_PATH} from './connections.ts';
 import {userError} from './readiness.ts';
-export function registerDashboard(api:OpenClawPluginApi,current:()=>Config){
+import {mcpReadiness} from './mcp.ts';
+export function registerDashboard(api:OpenClawPluginApi,current:()=>Config,readMcp:typeof mcpReadiness=mcpReadiness){
   const lifecycle=connectionLifecycle(current,()=>api.runtime.state.resolveStateDir(),()=>api.runtime.config.current().gateway?.controlUi?.allowedOrigins??[]);
   const controls=api.session.controls;
   for(const actionId of ['status','connect','disconnect'] as const){
@@ -11,12 +12,16 @@ export function registerDashboard(api:OpenClawPluginApi,current:()=>Config){
       async handler(action){
         try{
           // Dashboard authority is operator scope, NOT a claim of Discord identity.
-          if(actionId!=='status'&&!action.client?.scopes.includes('operator.admin'))throw new Error('authorization_changed');
+          if(!action.client?.scopes.includes(actionId==='status'?'operator.read':'operator.admin'))throw new Error('authorization_changed');
           const input=action.payload as {connectionRef?:string}|undefined;
           if(input?.connectionRef!==undefined&&!current().bindings.some(b=>b.connectionRef===input.connectionRef))throw new Error('not_configured');
           const connections=[...new Set(current().bindings.map(b=>b.connectionRef))];
           const name=input?.connectionRef??(connections.length===1?connections[0]:undefined);
-          if(actionId==='status')return {ok:true,result:{...await lifecycle.status(name),connections}};
+          if(actionId==='status'){
+            const mcp=await readMcp();
+            let rest;try{rest=await lifecycle.status(name);}catch(e){rest=userError(e);}
+            return {ok:true,result:{...rest,connections,mcp}};
+          }
           if(!name)throw new Error('not_configured');
           return {ok:true,result:actionId==='connect'
             ?await lifecycle.start(name,{requestRestWriteAccess:!!(action.payload as {requestRestWriteAccess?:boolean}|undefined)?.requestRestWriteAccess})

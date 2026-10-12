@@ -252,3 +252,32 @@ permission requests. Receipts remain bounded safety state; existing host logging
 owns audit retention. See [OAuth capabilities](../oauth-capabilities.md) and
 [candidate receipts](../candidate-preparation-receipts.md). This checkpoint does
 not establish live writes or change the future MCP containment requirements.
+
+## October 12 MCP integration investigation
+
+[The current investigation](../mcp-integration-investigation-2026-10-12.md) verifies
+a dedicated hosted MCP issuer/resource and native OpenClaw Settings browser OAuth.
+Choose unified readiness presentation with separate REST/native-MCP credentials
+(ADR-016). Current hosted tool schemas remain historical; production server stays
+disabled. Published REST feature skew-rejection fields are a potential provider
+CAS contract, not proof hosted MCP forwards them or contains writes (ADR-017).
+No safe existing Part Studio mutation path or public plugin-scoped native MCP call
+composition is accepted yet.
+
+
+## Operator-only MCP readiness (2026-10-12)
+
+The existing Claw-Onshape dashboard now separates Onshape REST connection and
+capabilities from native MCP metadata. Its operator.read status action uses the
+public native CLI `mcp status --json`, which classifies saved state without
+connecting. A bounded allowlist selects only the fixed `onshape` provider;
+arbitrary configuration, credential paths, auth URLs and tokens are discarded.
+The shared lifecycle and all agent tools remain REST-only.
+
+Stored native grant and optional expiry/action metadata do not prove provider
+validity or reachability. Those stay UNKNOWN; discovery is HISTORICAL from ClawCAD,
+never a current verified catalog. Mutation is always BLOCKED on candidate
+containment, atomic revision enforcement, guarded native invocation and an exact
+Part Studio contract. The dashboard changes no native settings or grants and
+has no MCP Connect/Disconnect controls. Native operator onboarding remains the
+future consent owner. [Detailed contract](../mcp-dashboard-readiness.md).

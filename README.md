@@ -6,6 +6,13 @@ Focused native TypeScript plugin for **OpenClaw 2026.9.9**. The current product 
 
 The Engineer dashboard has a native Claw-Onshape page with Connect, Status and Disconnect actions. Provision the application secret with `node scripts/provision-oauth-secret.mjs` (hidden input), then use the page at `http://localhost:19489`. Register callback `http://localhost:19489/plugins/claw-onshape/oauth/callback`. Secrets stay in private files; the public client ID and secret-file path belong to operator configuration. CLI and dashboard share one lifecycle implementation.
 
+The same page separates **Onshape REST** capabilities from operator-only
+**Onshape MCP** readiness. Native saved status is read without connecting;
+missing signals are UNKNOWN, discovery is HISTORICAL, and **CAD mutation: BLOCKED**
+remains explicit. No MCP connection or grant controls are added. See the
+[dashboard readiness contract](docs/mcp-dashboard-readiness.md).
+
+
 ## Agent instructions
 
 [Mechanical Engineer](agents/mechanical-engineer.md) explains the role, tool use,
@@ -115,5 +122,12 @@ CAD execution remains disabled; historical ClawCAD acceptance is not native
 Claw-Onshape live acceptance.
 
 See [spec.md](spec.md) for implemented and missing features and [ADR review](docs/adr-review-2026-10-11.md) for corrected decisions. Native onboarding and the actual Discord read/render journey pass. Refresh is implemented; fresh-grant exchange passed, while provider-expired recovery/rotation remains partial. Broader dashboard provisioning, canonical account association, multi-user onboarding and all CAD mutation/promotion capabilities remain missing or deferred.
+
+The [REST foundation review](docs/rest-foundation-review.md) records the current
+candidate/OAuth acceptance gaps and real SDK evidence. The
+[all-package E2E checklist](docs/rest-foundation-e2e.md) defines the next validation.
+`npm run test:native-files` checks the real private-file SDK using small synthetic
+temporary files; unavailable runtime imports fail explicitly. It makes no
+provider requests and is separate from the mocked offline suite.
 
 Engineer grants: `onshape_status`, `onshape_inspect`, `onshape_render`. Lead grant: `onshape_delegate_render`. All are optional and independently enforce native role/requester context. Rendering pins the shaded view to the inspected microversion. HMAC delegation keys and the narrow shared PNG mount are managed through the private Clawake deployment inventory; raw MCP execution remains disabled.

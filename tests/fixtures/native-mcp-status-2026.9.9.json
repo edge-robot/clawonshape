@@ -1,0 +1,18 @@
+{
+  "servers": [
+    {
+      "name": "onshape",
+      "configured": true,
+      "enabled": false,
+      "ok": false,
+      "transport": "streamable-http",
+      "auth": "oauth",
+      "authStatus": {
+        "state": "authorized",
+        "hasTokens": true,
+        "requiresAuthorization": false,
+        "expiresAt": 1791557575598
+      }
+    }
+  ]
+}

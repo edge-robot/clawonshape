@@ -37,6 +37,20 @@ See [OAuth capability contract](oauth-capabilities.md),
 [candidate receipt limits](candidate-preparation-receipts.md) and the translated
 [Engineer](../agents/mechanical-engineer.md)/[Lead](../agents/agent-lead.md) contracts.
 
+## MCP dashboard readiness checkpoint (2026-10-12)
+
+**Implemented and tested offline; native deployment acceptance pending.** The
+existing page has independent Onshape REST and Onshape MCP sections. The operator
+status action reports only allowlisted native saved configuration/grant metadata,
+optional expiry and required-action state. Missing/invalid/unavailable native
+signals remain UNKNOWN. Stored authorization never proves a connected provider.
+ClawCAD discovery remains HISTORICAL; no authenticated discovery was performed.
+CAD mutation remains BLOCKED on containment, revision enforcement, guarded native
+invocation and Part Studio contract. No MCP OAuth flow, token refresh, tool call,
+settings change or agent grant was added. Future consent uses native operator
+onboarding. The next dependency is disabled-connector read-only native acceptance.
+See [operator dashboard readiness](mcp-dashboard-readiness.md).
+
 ## Provisioning already completed / user continuation
 
 The operator already provisioned the private secret and completed dashboard consent. Do not provision again. The command used was:
@@ -176,3 +190,19 @@ Temporary 0600 native renewal-diagnostic.json was validated and removed. No resp
 ## Final Discord E2E acceptance
 
 The authorized user requested the current plate at 19:01:23 UTC in #clawcad. Lead's active native rollout invoked onshape_delegate_render at 19:01:27 UTC. At 19:01:42 UTC its result contained status ok/code ready, delivered:true, microversion b83ee0a0efcda65537780ef8, /workspace/artifacts/claw-onshape/0b212c7c8914a116eba44d97ffc65c6a.png and sha256 3475c98025ecc2b6abc31eba18db48888843e4fa8570422cc0ab8f048f2e5c26. The plugin sets delivered:true only after awaited native originating delivery succeeds. Lead returned the document/workspace link and revision at 19:01:46 UTC. The real user confirmed (translated from German): “Yes, it worked.” Thus Discord→Lead→A2A→Engineer→native REST→verified pinned PNG→Discord passes. No CAD change occurred. Earlier sections are historical investigation evidence, superseded by this final acceptance where stated.
+
+
+## MCP dashboard deployment — 2026-10-12
+
+The corrected readiness integration was installed as Claw-Onshape 0.2.1 through
+Clawake on Engineer and Lead. Backend/UI hashes match the build, both gateways
+are ready, operator-native status returns independent MCP metadata, and full
+configuration/grants remain unchanged. Engineer reports REST connected; status
+performs no provider read and this is no new read/render acceptance. MCP remains
+disabled, native grant metadata is expired, connectivity UNKNOWN, discovery
+HISTORICAL and mutation BLOCKED. Visual browser acceptance remains pending.
+The Lead contract/template and active native AGENTS.md now explain Clawake host
+administration outside the agent sandbox, without adding tool grants. Retained
+Codex conversations may need an operator-started /new. No OAuth, authenticated
+MCP discovery, CAD calls or Discord delivery was initiated. See
+[deployment and remaining operator steps](clawake-mcp-dashboard-deployment-2026-10-12.md).

@@ -784,3 +784,137 @@ permissions to override the thread; giving Lead direct CAD tools.
 
 Future native HMI indication of saved versus active role revision; behavior on host
 upgrades beyond the pinned 2026.9.9 release.
+
+## ADR-016: Separate native MCP OAuth with unified readiness presentation
+
+Status: Accepted; read-only dashboard extension implemented offline on 2026-10-12.
+
+### Context
+
+The accepted REST onboarding uses Claw-Onshape's confidential Onshape application
+and private connection store. Current public hosted MCP metadata identifies a
+different resource and authorization server. A saved native `authorized` status
+can have a past expiry and does not establish current access or mutation safety.
+
+### Decision
+
+Keep native OpenClaw as MCP transport/OAuth/store owner and keep REST consent
+independent. Choose architecture C: one operator-facing readiness presentation
+with separate credentials; use existing native MCP Settings/CLI initially.
+REST success never implies MCP success. MCP success never removes containment,
+revision or application gates. Do not forward/copy REST tokens or silently add
+scopes. The current production MCP connector stays disabled.
+
+### Rationale
+
+Resource/client compatibility and supported token exchange were not established.
+The native host already implements browser sign-in and refresh, so duplicating
+OAuth in Claw-Onshape adds risk without solving target isolation.
+
+### ClawCAD/OpenClaw Evidence
+
+ClawCAD FINDING-015 records separate native consent. Current protected-resource
+metadata declares `https://fs-mcp.labs.onshape.app` and issuer
+`https://mcp-auth.labs.onshape.app`. Installed OpenClaw 2026.9.9
+`mcp-auth-login-C5Nrcsmc.mjs:mcpAuthLoginHandlers` implements administrator/browser
+wizard login; `mcp-operator-auth-Dq37qXJH.mjs` rejects disabled/non-operator
+connectors. Native Control UI Settings uses `mcp.authLogin`. Canonical OAuth state
+is OpenClaw-owned SQLite, not Claw-Onshape workflow storage. Full evidence:
+[MCP investigation](mcp-integration-investigation-2026-10-12.md#f-oauth-architecture-and-dashboard-integration).
+
+### Adaptation for Claw-Onshape
+
+Reuse native OAuth/resource knowledge and existing page/session-action patterns.
+The dashboard now adds bounded independent MCP readiness, native Settings guidance
+and separate REST capability/policy display. No custom OAuth implementation,
+standalone dashboard or workflow database. The page exposes REST controls
+only; MCP metadata comes from the documented native CLI status command, with no
+custom MCP credential-management endpoints.
+
+### Consequences
+
+Separate consent and reconnection may be necessary. Native shared credentials are
+runtime/server-owned, not agent-only; grants and trusted target authorization stay
+separate. A2A read proof does not become per-requester MCP consent or write authority.
+Provider-advertised token exchange remains UNVERIFIED. No consent initiated here.
+
+### Rejected Alternatives
+
+Manual token copying, using the REST resource label as an audience proof, displaying
+MCP ready from REST connected, requesting every advertised scope, and importing
+private native OAuth modules as a supported API.
+
+### Open Questions
+
+Approved isolated fresh schemas/tool-specific scopes; live dashboard status
+acceptance; supported custom-page wizard authority and cleanup; requester identity
+through delegated execution; supported MCP disconnect UI contract. Known disabled
+Delete/Share/Profile/Purchase application settings remain disabled.
+
+## ADR-017: Hosted mutation remains blocked despite published REST skew rejection
+
+Status: Accepted as execution gate; Proposed narrow adapter direction.
+
+### Context
+
+REST candidate preparation now has exact-source membership/baseline checks,
+trusted operation authorization and bounded persistent uncertainty receipts.
+Hosted historical MCP schemas have implicit geometry targets, unverified cleanup,
+no expected-revision arguments and no explicit existing Part Studio application.
+Candidate creation protections cannot constrain an independent MCP route.
+
+### Decision
+
+Keep hosted MCP mutation and production Engineer access disabled. Require an
+actual server/execution-boundary candidate capability, mandatory provider write-time
+revision enforcement, exact Part Studio application and absence of raw bypass.
+Investigate a narrow native MCP adapter only if the hosted provider cannot supply
+these contracts. Dynamic FeatureScript remains the engineering model; no rigid
+operation catalog. Provider REST endpoints may implement MCP data-plane capabilities
+internally without moving control-plane lifecycle/reporting to MCP.
+
+### Rationale
+
+Published provider skew-rejection fields offer a potential atomic write contract;
+preflight reads, local locks, hook tests and post-verification do not provide it.
+A safe adapter must make target and CAS unavoidable at execution, rather than add
+checks before an unrestricted hosted tool. No evaluated provider is mutation-ready.
+
+### ClawCAD/OpenClaw Evidence
+
+FINDING-015, `mcp_execution.py:McpAdmission.admit`'s provider-precondition gate,
+and `mcp_guard.test.mjs` distinguish authorization from native coverage.
+Current Onshape OpenAPI build `1.222.90730-c8d74e607a47` publishes
+`sourceMicroversion`/`rejectMicroversionSkew` for feature calls and Feature Studio
+contents via `BTFeatureApiBase-1430`; the schema advertises API v17 while the plugin
+uses v10. Version compatibility and live rejection were not tested. Installed
+native materialization, Codex static projection and requester resolver paths do
+not establish a plugin-scoped invocation facade or universal hook coverage.
+[Detailed containment/revision/provider comparison](mcp-integration-investigation-2026-10-12.md).
+
+### Adaptation for Claw-Onshape
+
+Reuse provider revision fields, scoped admission, uncertainty semantics and native
+transport ownership. Do not port the historical workflow engine or revision store.
+The existing candidate receipt is a bounded dispatch fence for preparation, not a
+second CAD history or an MCP idempotency guarantee. Any future adapter must preserve
+native authentication ownership and demonstrate a supported invocation composition.
+
+### Consequences
+
+MCP OAuth/catalog success cannot authorize source/test/geometry writes. `clean=false`
+is not a containment proof. Feature Studio edits must advance the next expected
+candidate revision before feature application. A transport timeout must not trigger
+redispatch. Feature states and independent geometry/REST evidence determine success.
+
+### Rejected Alternatives
+
+Unrestricted `create_geometry`, post-write-only protection, prompt-only targeting,
+generic full-REST MCP passthrough, client-side checks alone, assumed If-Match support,
+and enabling production tools to learn their effects.
+
+### Open Questions
+
+Fresh hosted schemas and scoped context, API v10 live skew-rejection semantics,
+custom feature namespace/application contract, code/import effects, narrow supported
+native invocation seam, credential composition and complete projection bypass tests.

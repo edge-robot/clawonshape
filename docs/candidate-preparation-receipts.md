@@ -71,6 +71,13 @@ log archive is created, and logs are not returned as agent context.
 
 ## Evidence limitations
 
+After every native receipt write, the helper opens the file without following
+symlinks, verifies its private owner/mode, single link and exact bounded content,
+strictly synchronizes the file and checks the published inode before directory
+sync. EPERM and other sync errors prevent POST dispatch. The UNKNOWN receipt
+remains fenced when observable after failure; no failure clears it or retries.
+Fault tests also cover sync failure after POST and GET-only reconciliation.
+
 Tests use real temporary files, permissions, locks and restart receipts, with
 mocked provider responses and a mocked native private-file writer. They verify
 dispatch ordering, bounds, fencing and GET-only reconciliation, but do not
