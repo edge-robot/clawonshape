@@ -215,6 +215,12 @@ test('mock integration: revocation during REST blocks final result',async()=>{
   try{assert.equal((await tool.execute('call',{})).details.error,'authorization_changed');}finally{globalThis.fetch=previous;}
 });
 
+const candidateTestRoot=await mkdtemp(path.join(tmpdir(),'onshape-candidate-tests-'));
+test.after(()=>rm(candidateTestRoot,{recursive:true,force:true}));
+async function candidateClient(token,fetcher){
+  return new RestClient(token,fetcher,{stateDir:await mkdtemp(path.join(candidateTestRoot,'state-')),warn:()=>{}});
+}
+
 test('prepareCandidateWorkspace creates candidate from exact source revision and captures baseline',async()=>{
   const M='e'.repeat(24),C='f'.repeat(24),F='1'.repeat(24);
   const b={...binding,elementId:E};
@@ -229,14 +235,14 @@ test('prepareCandidateWorkspace creates candidate from exact source revision and
     [{id:W,documentId:D},{id:P,documentId:D},{id:C,documentId:D}],
     {microversion:M},
   ];
-  const client=new RestClient(async()=>tokens().accessToken,async(url,init)=>{calls.push({url,init});if(init.method==='POST')assert.deepEqual(JSON.parse(init.body),{name:'candidate-workspace',microversionId:M});return json(replies.shift());});
+  const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{calls.push({url,init});if(init.method==='POST')assert.deepEqual(JSON.parse(init.body),{name:'candidate-workspace',microversionId:M});return json(replies.shift());});
   const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceName:'candidate-workspace',restWriteAuthorized:true});
   assert.equal(result.status,'ok');
   assert.equal(result.created,true);
   assert.equal(result.references.candidateWorkspaceId,C);
   assert.equal(result.references.candidateBaselineMicroversionId,M);
   assert.equal(result.references.sourceElementId,E);
-  assert.deepEqual(result.featureMetadata,{featureCount:1,featureIds:[F]});
+  assert.deepEqual(result.featureMetadata,{featureCount:1});
   assert.deepEqual(calls.map(c=>new URL(c.url).pathname),[
     `/api/v10/documents/${D}`,
     `/api/v10/documents/d/${D}/workspaces`,
@@ -255,12 +261,12 @@ test('prepareCandidateWorkspace resolves existing candidate membership and rejec
   const existing=[{id:W,documentId:D},{id:P,documentId:D},{id:C,documentId:D}];
   const calls=[];
   const replies=[{id:D},existing,{sourceMicroversion:M,features:[{featureId:F}]},[{id:E,elementType:'PARTSTUDIO'}],{microversion:M},{microversion:M}];
-  const client=new RestClient(async()=>tokens().accessToken,async(url,init)=>{calls.push({url,init});return json(replies.shift());});
+  const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{calls.push({url,init});return json(replies.shift());});
   const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceId:C,restWriteAuthorized:true});
   assert.equal(result.status,'ok');
   assert.equal(result.created,false);
   assert.equal(result.references.candidateWorkspaceId,C);
-  const clientPrimary=new RestClient(async()=>tokens().accessToken,async()=>json({id:D}));
+  const clientPrimary=await candidateClient(async()=>tokens().accessToken,async()=>json({id:D}));
   await assert.rejects(clientPrimary.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceId:P,restWriteAuthorized:true}),/protected_primary_workspace/);
   assert(calls.every(c=>c.init.method==='GET'));
 });
@@ -269,7 +275,7 @@ test('prepareCandidateWorkspace denies wrong document or requester authorization
   const M='e'.repeat(24);
   const b={...binding,elementId:E};
   let calls=0;
-  const client=new RestClient(async()=>tokens().accessToken,async()=>{calls++;return json({id:E});});
+  const client=await candidateClient(async()=>tokens().accessToken,async()=>{calls++;return json({id:E});});
   await assert.rejects(client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true}),/provider_protocol_error/);
   assert.equal(calls,1);
   assert.deepEqual(await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:false}),{
@@ -307,7 +313,7 @@ test('prepareCandidateWorkspace detects source revision drift conflicts and avoi
   const M='e'.repeat(24),N='9'.repeat(24),F='1'.repeat(24);
   const b={...binding,elementId:E};
   const calls=[];
-  const client=new RestClient(async()=>tokens().accessToken,async(url,init)=>{
+  const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{
     calls.push({url,init});
     const p=new URL(url).pathname;
     if(p===`/api/v10/documents/${D}`) return json({id:D});
@@ -319,7 +325,7 @@ test('prepareCandidateWorkspace detects source revision drift conflicts and avoi
   await assert.rejects(client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true}),/source_revision_conflict/);
   assert.equal(calls.some(c=>c.init.method==='POST'),false);
   calls.length=0;
-  const client2=new RestClient(async()=>tokens().accessToken,async(url,init)=>{
+  const client2=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{
     calls.push({url,init});
     const p=new URL(url).pathname;
     if(p===`/api/v10/documents/${D}`) return json({id:D});
@@ -337,7 +343,7 @@ test('prepareCandidateWorkspace returns UNKNOWN on uncertain POST outcome withou
   const M='e'.repeat(24),F='1'.repeat(24);
   const b={...binding,elementId:E};
   let posts=0;
-  const client=new RestClient(async()=>tokens().accessToken,async(url,init)=>{
+  const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{
     const p=new URL(url).pathname;
     if(p===`/api/v10/documents/${D}`) return json({id:D});
     if(p===`/api/v10/documents/d/${D}/workspaces`) {
@@ -350,24 +356,23 @@ test('prepareCandidateWorkspace returns UNKNOWN on uncertain POST outcome withou
     return json({});
   });
   const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true});
-  assert.deepEqual(result,{
-    status:'unknown',
-    code:'candidate_creation_unknown',
-    references:{documentId:D,primaryWorkspaceId:P,sourceWorkspaceId:W,sourceElementId:E,sourceMicroversionId:M},
-    featureMetadata:{featureCount:1,featureIds:[F]},
-    reconciliationRequired:true,
-  });
+  assert.equal(result.status,'unknown');
+  assert.equal(result.code,'candidate_creation_unknown');
+  assert.equal(result.attemptStatus,'UNKNOWN');
+  assert.equal(result.reconciliationRequired,true);
+  assert.match(result.attemptId,/^[a-f0-9-]{36}$/);
+  assert(Buffer.byteLength(JSON.stringify(result))<=2048);
   assert.equal(posts,1);
 });
 
 // Route-based fixtures deliberately keep mutable workspace elements separate
 // from immutable revision elements, and permit hostile candidate responses.
-function candidateFixture(options={}) {
+async function candidateFixture(options={}) {
   const M='e'.repeat(24),C='f'.repeat(24),N='9'.repeat(24);
   const b=Object.freeze({...binding,elementId:E});
   const workspaces=options.workspaces??[{id:W,documentId:D},{id:P,documentId:D},{id:C,documentId:D}];
   const calls=[];
-  const client=new RestClient(async()=>tokens().accessToken,async(url,init)=>{
+  const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{
     calls.push({url,method:init.method});const p=new URL(url).pathname;
     if(p===`/api/v10/documents/${D}`)return json({id:D});
     if(p===`/api/v10/documents/d/${D}/workspaces`){
@@ -388,19 +393,24 @@ function candidateFixture(options={}) {
 
 test('candidate preparation requires the same exact baseline for existing and newly created workspaces',async()=>{
   for(const existing of [true,false]){
-    const fixture=candidateFixture({candidateRevision:'9'.repeat(24)});
-    await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,...(existing?{candidateWorkspaceId:fixture.C}:{})}),/^Error: candidate_revision_conflict$/);
+    const fixture=await candidateFixture({candidateRevision:'9'.repeat(24)});
+    if(existing)await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,candidateWorkspaceId:fixture.C}),/^Error: candidate_revision_conflict$/);
+    else {
+      const result=await fixture.client.prepareCandidateWorkspace(fixture.b,fixture.input);
+      assert.equal(result.status,'created_unverified');assert.equal(result.candidateWorkspaceId,fixture.C);
+    }
     assert.equal(fixture.calls.filter(c=>c.method==='POST').length,existing?0:1);
   }
 });
 
 test('candidate preparation rejects primary and source targets before network access and in create responses',async()=>{
   for(const [workspaceId,code] of [[P,'protected_primary_workspace'],[W,'candidate_not_isolated']]){
-    const fixture=candidateFixture();
+    const fixture=await candidateFixture();
     await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,candidateWorkspaceId:workspaceId}),new RegExp(`^Error: ${code}$`));
     assert.equal(fixture.calls.length,0);
-    const created=candidateFixture({createResponse:{id:workspaceId,documentId:D}});
-    await assert.rejects(created.client.prepareCandidateWorkspace(created.b,created.input),new RegExp(`^Error: ${code}$`));
+    const created=await candidateFixture({createResponse:{id:workspaceId,documentId:D}});
+    const result=await created.client.prepareCandidateWorkspace(created.b,created.input);
+    assert.equal(result.status,'unknown');assert.equal(result.candidateWorkspaceId,workspaceId);
     assert.equal(created.calls.filter(c=>c.method==='POST').length,1);
     assert(!created.calls.some(c=>new URL(c.url).pathname===`/api/v10/documents/d/${D}/w/${workspaceId}/currentmicroversion`&&workspaceId===P));
   }
@@ -409,14 +419,14 @@ test('candidate preparation rejects primary and source targets before network ac
 test('candidate preparation verifies the configured Part Studio at the exact immutable source before any POST',async()=>{
   for(const sourceElements of [[],[{id:D,elementType:'PARTSTUDIO'}],[{id:E,elementType:'DRAWING'}],[{id:E}]]){
     for(const existing of [true,false]){
-      const fixture=candidateFixture({sourceElements});
+      const fixture=await candidateFixture({sourceElements});
       await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,...(existing?{candidateWorkspaceId:fixture.C}:{})}),/^Error: target_not_part_studio$/);
       assert.equal(fixture.calls.filter(c=>c.method==='POST').length,0);
       assert(fixture.calls.some(c=>new URL(c.url).pathname===`/api/v10/documents/d/${D}/m/${fixture.M}/elements`));
     }
   }
   for(const sourceElements of [null,{},[{id:'invalid',elementType:'PARTSTUDIO'}]]){
-    const fixture=candidateFixture({sourceElements});
+    const fixture=await candidateFixture({sourceElements});
     await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,fixture.input),/^Error: provider_protocol_error$/);
     assert.equal(fixture.calls.filter(c=>c.method==='POST').length,0);
   }
@@ -425,24 +435,25 @@ test('candidate preparation verifies the configured Part Studio at the exact imm
 test('candidate preparation rejects foreign or absent candidate membership in both result paths',async()=>{
   for(const candidate of [[],[{id:'f'.repeat(24),documentId:'9'.repeat(24)}]]){
     for(const existing of [true,false]){
-      const fixture=candidateFixture({workspaces:[{id:W,documentId:D},{id:P,documentId:D},...candidate]});
-      await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,...(existing?{candidateWorkspaceId:fixture.C}:{})}),/^Error: workspace_not_in_document$/);
+      const fixture=await candidateFixture({workspaces:[{id:W,documentId:D},{id:P,documentId:D},...candidate]});
+      if(existing)await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,candidateWorkspaceId:fixture.C}),/^Error: workspace_not_in_document$/);
+      else {const result=await fixture.client.prepareCandidateWorkspace(fixture.b,fixture.input);assert.equal(result.status,'created_unverified');assert.equal(result.candidateWorkspaceId,fixture.C);}
       assert.equal(fixture.calls.filter(c=>c.method==='POST').length,existing?0:1);
       assert(!fixture.calls.some(c=>new URL(c.url).pathname===`/api/v10/documents/d/${D}/w/${fixture.C}/currentmicroversion`));
     }
   }
-  const foreign=candidateFixture({createResponse:{id:'f'.repeat(24),documentId:'9'.repeat(24)}});
-  await assert.rejects(foreign.client.prepareCandidateWorkspace(foreign.b,foreign.input),/^Error: provider_protocol_error$/);
+  const foreign=await candidateFixture({createResponse:{id:'f'.repeat(24),documentId:'9'.repeat(24)}});
+  assert.equal((await foreign.client.prepareCandidateWorkspace(foreign.b,foreign.input)).status,'unknown');
 });
 
 test('candidate preparation rejects missing source/primary membership and returns isolated exact references without changing bindings',async()=>{
   for(const workspaces of [[{id:P,documentId:D}],[{id:W,documentId:D}]]){
-    const fixture=candidateFixture({workspaces});
+    const fixture=await candidateFixture({workspaces});
     await assert.rejects(fixture.client.prepareCandidateWorkspace(fixture.b,fixture.input),/^Error: workspace_not_in_document$/);
     assert.equal(fixture.calls.filter(c=>c.method==='POST').length,0);
   }
   for(const existing of [true,false]){
-    const fixture=candidateFixture(),before=JSON.stringify(fixture.b);
+    const fixture=await candidateFixture(),before=JSON.stringify(fixture.b);
     const result=await fixture.client.prepareCandidateWorkspace(fixture.b,{...fixture.input,...(existing?{candidateWorkspaceId:fixture.C}:{})});
     assert.equal(result.status,'ok');assert.equal(result.created,!existing);
     assert.equal(result.references.candidateBaselineMicroversionId,fixture.M);
