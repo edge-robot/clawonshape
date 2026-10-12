@@ -99,7 +99,11 @@ Local working fork: `/home/kaos/Projects/01_pib/02_sw/onshape-mcp`, branch
 The six modified Rust files match the tested temporary build checkout byte for
 byte. No credentials, target cache or temporary build outputs were copied into it.
 The local fork change is committed as `80d9f3a8e9cca3d89c3467d1035e5bb4a489bd4d`.
-No GitHub fork/publication or push was performed.
+The fork is now published at `edge-robot/onshape-mcp` on branch
+`claw-onshape/external-token`; README publication metadata is commit `c959c2d126b518e2ae248b21eabb58206bd9dae6`.
+Clawake service implementation is commit `68679f311cda738b3e22e65749d476dbc99b5401`.
+See [the standalone handoff](self-hosted-mcp-agent-handoff-2026-10-12.md) for
+pushed branches, host paths and the next-agent execution contract.
 
 Code patch: [0001-external-token-readonly.patch](../deploy/onshape-mcp/patches/0001-external-token-readonly.patch),
 209 added / 6 removed lines across six Rust files. Adds optional config, external

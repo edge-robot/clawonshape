@@ -9,5 +9,7 @@
   "mode": "external-token (read-only MVP)",
   "workingFork": "/home/kaos/Projects/01_pib/02_sw/onshape-mcp",
   "workingBranch": "claw-onshape/external-token",
-  "workingForkCommit": "80d9f3a8e9cca3d89c3467d1035e5bb4a489bd4d"
+  "workingForkCommit": "c959c2d126b518e2ae248b21eabb58206bd9dae6",
+  "forkRepository": "https://github.com/edge-robot/onshape-mcp",
+  "implementationCommit": "80d9f3a"
 }
