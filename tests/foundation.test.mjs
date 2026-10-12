@@ -5,7 +5,8 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {registerHooks} from 'node:module';
 import {parseConfig,bindingFor,validateTarget,connectionOwner} from '../dist/config.js';
-import {Consent,AUTHORIZE_URL,TOKEN_URL,REDIRECT_URI,parseTokens} from '../dist/oauth.js';
+import {Consent,AUTHORIZE_URL,TOKEN_URL,REDIRECT_URI,parseTokens,OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE} from '../dist/oauth.js';
+import {candidateAuthorization} from '../dist/candidate-authorization.js';
 import {RestClient} from '../dist/rest.js';
 import {filterCatalog,discover,rejectMcpCall} from '../dist/mcp.js';
 import {credentials,assertPrivateFile} from '../dist/credentials.js';
@@ -109,7 +110,15 @@ test('OAuth exact authorization and client_secret_post exchange; only REST resou
   const u=new URL(c.authorizationUrl());assert.equal(u.origin+u.pathname,AUTHORIZE_URL);assert.equal(u.searchParams.get('scope'),'OAuth2Read');assert.equal(u.searchParams.get('redirect_uri'),REDIRECT_URI);
   const callback='/?'+new URLSearchParams({state:u.searchParams.get('state'),code:'fixture-code'});
   const t=await c.complete(callback,'localhost:8765');assert.equal(t.resource,'https://cad.onshape.com/api/');assert.equal(calls,1);
+  assert.deepEqual(t.scopes,[OAUTH_SCOPE_READ]);
   await assert.rejects(c.complete(callback,'localhost:8765'),/oauth_callback_invalid/);assert.equal(calls,1);
+});
+test('OAuth explicit write consent requests and validates read+write scope',async()=>{
+  const c=new Consent('fixture-client','fixture-client-secret',async()=>json({access_token:'fixture-access',refresh_token:'fixture-refresh',expires_in:3600,scope:'OAuth2Read OAuth2Write',token_type:'Bearer'}),Date.now,REDIRECT_URI,[OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE]);
+  const u=new URL(c.authorizationUrl());assert.equal(u.searchParams.get('scope'),'OAuth2Read OAuth2Write');
+  const callback='/?'+new URLSearchParams({state:u.searchParams.get('state'),code:'fixture-code'});
+  const t=await c.complete(callback,'localhost:8765');
+  assert(t.scopes.includes(OAUTH_SCOPE_READ));assert(t.scopes.includes(OAUTH_SCOPE_WRITE));
 });
 test('OAuth wrong state/host/path/duplicates/expiry/cancellation rejected before fetch',async()=>{
   let calls=0;let now=0;const c=new Consent('client','secret',async()=>{calls++;return json({});},()=>now);
@@ -127,7 +136,10 @@ test('OAuth denied consent consumes state, unsafe responses and errors never lea
   const c=new Consent('client','secret',async()=>assert.fail('no exchange'));const state=new URL(c.authorizationUrl()).searchParams.get('state');
   await assert.rejects(c.complete(`/?state=${state}&error=denied&error_description=fixture-leak`,'localhost:8765'),/^Error: oauth_consent_denied$/);
   await assert.rejects(c.complete(`/?state=${state}&code=x`,'localhost:8765'),/oauth_callback_invalid/);
-  for(const extra of [{scope:'OAuth2Read OAuth2Write'},{token_type:'other'},{expires_in:Infinity},{access_token:'a\nb'}]) assert.throws(()=>parseTokens({access_token:'a',refresh_token:'b',expires_in:3600,...extra}),/oauth_response_invalid/);
+  for(const extra of [{token_type:'other'},{expires_in:Infinity},{access_token:'a\nb'}]) assert.throws(()=>parseTokens({access_token:'a',refresh_token:'b',expires_in:3600,...extra}),/oauth_response_invalid/);
+  const write=parseTokens({access_token:'a',refresh_token:'b',expires_in:3600,token_type:'Bearer',scope:'OAuth2Read OAuth2Write'},Date.now(),[OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE]);
+  assert(write.scopes.includes(OAUTH_SCOPE_WRITE));
+  assert.throws(()=>parseTokens({access_token:'a',refresh_token:'b',expires_in:3600,token_type:'Bearer',scope:'OAuth2Read'},Date.now(),[OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE]),/oauth_response_invalid/);
 });
 test('MCP native discovery has no REST credentials, every catalog operation disabled',async()=>{
   const names=['create_feature_studio','create_geometry','edit_featurescript_notes','get_api_usage','get_featurescript','list_feature_studios','logout','put_featurescript','read_featurescript_notes','search_featurescript_documentation','set_api_allocation','test_feature','test_featurescript','whoami'];
@@ -218,7 +230,11 @@ test('mock integration: revocation during REST blocks final result',async()=>{
 const candidateTestRoot=await mkdtemp(path.join(tmpdir(),'onshape-candidate-tests-'));
 test.after(()=>rm(candidateTestRoot,{recursive:true,force:true}));
 async function candidateClient(token,fetcher){
-  return new RestClient(token,fetcher,{stateDir:await mkdtemp(path.join(candidateTestRoot,'state-')),warn:()=>{}});
+  const stateDir=await mkdtemp(path.join(candidateTestRoot,'state-')),b={...binding,elementId:E};
+  const store=await credentials(stateDir,b.connectionRef,connectionOwner(b));
+  await store.save({...tokens(),scopes:[OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE]});
+  const c=parseConfig({bindings:[b],engineerAgentId:b.agentId,liveReads:true,oauth:{clientId:'fixture',clientSecretFile:'/private/fixture',applicationPermissions:{canWriteDocuments:true}}});
+  return new RestClient(token,fetcher,{stateDir,authorization:candidateAuthorization(()=>c,b,stateDir,()=>{}),warn:()=>{}});
 }
 
 test('prepareCandidateWorkspace creates candidate from exact source revision and captures baseline',async()=>{
@@ -236,7 +252,7 @@ test('prepareCandidateWorkspace creates candidate from exact source revision and
     {microversion:M},
   ];
   const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{calls.push({url,init});if(init.method==='POST')assert.deepEqual(JSON.parse(init.body),{name:'candidate-workspace',microversionId:M});return json(replies.shift());});
-  const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceName:'candidate-workspace',restWriteAuthorized:true});
+  const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceName:'candidate-workspace'});
   assert.equal(result.status,'ok');
   assert.equal(result.created,true);
   assert.equal(result.references.candidateWorkspaceId,C);
@@ -262,51 +278,22 @@ test('prepareCandidateWorkspace resolves existing candidate membership and rejec
   const calls=[];
   const replies=[{id:D},existing,{sourceMicroversion:M,features:[{featureId:F}]},[{id:E,elementType:'PARTSTUDIO'}],{microversion:M},{microversion:M}];
   const client=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{calls.push({url,init});return json(replies.shift());});
-  const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceId:C,restWriteAuthorized:true});
+  const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceId:C});
   assert.equal(result.status,'ok');
   assert.equal(result.created,false);
   assert.equal(result.references.candidateWorkspaceId,C);
   const clientPrimary=await candidateClient(async()=>tokens().accessToken,async()=>json({id:D}));
-  await assert.rejects(clientPrimary.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceId:P,restWriteAuthorized:true}),/protected_primary_workspace/);
+  await assert.rejects(clientPrimary.prepareCandidateWorkspace(b,{sourceMicroversionId:M,candidateWorkspaceId:P}),/protected_primary_workspace/);
   assert(calls.every(c=>c.init.method==='GET'));
 });
 
-test('prepareCandidateWorkspace denies wrong document or requester authorization and missing write consent',async()=>{
-  const M='e'.repeat(24);
-  const b={...binding,elementId:E};
-  let calls=0;
+test('candidate preparation refuses claimed authorization and missing host authority before network access',async()=>{
+  const M='e'.repeat(24),b={...binding,elementId:E};let calls=0;
   const client=await candidateClient(async()=>tokens().accessToken,async()=>{calls++;return json({id:E});});
-  await assert.rejects(client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true}),/provider_protocol_error/);
-  assert.equal(calls,1);
-  assert.deepEqual(await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:false}),{
-    status:'unavailable',
-    operation:'create_candidate_workspace',
-    availability:'UNAVAILABLE',
-    reason:'oauth_write_scope_missing',
-    requiredAction:'Reconnect Onshape and explicitly authorize REST write access.',
-  });
-  assert.deepEqual(await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true,authorization:{oauthWriteScope:true,applicationWritePermission:'unknown',internalAuthorization:true}}),{
-    status:'unavailable',
-    operation:'create_candidate_workspace',
-    availability:'UNAVAILABLE',
-    reason:'app_permission_write_unknown',
-    requiredAction:'Ask the operator to confirm write permission state, then reconnect with explicit write consent.',
-  });
-  assert.deepEqual(await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true,authorization:{oauthWriteScope:false,applicationWritePermission:'enabled',internalAuthorization:true}}),{
-    status:'unavailable',
-    operation:'create_candidate_workspace',
-    availability:'UNAVAILABLE',
-    reason:'oauth_write_scope_missing',
-    requiredAction:'Reconnect Onshape and explicitly authorize REST write access.',
-  });
-  assert.deepEqual(await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true,authorization:{oauthWriteScope:true,applicationWritePermission:'enabled',internalAuthorization:false}}),{
-    status:'unavailable',
-    operation:'create_candidate_workspace',
-    availability:'UNAVAILABLE',
-    reason:'agent_policy_denied',
-    requiredAction:'This operation is intentionally blocked by current Claw-Onshape agent policy.',
-  });
-  // Existing tool-binding tests already enforce wrong requester rejection before REST access.
+  await assert.rejects(client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true}),/invalid_arguments/);
+  assert.equal(calls,0);
+  const denied=await new RestClient(async()=>assert.fail('no credential access'),async()=>assert.fail('no network')).prepareCandidateWorkspace(b,{sourceMicroversionId:M});
+  assert.equal(denied.availability,'UNAVAILABLE');assert.equal(denied.reason,'agent_policy_denied');
 });
 
 test('prepareCandidateWorkspace detects source revision drift conflicts and avoids POST mutations',async()=>{
@@ -322,7 +309,7 @@ test('prepareCandidateWorkspace detects source revision drift conflicts and avoi
     if(p===`/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion:N});
     return json({});
   });
-  await assert.rejects(client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true}),/source_revision_conflict/);
+  await assert.rejects(client.prepareCandidateWorkspace(b,{sourceMicroversionId:M}),/source_revision_conflict/);
   assert.equal(calls.some(c=>c.init.method==='POST'),false);
   calls.length=0;
   const client2=await candidateClient(async()=>tokens().accessToken,async(url,init)=>{
@@ -335,7 +322,7 @@ test('prepareCandidateWorkspace detects source revision drift conflicts and avoi
     if(p===`/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion:N});
     return json({});
   });
-  await assert.rejects(client2.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true}),/source_revision_conflict/);
+  await assert.rejects(client2.prepareCandidateWorkspace(b,{sourceMicroversionId:M}),/source_revision_conflict/);
   assert.equal(calls.some(c=>c.init.method==='POST'),false);
 });
 
@@ -355,7 +342,7 @@ test('prepareCandidateWorkspace returns UNKNOWN on uncertain POST outcome withou
     if(p===`/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion:M});
     return json({});
   });
-  const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M,restWriteAuthorized:true});
+  const result=await client.prepareCandidateWorkspace(b,{sourceMicroversionId:M});
   assert.equal(result.status,'unknown');
   assert.equal(result.code,'candidate_creation_unknown');
   assert.equal(result.attemptStatus,'UNKNOWN');
@@ -388,7 +375,7 @@ async function candidateFixture(options={}) {
     if(p===`/api/v10/documents/d/${D}/w/${C}/currentmicroversion`)return json({microversion:options.candidateRevision??M});
     throw new Error('Unexpected fixture route');
   });
-  return {M,C,N,b,calls,client,input:{sourceMicroversionId:M,restWriteAuthorized:true}};
+  return {M,C,N,b,calls,client,input:{sourceMicroversionId:M}};
 }
 
 test('candidate preparation requires the same exact baseline for existing and newly created workspaces',async()=>{

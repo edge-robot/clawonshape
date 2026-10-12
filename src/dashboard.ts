@@ -7,7 +7,7 @@ export function registerDashboard(api:OpenClawPluginApi,current:()=>Config){
   const controls=api.session.controls;
   for(const actionId of ['status','connect','disconnect'] as const){
     controls.registerSessionAction({id:actionId,description:`Claw-Onshape ${actionId}`,requiredScopes:[actionId==='status'?'operator.read':'operator.admin'],
-      schema:{type:'object',additionalProperties:false,properties:{connectionRef:{type:'string',pattern:'^[a-z][a-z0-9_-]{0,63}$'}}},
+      schema:{type:'object',additionalProperties:false,properties:{connectionRef:{type:'string',pattern:'^[a-z][a-z0-9_-]{0,63}$'},requestRestWriteAccess:{type:'boolean'}}},
       async handler(action){
         try{
           // Dashboard authority is operator scope, NOT a claim of Discord identity.
@@ -18,7 +18,9 @@ export function registerDashboard(api:OpenClawPluginApi,current:()=>Config){
           const name=input?.connectionRef??(connections.length===1?connections[0]:undefined);
           if(actionId==='status')return {ok:true,result:{...await lifecycle.status(name),connections}};
           if(!name)throw new Error('not_configured');
-          return {ok:true,result:actionId==='connect'?await lifecycle.start(name):await lifecycle.disconnect(name)};
+          return {ok:true,result:actionId==='connect'
+            ?await lifecycle.start(name,{requestRestWriteAccess:!!(action.payload as {requestRestWriteAccess?:boolean}|undefined)?.requestRestWriteAccess})
+            :await lifecycle.disconnect(name)};
         }catch(e){return {ok:true,result:userError(e)};}
       }});
   }

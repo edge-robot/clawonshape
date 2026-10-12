@@ -3,9 +3,12 @@ import type {Config,Binding} from './config.ts';
 import {connectionOwner} from './config.ts';
 import {credentials,privateSecret,assertPrivateFile} from './credentials.ts';
 import {Consent} from './oauth.ts';
+import type {OAuthScope} from './oauth.ts';
+import {OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE} from './oauth.ts';
 import type {Tokens} from './oauth.ts';
 import {authorizeConnection} from './authorization.ts';
 import {state,userError} from './readiness.ts';
+import {capabilitySummary} from './capabilities.ts';
 
 export const CALLBACK_PATH='/plugins/claw-onshape/oauth/callback';
 type Attempt={consent:Consent;finish:(error?:Error)=>void;accepting:boolean;closing:boolean;callbacks:number;assertCurrent:()=>void;save?:(tokens:Tokens)=>Promise<void>;ref:string};
@@ -17,24 +20,27 @@ export function connectionLifecycle(current:()=>Config,stateDir:()=>string,origi
   const selected=(name:string)=>{const c=current(),bs=c.bindings.filter(b=>b.connectionRef===name);if(!bs.length)throw new Error('not_configured');return {config:c,binding:bs[0]};};
   const unchanged=(b:Binding,c:Config)=>{const n=selected(b.connectionRef);if(JSON.stringify(n.binding)!==JSON.stringify(b)||JSON.stringify(n.config.oauth)!==JSON.stringify(c.oauth))throw new Error('authorization_changed');};
   const status=async(name?:string)=>{
-    const c=current();if(!c.bindings.length)return state('not_configured');
-    if(!c.oauth)return state('oauth_configuration_required');
-    try{assertPrivateFile(c.oauth.clientSecretFile);}catch{return state('oauth_configuration_required');}
-    if(!name)return state('disconnected');
-    const {binding:b}=selected(name);
-    if(pending.has(name))return state('authorization_in_progress');
-    const s=await credentials(stateDir(),name,connectionOwner(b));
-    const code=s.status();
-    if(code==='unavailable')return state('credential_store_unavailable');
-    if(code==='expired')return state('reconnect_required');
-    if(code==='disconnected')return outcomes.get(name)??state('disconnected');
-    if(!b.elementId)return state('target_missing');
-    if(!c.liveReads)return state('live_reads_disabled');
-    return state('connected'); // Provider accessibility is proven only by inspect/render.
+    const c=current(),b=name?selected(name).binding:undefined;
+    const report=(code:Parameters<typeof state>[0],connected=false,grantedScopes?:readonly string[])=>({...state(code),capabilities:capabilitySummary({config:c,binding:b,connected,grantedScopes})});
+    if(!c.bindings.length)return report('not_configured');
+    if(!c.oauth)return report('oauth_configuration_required');
+    try{assertPrivateFile(c.oauth.clientSecretFile);}catch{return report('oauth_configuration_required');}
+    if(!b||!name)return report('disconnected');
+    if(pending.has(name))return report('authorization_in_progress');
+    const s=await credentials(stateDir(),name,connectionOwner(b)),code=s.status();
+    let scopes:readonly string[]|undefined;try{scopes=s.read(true).scopes;}catch{}
+    if(code==='unavailable')return report('credential_store_unavailable',false,scopes);
+    if(code==='expired')return report('reconnect_required',false,scopes);
+    if(code==='disconnected')return {...(outcomes.get(name)??state('disconnected')),capabilities:capabilitySummary({config:c,binding:b,connected:false})};
+    if(!b.elementId)return report('target_missing',true,scopes);
+    if(!c.liveReads)return report('live_reads_disabled',true,scopes);
+    // Status performs no provider probes and does not retain historical read evidence.
+    return report('connected',true,scopes);
   };
-  const start=async(name:string)=>{
+  const start=async(name:string, options?:{requestRestWriteAccess?:boolean})=>{
     const {config:c,binding:b}=selected(name);
     if(!c.oauth)throw new Error('oauth_configuration_required');
+    if(options?.requestRestWriteAccess&&c.oauth.applicationPermissions.canWriteDocuments!==true)throw new Error(c.oauth.applicationPermissions.canWriteDocuments===false?'app_permission_write_disabled':'app_permission_write_unknown');
     const redirect=c.oauth.dashboardRedirectUri;
     if(!redirect||!origins().includes(new URL(redirect).origin))throw new Error('dashboard_callback_required');
     if(pending.size)throw new Error('connection_busy_or_state_unavailable');
@@ -44,7 +50,9 @@ export function connectionLifecycle(current:()=>Config,stateDir:()=>string,origi
     let publish!:(v:{authorizationUrl:string;code:string;message:string})=>void,fail!:(e:Error)=>void;
     const started=new Promise<{authorizationUrl:string;code:string;message:string}>((r,j)=>{publish=r;fail=j;});
     // Set a reservation before awaiting lock acquisition; no secret goes in status.
-    const consent=new Consent(c.oauth.clientId,clientSecret,fetcher,Date.now,redirect);
+    const requestedScopes:OAuthScope[]=[OAUTH_SCOPE_READ];
+    if (options?.requestRestWriteAccess) requestedScopes.push(OAUTH_SCOPE_WRITE);
+    const consent=new Consent(c.oauth.clientId,clientSecret,fetcher,Date.now,redirect,requestedScopes);
     let attempt:Attempt;
     let terminalError:Error|undefined;
     const done=new Promise<void>((resolve,reject)=>{attempt={consent,accepting:false,closing:false,callbacks:0,assertCurrent:()=>unchanged(b,c),ref:name,finish:e=>{

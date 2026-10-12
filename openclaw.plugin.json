@@ -69,6 +69,10 @@
     },
     "bindings.*.elementId": {
       "label": "Authorized Camera Mount Plate Part Studio"
+    },
+    "oauth.applicationPermissions": {
+      "label": "Onshape application permission attestations",
+      "help": "Record verified settings only. Omitted means unknown; keep unused permissions disabled."
     }
   },
   "configSchema": {
@@ -105,6 +109,31 @@
           "dashboardRedirectUri": {
             "type": "string",
             "maxLength": 256
+          },
+          "applicationPermissions": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Trusted operator attestations of Onshape application settings. Omitted fields mean unknown; these settings grant no rights.",
+            "properties": {
+              "canReadDocuments": {
+                "type": "boolean"
+              },
+              "canWriteDocuments": {
+                "type": "boolean"
+              },
+              "canDeleteDocumentsAndWorkspaces": {
+                "type": "boolean"
+              },
+              "canRequestPurchases": {
+                "type": "boolean"
+              },
+              "canShareAndUnshareDocuments": {
+                "type": "boolean"
+              },
+              "canReadProfileInformation": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },

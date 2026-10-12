@@ -17,7 +17,7 @@ export type CandidateAttempt=Readonly<{
 export type CandidateAttemptWarning=(message:string)=>void;
 const uuid=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v);
 const hash=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
-const codes=['candidate_creation_unknown','provider_protocol_error','provider_transport_error','provider_unavailable','provider_forbidden','provider_not_found','provider_rate_limited','provider_conflict','reconnect_required','protected_primary_workspace','candidate_not_isolated','workspace_not_in_document','candidate_revision_conflict','target_not_part_studio','candidate_store_unavailable'];
+const codes=['candidate_creation_unknown','provider_protocol_error','provider_transport_error','provider_unavailable','provider_forbidden','provider_not_found','provider_rate_limited','provider_conflict','reconnect_required','protected_primary_workspace','candidate_not_isolated','workspace_not_in_document','candidate_revision_conflict','target_not_part_studio','candidate_store_unavailable','authorization_changed','agent_policy_denied','oauth_read_scope_missing','oauth_write_scope_missing','app_permission_read_disabled','app_permission_write_disabled','app_permission_write_unknown'];
 const date=(v:unknown)=>typeof v==='string'&&v.length===24&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString()===v;
 function validate(value:unknown,ownerHash:string,documentId:string):CandidateAttempt {
   const v=value as CandidateAttempt|null;

@@ -21,13 +21,14 @@ and [ADR](docs/ADR.md).
 | Readiness | Product guidance for missing setup, disconnected/pending/expired state, target and provider errors; precise codes retained | src/readiness.ts, src/connections.ts | Live connected/pending/error results |
 | Native onboarding | Engineer Control UI page provides connection selector, Connect, authorization link, progress/status and Disconnect | ui/control-ui.js, src/dashboard.ts | Real browser consent/callback passed |
 | Operator app provisioning | Public client ID/callback and private client-secret path; masked terminal helper writes persistent Git-excluded 0600 secret under private directory | scripts/provision-oauth-secret.mjs | Operator provisioned; private mount verified |
-| Shared OAuth consent | One code-exchange implementation behind CLI loopback and dashboard gateway callbacks; Read scope, five-minute single-use state, exact Host/path checks | src/oauth.ts, src/authorization.ts, src/oauth-listener.ts, src/connections.ts, src/cli.ts | Dashboard consent live; replay/timeout/revocation tests |
+| Shared OAuth consent | One code-exchange implementation behind CLI loopback and dashboard gateway callbacks; Read by default, explicitly consented read+write after application attestation, five-minute single-use state, exact Host/path checks | src/oauth.ts, src/authorization.ts, src/oauth-listener.ts, src/connections.ts, src/cli.ts | Dashboard consent live; replay/timeout/revocation tests |
 | Private credential lifecycle | Owner-bound native atomic files, canonical path/UID/mode checks and exclusive consent/refresh/disconnect lock | src/credentials.ts | Native persistence live; offline negative/race checks |
 | Synchronous refresh | Token endpoint POST under existing lock before expired reads; validate response, persist credentials, fail closed on uncertain outcome | src/authorization.ts | Fresh-grant POST live; provider-expired renewal/rotation remains partial |
 | Native requester delegation | Lead tool admits exact trusted Discord binding; signed five-minute context associates authenticated A2A peer with Engineer binding | src/delegation.ts, src/index.ts | Actual Discord admission and native Engineer invocation passed |
 | Verified A2A results | Engineer signs success/status/error JSON in text transport; Lead checks proof, exact target, revision and PNG hash before delivery | src/delegation.ts, src/index.ts | Live signed errors and successful image journey |
 | Document inspection | Fixed GETs for document, workspace list and current elements; bounded identifier output | src/rest.ts, onshape_inspect | Live provider reads |
 | Pinned Part Studio view | Feature sourceMicroversion capture, pinned element check and shaded-view GET; inspection/render refer to same revision | src/rest.ts, onshape_render | Real Camera Mount Plate PNG |
+| Candidate workspace preparation (control-plane only) | Exact-source candidate workspace create/resolve contract with protected-primary rejection, source-drift conflict detection, uncertain POST UNKNOWN result, and no automatic active-workspace change | src/rest.ts | Offline contract tests only; no live POST executed in this session |
 | PNG handling | Flat/nested provider Base64, bounded PNG validation, private artifact, canonical path/name and SHA-256 checks | src/render.ts | Real 800×800 / 42,710-byte PNG; negative fixture tests |
 | Discord reporting | Lead receives verified references and uses originating native delivery; no Lead REST credentials or direct CAD tool | src/index.ts, onshape_delegate_render | Real image received and user-confirmed |
 | Focused role deployment | Versioned role guidance and native AGENTS.md get/set adapter with expectedHash/readback | deploy/roles, scripts/apply-runtime-role.mjs | Native writes/routing verified; fresh Codex session required after role replacement |
@@ -73,7 +74,7 @@ mutation invariant is inferred from the rendered image.
 | Unified dashboard provisioning | Proposed ADR-012; no dashboard secret entry, Discord setup, A2A provisioning or target selection wizard | Operator-only private writes and Clawake-owned reconciliation, no secret readback |
 | Multi-user onboarding | Not implemented | Trusted dashboard/Discord association and isolated consent/target grants |
 | Canonical Onshape user identity | Not independently verified | Provider identity check separate from configured requester binding |
-| Candidate workspace lifecycle | Not implemented | Exact-source REST branching contract and protected-primary validation |
+| Candidate workspace lifecycle | Implemented as internal REST control-plane capability; no mutation execution path enabled | Live provider POST behavior still requires explicit operator-approved validation |
 | Versions/concurrency/promotion | Not implemented | Authoritative revision checks, immutable result capture and distinct human authorization |
 | MCP CAD execution | Disabled | Current schemas, containment, target/revision binding and actual native-route safety proof |
 | Dynamic FeatureScript application | Not implemented | Contained testing, Feature Studio authoring and real Part Studio feature application |
@@ -102,3 +103,19 @@ recorded separately. OpenClaw API compatibility is claimed only for 2026.9.9.
 Accepted read/render does not authorize mutation. The next product increment is
 separately scoped candidate-workspace support and a proven contained MCP boundary,
 followed by verified FeatureScript application; promotion remains later work.
+
+## Repository authorization checkpoint (2026-10-12)
+
+Candidate preparation remains internal and grants no agent write capability.
+A trusted host adapter checks requester/Engineer identity, exact current binding,
+private connection grants, application write attestation and explicit consent.
+Request Booleans cannot authorize writes. Current authority is rechecked directly
+before dispatch; unresolved POSTs remain fenced by bounded receipts across restarts.
+
+Status summaries are at most 2 KiB and distinguish AVAILABLE, UNAVAILABLE and
+UNKNOWN with actionable codes. Unknown attestations do not become disabled or
+enabled implicitly; operation-specific provider evidence is required for AVAILABLE.
+Read status performs no network probe and stores no historical read proof.
+See [OAuth capabilities](docs/oauth-capabilities.md) and
+[receipt limits](docs/candidate-preparation-receipts.md). These are offline code
+contracts; deployment and live candidate acceptance remain outstanding.

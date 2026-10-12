@@ -3,6 +3,8 @@ import {open,lstat,realpath,unlink} from 'node:fs/promises';
 import {lstatSync,realpathSync} from 'node:fs';
 import {ref} from './config.ts';
 import type {Tokens} from './oauth.ts';
+import type {OAuthScope} from './oauth.ts';
+import {OAUTH_SCOPE_READ,scopeToken} from './oauth.ts';
 export function assertPrivateFile(filePath:string):void {
   const file=lstatSync(filePath),dir=lstatSync(path.dirname(filePath));
   if(!path.isAbsolute(filePath) || !file.isFile() || file.isSymbolicLink() || file.nlink!==1 || file.uid!==process.getuid?.() ||
@@ -32,6 +34,16 @@ export async function credentials(stateDir:string, connectionRef:string, owner:s
     } catch {throw new Error('connection_busy_or_state_unavailable');}
     try{return await action();}finally{await lock.close();await unlink(lockPath);}
   };
+  const normalized = (tokens: unknown): Tokens => {
+    const t=tokens as Partial<Tokens> | null | undefined;
+    const scopes=t?.scopes;
+    // Pre-scope records came from the read-only onboarding implementation.
+    // Migrate only absent fields; malformed explicit grants must fail closed.
+    if(scopes!==undefined&&(!Array.isArray(scopes)||!scopes.length||scopes.length>32||!scopes.every(scopeToken)))throw new Error('reconnect_required');
+    const validScopes:readonly OAuthScope[] = scopes===undefined
+      ? Object.freeze([OAUTH_SCOPE_READ]) : Object.freeze([...new Set(scopes)]);
+    return {...t,scopes:Object.freeze(validScopes)} as Tokens;
+  };
   return {
     exclusive,
     async save(tokens:Tokens | null):Promise<void> {
@@ -41,7 +53,8 @@ export async function credentials(stateDir:string, connectionRef:string, owner:s
     status(): 'disconnected'|'expired'|'connected'|'unavailable' {
       try{assertPrivateFile(filePath);const r=JSON.parse(native.readSecretFileSync(filePath,'Onshape connection',{rejectSymlink:true}));
         if(r.owner!==owner)return 'unavailable';if(r.tokens===null)return 'disconnected';
-        if(r.tokens?.resource!=='https://cad.onshape.com/api/'||typeof r.tokens?.accessToken!=='string'||!r.tokens.accessToken||/\s/.test(r.tokens.accessToken)||!Number.isFinite(r.tokens.expiresAt))return 'unavailable';
+        const t=normalized(r.tokens);
+        if(t?.resource!=='https://cad.onshape.com/api/'||typeof t?.accessToken!=='string'||!t.accessToken||/\s/.test(t.accessToken)||!Number.isFinite(t.expiresAt)||!t.scopes.length)return 'unavailable';
         return r.tokens.expiresAt<=Date.now()+30000?'expired':'connected';
       }catch(e){try{lstatSync(filePath);return 'unavailable';}catch{return 'disconnected';}}
     },
@@ -50,10 +63,10 @@ export async function credentials(stateDir:string, connectionRef:string, owner:s
         assertPrivateFile(filePath);
         const record=JSON.parse(native.readSecretFileSync(filePath,'Onshape connection',{rejectSymlink:true})) as {owner:string;tokens:Tokens};
         if(record.owner!==owner) throw new Error();
-        const t=record.tokens;
+        const t=normalized(record.tokens);
         if (!t || t.resource !== 'https://cad.onshape.com/api/' || typeof t.accessToken !== 'string' || !t.accessToken || /\s/.test(t.accessToken) ||
           typeof t.refreshToken !== 'string' || !t.refreshToken || /\s/.test(t.refreshToken) ||
-          !Number.isFinite(t.expiresAt) || (!allowExpired && t.expiresAt <= Date.now()+30000)) throw new Error();
+          !Number.isFinite(t.expiresAt) || !t.scopes.length || (!allowExpired && t.expiresAt <= Date.now()+30000)) throw new Error();
         return t;
       } catch {throw new Error('reconnect_required');}
     }

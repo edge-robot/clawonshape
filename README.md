@@ -6,6 +6,14 @@ Focused native TypeScript plugin for **OpenClaw 2026.9.9**. The current product 
 
 The Engineer dashboard has a native Claw-Onshape page with Connect, Status and Disconnect actions. Provision the application secret with `node scripts/provision-oauth-secret.mjs` (hidden input), then use the page at `http://localhost:19489`. Register callback `http://localhost:19489/plugins/claw-onshape/oauth/callback`. Secrets stay in private files; the public client ID and secret-file path belong to operator configuration. CLI and dashboard share one lifecycle implementation.
 
+## Agent instructions
+
+[Mechanical Engineer](agents/mechanical-engineer.md) explains the role, tool use,
+and actual dashboard/OAuth onboarding steps. The [Lead A2A contract](agents/agent-lead.md)
+covers delegation, authorization, result format, image delivery and failures.
+Storing these documents does not automatically load them into active OpenClaw roles.
+Write repository documentation and code comments in English.
+
 ## Install and configure
 
 Use Node 24+ and the pinned OpenClaw host. In an environment with dependency access:
@@ -39,28 +47,37 @@ Configure `plugins.allow` to include `claw-onshape`, enable `plugins.entries.cla
   "liveReads": false,
   "oauth": {
     "clientId": "YOUR_REGISTERED_APPLICATION_ID",
-    "clientSecretFile": "/absolute/private/path/onshape-client-secret"
+    "clientSecretFile": "/absolute/private/path/onshape-client-secret",
+    "applicationPermissions": {
+      "canDeleteDocumentsAndWorkspaces": false,
+      "canRequestPurchases": false,
+      "canShareAndUnshareDocuments": false,
+      "canReadProfileInformation": false
+    }
   }
 }
 ```
 
 Grant `onshape_inspect`, `onshape_status` and `onshape_render` only to the authorized Engineer agent using OpenClaw's existing per-agent `tools.alsoAllow` configuration. Other identities receive no plugin tool even if granted by mistake. Missing trusted requester fields fail closed, including unbound A2A turns: Robotics Lead delegation needs a verified propagated user identity before this tool can work. The product increment adds a bounded signed A2A context tied to an existing Engineer binding; see ADR-011. Native A2A peer authentication alone is insufficient.
 
-Native configuration schema/UI hints expose context preferences. Select document and primary workspace by setting their Onshape IDs; active workspace initially equals primary for read-only inspection. An operator may later select an existing experimental workspace in the same document. Rendering is supported by `onshape_render` at the configured `elementId`; branch creation and merge are deferred; primary never changes automatically. Every write is disabled, including writes to experimental workspaces.
+Native configuration schema/UI hints expose context preferences. Select document and primary workspace by setting their Onshape IDs; active workspace initially equals primary for read-only inspection. An operator may later select an existing experimental workspace in the same document. Rendering is supported by `onshape_render` at the configured `elementId`; agent branch creation and merge remain unavailable; the primary never changes automatically. Agent CAD writes remain disabled, including writes to experimental workspaces.
+An internal REST contract helper now prepares or validates a candidate workspace from an exact source microversion, but it is not exposed as an agent tool and does not enable CAD mutation.
 
 ## Connect and disconnect
 
-Register **your own** confidential OAuth application in Onshape individual/company Developer Settings. Enable `OAuth2Read` and register the exact callback `http://localhost:8765`. Privately provision its client secret as an owner-only regular file (0600, private directory). No shared application secret is distributed. See the [official OAuth requirements](https://onshape-public.github.io/docs/auth/oauth/).
+Register **your own** confidential OAuth application in Onshape individual/company Developer Settings. Enable `OAuth2Read` (and `OAuth2Write` only if you intentionally need REST lifecycle writes) and register the exact callback `http://localhost:8765`. Privately provision its client secret as an owner-only regular file (0600, private directory). No shared application secret is distributed. See the [official OAuth requirements](https://onshape-public.github.io/docs/auth/oauth/).
 
 Run these commands on the operator-controlled OpenClaw host:
 
 ```sh
 openclaw onshape connect owner-rest --live
+openclaw onshape connect owner-rest --live --rest-write
 openclaw onshape status owner-rest
 openclaw onshape disconnect owner-rest
 ```
 
 Connect prints a browser authorization URL and starts a temporary five-minute loopback listener on `127.0.0.1:8765`. It validates Host/path, random single-use state, expiry and token response before native atomic secret-file storage. It does not launch a dashboard/server service. Container/remote hosts need browser localhost routing to this exact listener; IPv6-only localhost and arbitrary redirect URLs are unsupported. OAuth2Read consent does not verify canonical account identity; status says so.
+`--rest-write` is an explicit operator consent step and requires a trusted `canWriteDocuments:true` application attestation. Existing read-only connections are not silently upgraded. This flag does not enable an agent write tool. Omitted application permission fields mean unknown; record the four known disabled permissions explicitly as shown above. See [OAuth capability contract](docs/oauth-capabilities.md) for the matrix, scope evidence and internal candidate authorization.
 
 Enable `liveReads:true` only after authorizing real GET requests. Each inspection makes three requests: document, workspace list, elements. Rendering adds feature-revision capture, pinned element verification and a pinned shaded-view GET. No provider call runs on startup, registration, status or automated tests. Tokens stay in OpenClaw's state root under `claw-onshape/credentials/<connectionRef>.json`, using native private-file helpers; target/preferences live in host configuration. Private files are **not encrypted or OS-keyring backed**. This onboarding targets Linux with an existing private, operator-owned state root; processes with the same UID/root remain trusted. Do not grant the CAD agent shell/file access to credential state; use existing host isolation and least-privilege tool policy.
 

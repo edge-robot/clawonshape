@@ -4,9 +4,10 @@ Candidate preparation remains an internal REST helper. This increment does not
 register an agent write tool, grant write access, or enable MCP mutation.
 
 Creation requires a trusted private host state directory supplied through the
-third `RestClient` constructor argument, `{stateDir, warn}`. The host should route
+third `RestClient` constructor argument, `{stateDir, warn, authorization}`. The host should route
 `warn` to its existing logger. Without persistent state, creation fails before
-provider requests. Existing-candidate inspection remains read-only.
+provider requests. Existing-candidate inspection remains read-only and requires
+the trusted authorization adapter described in [OAuth capabilities](oauth-capabilities.md).
 
 ## Storage and response limits
 
@@ -74,5 +75,6 @@ Tests use real temporary files, permissions, locks and restart receipts, with
 mocked provider responses and a mocked native private-file writer. They verify
 dispatch ordering, bounds, fencing and GET-only reconciliation, but do not
 establish native writer crash durability or live Onshape write acceptance.
-Write authorization and OAuth capability enforcement remain a separate review
-and implementation package.
+Write authorization and OAuth capability enforcement are covered by the narrow
+host adapter and [capability contract](oauth-capabilities.md). No production agent
+caller is registered for candidate creation.

@@ -4,6 +4,8 @@ import type {Binding} from './config.ts';
 import {jsonRequest,ProviderHttpError} from './http.ts';
 import {candidateAttempts,warnCandidate,CANDIDATE_MAX_BYTES} from './candidate-attempts.ts';
 import type {CandidateAttempt,CandidateAttemptWarning} from './candidate-attempts.ts';
+import {checkCandidateAuthorization,candidateDispatchAuthorization} from './candidate-authorization.ts';
+import type {CandidateAuthorization,CandidateAuthorizationCheck} from './candidate-authorization.ts';
 import {decodePng, IMAGE_SIZE, VIEW_MATRIX} from './render.ts';
 
 export const REST_BASE = 'https://cad.onshape.com/api/v10/';
@@ -49,8 +51,8 @@ export type PrepareCandidateWorkspaceResult =
   | Readonly<{
       status: 'unavailable';
       operation: 'create_candidate_workspace';
-      availability: 'UNAVAILABLE';
-      reason: 'oauth_write_scope_missing' | 'app_permission_write_disabled' | 'app_permission_write_unknown' | 'agent_policy_denied' | 'candidate_previous_attempt';
+      availability: 'UNAVAILABLE'|'UNKNOWN';
+      reason: Exclude<CandidateAuthorizationCheck['reason'],'authorized'> | 'candidate_previous_attempt';
       attemptId?: string;
       requiredAction: string;
     }>;
@@ -59,18 +61,12 @@ export type PrepareCandidateWorkspaceInput = Readonly<{
   sourceMicroversionId: string;
   candidateWorkspaceId?: string;
   candidateWorkspaceName?: string;
-  authorization?: Readonly<{
-    oauthWriteScope: boolean;
-    applicationWritePermission: 'enabled' | 'disabled' | 'unknown';
-    internalAuthorization: boolean;
-  }>;
-  restWriteAuthorized: boolean;
   // Explicit acknowledgement by the trusted caller, never an automatic retry.
   replaceCompletedAttemptId?: string;
 }>;
 
 type Receipt=Parameters<Parameters<Awaited<ReturnType<typeof candidateAttempts>>['exclusive']>[0]>[0];
-type PreparationOptions=Readonly<{stateDir:string;warn?:CandidateAttemptWarning}>;
+type PreparationOptions=Readonly<{stateDir:string;warn?:CandidateAttemptWarning;authorization?:CandidateAuthorization}>;
 
 export class RestClient {
   private readonly accessToken: () => Promise<string>;
@@ -83,10 +79,11 @@ export class RestClient {
     this.preparation = preparation;
   }
 
-  private async request(path: string, method: 'GET' | 'POST', body?: unknown, maxBytes = 1024 * 1024, beforeDispatch?:()=>Promise<void>): Promise<unknown> {
+  private async request(path: string, method: 'GET' | 'POST', body?: unknown, maxBytes = 1024 * 1024, beforeDispatch?:(token:string)=>Promise<void>,atDispatch?:(token:string)=>void): Promise<unknown> {
     const token = await this.accessToken();
     if (!token || /\s/.test(token)) throw new Error('reconnect_required');
-    if(beforeDispatch)await beforeDispatch();
+    if(beforeDispatch)await beforeDispatch(token);
+    if(atDispatch)atDispatch(token);
     return jsonRequest(this.fetcher, REST_BASE + path, {
       method,
       headers: {
@@ -102,8 +99,8 @@ export class RestClient {
     return this.request(path, 'GET', undefined, maxBytes);
   }
 
-  private async post(path: string, body: unknown, beforeDispatch:()=>Promise<void>): Promise<unknown> {
-    return this.request(path, 'POST', body,1024*1024,beforeDispatch);
+  private async post(path: string, body: unknown, beforeDispatch:(token:string)=>Promise<void>,atDispatch:(token:string)=>void): Promise<unknown> {
+    return this.request(path, 'POST', body,1024*1024,beforeDispatch,atDispatch);
   }
 
   private sanitizeFeatureMetadata(features: SourceFeatures): CandidateFeatureMetadata {
@@ -111,8 +108,8 @@ export class RestClient {
     return Object.freeze({featureCount: features.features.length});
   }
 
-  private async currentMicroversion(documentId: string, workspaceId: string): Promise<string> {
-    const response = await this.get(`documents/d/${documentId}/w/${workspaceId}/currentmicroversion`) as {microversion?: unknown};
+  private async currentMicroversion(binding:Binding, workspaceId: string): Promise<string> {
+    const response = await this.candidateGet(binding,`documents/d/${binding.documentId}/w/${workspaceId}/currentmicroversion`) as {microversion?: unknown};
     if (!id(response?.microversion)) throw new Error('provider_protocol_error');
     return response.microversion;
   }
@@ -123,7 +120,7 @@ export class RestClient {
   }
 
   private async verifySourcePartStudio(binding: Binding, microversionId: string): Promise<void> {
-    const elements = await this.get(`documents/d/${binding.documentId}/m/${microversionId}/elements`);
+    const elements = await this.candidateGet(binding,`documents/d/${binding.documentId}/m/${microversionId}/elements`);
     if (!Array.isArray(elements) || elements.length > 1000 || elements.some(e => !id(e?.id))) throw new Error('provider_protocol_error');
     if (!elements.some(e => e.id === binding.elementId && e.elementType === 'PARTSTUDIO')) throw new Error('target_not_part_studio');
   }
@@ -132,7 +129,7 @@ export class RestClient {
     this.assertCandidateIsolation(binding, workspaceId);
     const candidate = workspaces.find(w => w?.id === workspaceId);
     if (!candidate || candidate.documentId !== binding.documentId) throw new Error('workspace_not_in_document');
-    const baseline = await this.currentMicroversion(binding.documentId, workspaceId);
+    const baseline = await this.currentMicroversion(binding, workspaceId);
     if (baseline !== sourceMicroversionId) throw new Error('candidate_revision_conflict');
     // The source Part Studio was checked at this exact document microversion.
     // Equal immutable baselines establish the same element membership/type.
@@ -205,19 +202,11 @@ export class RestClient {
   async prepareCandidateWorkspace(binding: Binding, input: PrepareCandidateWorkspaceInput): Promise<PrepareCandidateWorkspaceResult> {
     validateTarget(binding, binding.documentId, binding.workspaceId);
     if (!binding.elementId) throw new Error('target_missing');
-    const unavailable = (reason: 'oauth_write_scope_missing' | 'app_permission_write_disabled' | 'app_permission_write_unknown' | 'agent_policy_denied', requiredAction: string): PrepareCandidateWorkspaceResult => ({
-      status:'unavailable',
-      operation:'create_candidate_workspace',
-      availability:'UNAVAILABLE',
-      reason,
-      requiredAction,
-    });
-    if (input.authorization) {
-      if (!input.authorization.internalAuthorization) return unavailable('agent_policy_denied','This operation is intentionally blocked by current Claw-Onshape agent policy.');
-      if (input.authorization.applicationWritePermission === 'disabled') return unavailable('app_permission_write_disabled','Ask the operator to enable document write permission for the Onshape OAuth application, then reconnect.');
-      if (input.authorization.applicationWritePermission === 'unknown') return unavailable('app_permission_write_unknown','Ask the operator to confirm write permission state, then reconnect with explicit write consent.');
-      if (!input.authorization.oauthWriteScope) return unavailable('oauth_write_scope_missing','Reconnect Onshape and explicitly authorize REST write access.');
-    } else if (!input.restWriteAuthorized) return unavailable('oauth_write_scope_missing','Reconnect Onshape and explicitly authorize REST write access.');
+    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['sourceMicroversionId','candidateWorkspaceId','candidateWorkspaceName','replaceCompletedAttemptId'].includes(k))){
+      this.warnAuthorization(binding,'invalid_arguments');throw new Error('invalid_arguments');
+    }
+    const permission=await checkCandidateAuthorization(this.preparation?.authorization,binding,input.candidateWorkspaceId===undefined);
+    if(permission.availability!=='AVAILABLE')return this.deniedCandidate(binding,permission);
     if (!id(input.sourceMicroversionId)) throw new Error('invalid_arguments');
     if (input.candidateWorkspaceId !== undefined && !id(input.candidateWorkspaceId)) throw new Error('invalid_arguments');
     if (input.candidateWorkspaceId !== undefined) this.assertCandidateIsolation(binding, input.candidateWorkspaceId);
@@ -253,6 +242,36 @@ export class RestClient {
 
   private candidateWarning():CandidateAttemptWarning{return this.preparation?.warn??(message=>console.warn(message));}
 
+  private warnAuthorization(binding:Binding,reason:string):void{
+    const message='WARNING: Claw-Onshape candidate authorization rejected. '+JSON.stringify({event:'claw_onshape.candidate_authorization_rejected',schemaVersion:1,timestamp:new Date().toISOString(),severity:'WARNING',ownerHash:connectionOwner(binding),documentId:binding.documentId,reason});
+    try{this.candidateWarning()(message);}catch{console.warn(message);}
+  }
+
+  private deniedCandidate(binding:Binding,check:CandidateAuthorizationCheck):PrepareCandidateWorkspaceResult{
+    this.warnAuthorization(binding,check.reason);
+    const actions:Partial<Record<CandidateAuthorizationCheck['reason'],string>>={
+      oauth_write_scope_missing:'Reconnect Onshape with explicit REST write consent.',oauth_read_scope_missing:'Reconnect Onshape with REST read consent.',
+      app_permission_write_unknown:'Ask the operator to verify application write permission.',app_permission_write_disabled:'Application write permission is disabled. Ask the operator to review the requirement.',
+      reconnect_required:'Reconnect Onshape through the configured dashboard.',
+    };
+    if(check.reason==='authorized')throw new Error('agent_policy_denied');
+    return {status:'unavailable',operation:'create_candidate_workspace',availability:check.availability==='UNKNOWN'?'UNKNOWN':'UNAVAILABLE',reason:check.reason,requiredAction:actions[check.reason]??'Ask the operator to review the trusted binding and operation policy.'};
+  }
+
+  private candidateGet(binding:Binding,path:string):Promise<unknown>{
+    return this.request(path,'GET',undefined,1024*1024,token=>this.requireCandidateAuthorization(binding,false,token),token=>this.checkCandidateDispatch(binding,false,token));
+  }
+
+  private checkCandidateDispatch(binding:Binding,write:boolean,token:string):void{
+    const check=candidateDispatchAuthorization(this.preparation?.authorization,binding,write,token);
+    if(check.availability!=='AVAILABLE'){this.warnAuthorization(binding,check.reason);throw new Error(check.reason);}
+  }
+
+  private async requireCandidateAuthorization(binding:Binding,write:boolean,token?:string):Promise<void>{
+    const check=await checkCandidateAuthorization(this.preparation?.authorization,binding,write,token);
+    if(check.availability!=='AVAILABLE'){this.warnAuthorization(binding,check.reason);throw new Error(check.reason);}
+  }
+
   private boundedCandidateResult(result:PrepareCandidateWorkspaceResult):PrepareCandidateWorkspaceResult{
     if(Buffer.byteLength(JSON.stringify(result))>CANDIDATE_MAX_BYTES)throw new Error('candidate_result_too_large');
     return result;
@@ -282,22 +301,22 @@ export class RestClient {
   // Only bounded fixed diagnostic codes enter receipts, never provider messages.
   private candidateFailureCode(error:unknown):string{
     const code=error instanceof Error?error.message:'';
-    return ['provider_protocol_error','provider_transport_error','provider_unavailable','provider_forbidden','provider_not_found','provider_rate_limited','provider_conflict','reconnect_required','protected_primary_workspace','candidate_not_isolated','workspace_not_in_document','candidate_revision_conflict','target_not_part_studio','candidate_store_unavailable'].includes(code)?code:'provider_transport_error';
+    return ['provider_protocol_error','provider_transport_error','provider_unavailable','provider_forbidden','provider_not_found','provider_rate_limited','provider_conflict','reconnect_required','protected_primary_workspace','candidate_not_isolated','workspace_not_in_document','candidate_revision_conflict','target_not_part_studio','candidate_store_unavailable','authorization_changed','agent_policy_denied','oauth_read_scope_missing','oauth_write_scope_missing','app_permission_read_disabled','app_permission_write_disabled','app_permission_write_unknown'].includes(code)?code:'provider_transport_error';
   }
 
   private async prepareCandidateChecked(binding:Binding,input:PrepareCandidateWorkspaceInput,receipt?:Receipt,existingAttemptId?:string):Promise<PrepareCandidateWorkspaceResult>{
 
-    const doc = await this.get(`documents/${binding.documentId}`) as {id?: unknown};
+    const doc = await this.candidateGet(binding,`documents/${binding.documentId}`) as {id?: unknown};
     if (!doc || doc.id !== binding.documentId) throw new Error('provider_protocol_error');
-    const workspaces = this.assertWorkspaces(await this.get(`documents/d/${binding.documentId}/workspaces`), binding);
-    const features = await this.get(`partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`) as SourceFeatures;
+    const workspaces = this.assertWorkspaces(await this.candidateGet(binding,`documents/d/${binding.documentId}/workspaces`), binding);
+    const features = await this.candidateGet(binding,`partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`) as SourceFeatures;
     if (!id(features?.sourceMicroversion)) throw new Error('source_revision_missing');
     if (features.sourceMicroversion !== input.sourceMicroversionId) throw new Error('source_revision_conflict');
     const featureMetadata = this.sanitizeFeatureMetadata(features);
 
     await this.verifySourcePartStudio(binding, input.sourceMicroversionId);
 
-    const latestSourceRevision = await this.currentMicroversion(binding.documentId, binding.workspaceId);
+    const latestSourceRevision = await this.currentMicroversion(binding, binding.workspaceId);
     if (latestSourceRevision !== input.sourceMicroversionId) throw new Error('source_revision_conflict');
 
     if (input.candidateWorkspaceId !== undefined) {
@@ -313,9 +332,11 @@ export class RestClient {
       requestDigest:createHash('sha256').update(JSON.stringify(body)).digest('hex'),featureCount:featureMetadata.featureCount,status:'UNKNOWN',createdAt:now,updatedAt:now};
     let dispatched=false;
     try {
-      const createdWorkspace=await this.post(`documents/d/${binding.documentId}/workspaces`,body,async()=>{
-        await receipt.save(record);dispatched=true;
-      }) as WorkspaceInfo;
+      const createdWorkspace=await this.post(`documents/d/${binding.documentId}/workspaces`,body,async(token)=>{
+        await this.requireCandidateAuthorization(binding,true,token);
+        await receipt.save(record);
+        await this.requireCandidateAuthorization(binding,true,token);
+      },token=>{this.checkCandidateDispatch(binding,true,token);dispatched=true;}) as WorkspaceInfo;
       if(id(createdWorkspace?.id)){
         const expectedIdentity=createdWorkspace.documentId===binding.documentId&&createdWorkspace.id!==binding.primaryWorkspaceId&&createdWorkspace.id!==binding.workspaceId;
         record={...record,status:expectedIdentity?'CREATED_UNVERIFIED':'UNKNOWN',candidateWorkspaceId:createdWorkspace.id,updatedAt:new Date().toISOString()};
@@ -323,7 +344,7 @@ export class RestClient {
       }
       if(!id(createdWorkspace?.id)||createdWorkspace.documentId!==binding.documentId)throw new Error('provider_protocol_error');
       this.assertCandidateIsolation(binding,createdWorkspace.id);
-      const updatedWorkspaces=this.assertWorkspaces(await this.get(`documents/d/${binding.documentId}/workspaces`),binding);
+      const updatedWorkspaces=this.assertWorkspaces(await this.candidateGet(binding,`documents/d/${binding.documentId}/workspaces`),binding);
       const baseline=await this.verifyCandidateBaseline(binding,createdWorkspace.id,updatedWorkspaces,input.sourceMicroversionId);
       record={...record,status:'VERIFIED',updatedAt:new Date().toISOString()};await receipt.save(record);
       return this.candidateSuccess(binding,input.sourceMicroversionId,createdWorkspace.id,baseline,featureMetadata.featureCount,true,attemptId);
@@ -345,6 +366,8 @@ export class RestClient {
   // A matching name or a vacant list is never treated as proof of its outcome.
   async reconcileCandidateWorkspace(binding:Binding,attemptId:string):Promise<PrepareCandidateWorkspaceResult>{
     validateTarget(binding,binding.documentId,binding.workspaceId);
+    const permission=await checkCandidateAuthorization(this.preparation?.authorization,binding,false);
+    if(permission.availability!=='AVAILABLE')return this.deniedCandidate(binding,permission);
     if(!this.preparation)throw new Error('candidate_store_required');
     const store=await candidateAttempts(this.preparation.stateDir,binding);
     const result=await store.exclusive(async receipt=>{
@@ -353,9 +376,9 @@ export class RestClient {
       if(record.status==='REJECTED')throw new Error('candidate_attempt_mismatch');
       if(record.status==='UNKNOWN'||!record.candidateWorkspaceId){warnCandidate(this.candidateWarning(),'repeat_blocked',record);return this.unresolvedCandidate(record);}
       try{
-        const doc=await this.get(`documents/${binding.documentId}`) as {id?:unknown};
+        const doc=await this.candidateGet(binding,`documents/${binding.documentId}`) as {id?:unknown};
         if(doc?.id!==binding.documentId)throw new Error('provider_protocol_error');
-        const workspaces=this.assertWorkspaces(await this.get(`documents/d/${binding.documentId}/workspaces`),binding);
+        const workspaces=this.assertWorkspaces(await this.candidateGet(binding,`documents/d/${binding.documentId}/workspaces`),binding);
         await this.verifySourcePartStudio(binding,record.sourceMicroversionId);
         const baseline=await this.verifyCandidateBaseline(binding,record.candidateWorkspaceId,workspaces,record.sourceMicroversionId);
         const {code:_,...clean}=record;record={...clean,status:'VERIFIED',updatedAt:new Date().toISOString()};await receipt.save(record);

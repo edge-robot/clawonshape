@@ -35,6 +35,29 @@ OpenClaw's separate native MCP resource store. REST OAuth2Read does not authoriz
 lifecycle POSTs; candidate/version support requires explicit REST Write consent
 and operation policy. Do not confuse that future grant with MCP authorization.
 
+### Verified OAuth scope and app-permission matrix (2026-10-12)
+
+Verified from Onshape OpenAPI (`GET https://cad.onshape.com/api/openapi`) and
+Onshape OAuth docs:
+
+| Operation | OpenAPI evidence | Required OAuth scope(s) | App permission layer |
+| --- | --- | --- | --- |
+| Read document / workspaces / features / current microversion | `GET /documents/{did}`, `GET /documents/d/{did}/workspaces`, `GET /partstudios/d/{did}/{wvm}/{wvmid}/e/{eid}/features`, `GET /documents/d/{did}/{wv}/{wvid}/currentmicroversion` | `OAuth2Read` | "Application can read your documents" |
+| Create candidate workspace | `POST /documents/d/{did}/workspaces` (`createWorkspace`) | `OAuth2Write` | "Application can write to your documents" |
+| Create immutable version | `POST /documents/d/{did}/versions` (`createVersion`) | `OAuth2Write` | "Application can write to your documents" |
+| Delete workspace | `DELETE /documents/d/{did}/workspaces/{wid}` (`deleteWorkspace`) | `OAuth2Delete` | "Application can delete your documents and workspaces" |
+| Share/unshare document | `POST /documents/{did}/share` (`shareDocument`) | `OAuth2Read` + `OAuth2Share` | "Application can share and unshare documents on your behalf" |
+| Read profile/session info | `GET /users/sessioninfo` description mentions OAuth profile scope | scope behavior documented as profile-dependent (`OAuth2ReadPII`) | "Application can read your profile information" |
+| Purchases | `GET /accounts/purchases` (OAuth app context) | purchase scope expected (`OAuth2Purchase`) | "Application can request purchases on your behalf" |
+
+Current product policy intentionally keeps delete/share/profile/purchase
+application permissions disabled. This repository does not enable them.
+
+Uncertainty: OpenAPI does not expose an endpoint that returns the current app's
+enabled/disabled permission toggles for a grant. Capability reporting therefore
+uses trusted operator configuration plus known policy defaults, and keeps unknown
+states as `UNKNOWN` rather than guessing.
+
 Target authority comes from host-controlled bindings plus trusted invocation
 identity, never tool arguments, FeatureScript comments or agent text. Bind a
 mutation context to requester, agent, channel/account, delegation/session, did,
@@ -108,9 +131,13 @@ Confirm the protected primary workspace separately, inspect model/evaluation
 state, capture immutable source microversion and source feature metadata.
 Create/select a dedicated experimental workspace based on that exact source;
 verify its document membership, unequal-to-primary ID and resulting baseline.
-ClawCAD's candidate POST uses `versionId`; branching directly from a microversion
-is not proven. Validate the provider branch contract; if a version anchor is
-required, create an explicitly authorized immutable source version via REST.
+Verified 2026-10-12 against Onshape `GET https://cad.onshape.com/api/openapi`:
+`POST /api/v10/documents/d/{did}/workspaces` (`createWorkspace`) uses
+`BTVersionOrWorkspaceParams` with `microversionId`, `versionId` and `workspaceId`
+fields and requires `OAuth2Write`. The published contract does not require
+creating an immutable version before branching; this capability uses explicit
+`microversionId` to avoid mutable-latest branching. Live provider POST behavior
+for this operation was not executed in this repository session.
 Never silently branch from latest mutable primary state.
 
 Immediately before execution confirm candidate revision and primary source;
@@ -207,3 +234,21 @@ sequenceDiagram
 ## Product increment implementation evidence
 
 Native dashboard page/session actions share one OAuth lifecycle with CLI. Operator consent and native REST inspection/pinned PNG rendering now pass live. Signed native A2A operator round-trips pass after explicit Clawake-owned global and per-agent grants. The full authenticated Discord path requires its own acceptance; source/code and operator probes do not substitute for it. REST/MCP responsibilities above remain unchanged, and mutation is still disabled. See ADR-009–013 and product-mvp-status.md.
+
+## Internal REST authorization checkpoint (2026-10-12)
+
+The candidate helper accepts source revision and candidate-selection data only.
+A narrow host adapter derives authorization from the current trusted Engineer
+binding, invocation authority, explicit host consent, private token grant and
+operator application-permission attestations. It checks the actual token before
+candidate GETs and rechecks write authority before POST. Lead and signed A2A read
+contexts are not write grants. No agent candidate tool is registered.
+
+Scope inheritance is confined to completed consent or the previous refresh grant;
+malformed explicit stored grants fail closed. Capability summaries are bounded to
+2 KiB and require operation-specific provider evidence for AVAILABLE. Unknown
+application settings remain unknown, and status causes no provider probes or new
+permission requests. Receipts remain bounded safety state; existing host logging
+owns audit retention. See [OAuth capabilities](../oauth-capabilities.md) and
+[candidate receipts](../candidate-preparation-receipts.md). This checkpoint does
+not establish live writes or change the future MCP containment requirements.

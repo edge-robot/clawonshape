@@ -54,7 +54,7 @@ test('signed A2A context restores exact authorized binding, not peer identity or
   assert.equal(contextId.length,128);assert.match(contextId,/^[A-Za-z0-9._:-]{1,128}$/);
   const ctx={agentId:'engineer',messageChannel:'a2a',requesterSenderId:'lead',agentAccountId:'default',sessionKey:`agent:engineer:a2a:default:direct:lead:${contextId}`};
   assert.equal(verifyContext(c,ctx,key,now).binding.connectionRef,'owner-rest');
-  for(const bad of [{...ctx,requesterSenderId:'owner'},{...ctx,agentAccountId:'other'},{...ctx,agentId:'lead-agent'},{...ctx,sessionKey:ctx.sessionKey.slice(0,-1)+'0'},{...ctx,messageChannel:'discord'}])assert.equal(verifyContext(c,bad,key,now),undefined);
+  for(const bad of [{...ctx,requesterSenderId:'owner'},{...ctx,agentAccountId:'other'},{...ctx,agentId:'lead-agent'},{...ctx,sessionKey:ctx.sessionKey.slice(0,-1)+(ctx.sessionKey.endsWith('0')?'1':'0')},{...ctx,messageChannel:'discord'}])assert.equal(verifyContext(c,bad,key,now),undefined);
   assert.equal(verifyContext(c,ctx,key,now+301000),undefined);assert.equal(verifyContext(parseConfig({bindings:[{...B,elementId:D}],delegation:DC}),ctx,key,now),undefined);
   const direct={...B,agentId:'lead-agent',deliveryContext:{channel:'discord',to:B.discordChannelId}};
   assert(leadBinding(c,direct));assert(!leadBinding(c,{...direct,deliveryContext:{channel:'discord',to:'999999999999999999'}}));assert(!channelMatches(B,{}));
@@ -156,13 +156,19 @@ test('rejected A2A results emit correlated warning audit records without sensiti
 test('dashboard consent shares private store, enforces state/origin and updates readiness',async()=>{
   const root=await mkdtemp(path.join(tmpdir(),'onshape-dashboard-'));try{
     const secretFile=path.join(root,'app');await writeFile(secretFile,'fixture-client-secret',{mode:0o600});
-    let c=parseConfig({bindings:[B],liveReads:true,oauth:{clientId:'fixture-client',clientSecretFile:secretFile,dashboardRedirectUri:'http://localhost:19489/plugins/claw-onshape/oauth/callback'}}),exchanges=0;
-    const lifecycle=connectionLifecycle(()=>c,()=>root,()=>['http://localhost:19489'],async(_u,init)=>{exchanges++;assert.equal(init.body.get('redirect_uri'),c.oauth.dashboardRedirectUri);return json({access_token:tokens.accessToken,refresh_token:tokens.refreshToken,expires_in:3600,token_type:'Bearer',scope:'OAuth2Read'});});
-    assert.equal((await lifecycle.status('owner-rest')).code,'disconnected');const start=await lifecycle.start('owner-rest');assert.equal((await lifecycle.status('owner-rest')).code,'authorization_in_progress');
+    let c=parseConfig({bindings:[B],engineerAgentId:B.agentId,liveReads:true,oauth:{clientId:'fixture-client',clientSecretFile:secretFile,dashboardRedirectUri:'http://localhost:19489/plugins/claw-onshape/oauth/callback',applicationPermissions:{canWriteDocuments:true,canDeleteDocumentsAndWorkspaces:false,canShareAndUnshareDocuments:false,canRequestPurchases:false,canReadProfileInformation:false}}}),exchanges=0;
+    const lifecycle=connectionLifecycle(()=>c,()=>root,()=>['http://localhost:19489'],async(_u,init)=>{exchanges++;assert.equal(init.body.get('redirect_uri'),c.oauth.dashboardRedirectUri);return json({access_token:tokens.accessToken,refresh_token:tokens.refreshToken,expires_in:3600,token_type:'Bearer',scope:'OAuth2Read OAuth2Write'});});
+    assert.equal((await lifecycle.status('owner-rest')).code,'disconnected');const start=await lifecycle.start('owner-rest',{requestRestWriteAccess:true});assert.equal((await lifecycle.status('owner-rest')).code,'authorization_in_progress');
+    assert.equal(new URL(start.authorizationUrl).searchParams.get('scope'),'OAuth2Read OAuth2Write');
     await assert.rejects(lifecycle.disconnect('owner-rest'),/connection_busy/);
     const wrong=response();await lifecycle.callback({method:'GET',url:'/plugins/claw-onshape/oauth/callback?state=forged&code=fixture',headers:{host:'localhost:19489'}},wrong);assert.equal(wrong.status,400);assert.equal(exchanges,0);
     const u=new URL(start.authorizationUrl),url='/plugins/claw-onshape/oauth/callback?'+new URLSearchParams({state:u.searchParams.get('state'),code:'fixture-code'});const r=response();
     await lifecycle.callback({method:'GET',url,headers:{host:'localhost:19489'}},r);await delay();assert.equal(r.status,200);assert.equal(exchanges,1);assert.equal((await lifecycle.status('owner-rest')).code,'connected');
+    assert((await credentials(root,'owner-rest',connectionOwner(B))).read().scopes.includes('OAuth2Write'));
+    const readiness=await lifecycle.status('owner-rest');
+    assert.equal(readiness.capabilities.read_document.availability,'UNKNOWN');
+    assert.equal(readiness.capabilities.create_candidate_workspace.reason,'agent_policy_denied');
+    assert.equal(readiness.capabilities.delete_workspace.reason,'app_permission_delete_disabled');
     const replay=response();await lifecycle.callback({method:'GET',url,headers:{host:'localhost:19489'}},replay);assert.equal(replay.status,400);assert.equal(exchanges,1);
     await lifecycle.disconnect('owner-rest');assert.equal((await lifecycle.status('owner-rest')).code,'disconnected');
     assert(!JSON.stringify(start).includes('fixture-client-secret'));
@@ -220,6 +226,7 @@ test('expired connection refreshes once under private lock and fails closed on u
     await store.save(expired);await assert.rejects(accessToken(store,oauth,()=>{throw new Error('authorization_changed');},fetcher),/authorization_changed/);assert.equal(store.status(),'expired');
     await assert.rejects(accessToken(store,oauth,()=>{},async()=>new Response('{}',{status:401,headers:{'Content-Type':'application/json'}})),/oauth_refresh_rejected/);assert.equal(store.status(),'disconnected');
     await store.save(expired);await assert.rejects(accessToken(store,oauth,()=>{},async()=>json({access_token:'sensitive-incomplete'})),/oauth_refresh_response_invalid/);assert.equal(store.status(),'disconnected');
+    await store.save({...expired,scopes:['OAuth2Read','OAuth2Write']});await assert.rejects(accessToken(store,oauth,()=>{},async()=>json({access_token:'renewed-access',refresh_token:'rotated-refresh',expires_in:3600,token_type:'Bearer',scope:'OAuth2Read'})),/oauth_refresh_response_invalid/);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
 test('delegated render failures and status preserve signed JSON through text-only host transport',async()=>{

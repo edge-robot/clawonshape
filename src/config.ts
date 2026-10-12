@@ -3,8 +3,16 @@ export type Binding = Readonly<{
   agentId: string; requesterSenderId: string; messageChannel: string; agentAccountId: string;
   connectionRef: string; documentId: string; primaryWorkspaceId: string; workspaceId: string; elementId?: string; discordChannelId?:string;
 }>;
+export type OnshapeApplicationPermissions = Readonly<{
+  canReadDocuments?: boolean;
+  canWriteDocuments?: boolean;
+  canDeleteDocumentsAndWorkspaces?: boolean;
+  canRequestPurchases?: boolean;
+  canShareAndUnshareDocuments?: boolean;
+  canReadProfileInformation?: boolean;
+}>;
 export type Delegation = Readonly<{leadAgentId:string; engineerAgentId:string; peerSenderId:string; accountId:string; keyFile:string; transportTokenFile?:string}>;
-export type Config = Readonly<{bindings: readonly Binding[]; oauth?: Readonly<{clientId: string; clientSecretFile: string; dashboardRedirectUri?:string}>; liveReads: boolean; engineerAgentId?:string; delegation?:Delegation}>;
+export type Config = Readonly<{bindings: readonly Binding[]; oauth?: Readonly<{clientId: string; clientSecretFile: string; dashboardRedirectUri?:string; applicationPermissions:OnshapeApplicationPermissions}>; liveReads: boolean; engineerAgentId?:string; delegation?:Delegation}>;
 export const id = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
 export const ref = (value: unknown): value is string => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(value);
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -35,8 +43,22 @@ export function parseConfig(value: unknown): Config {
   let oauth: Config['oauth'];
   if (value.oauth !== undefined) {
     const o = value.oauth;
-    if (!object(o) || Object.keys(o).some(k=>!['clientId','clientSecretFile','dashboardRedirectUri'].includes(k)) || !text(o.clientId) || !text(o.clientSecretFile) || !o.clientSecretFile.startsWith('/') || (o.dashboardRedirectUri!==undefined && !dashboardRedirect(o.dashboardRedirectUri))) throw new Error('invalid_oauth_configuration');
-    oauth = Object.freeze({clientId:o.clientId,clientSecretFile:o.clientSecretFile,...(o.dashboardRedirectUri?{dashboardRedirectUri:o.dashboardRedirectUri as string}:{})});
+    if (!object(o)) throw new Error('invalid_oauth_configuration');
+    const permissions = o.applicationPermissions;
+    if (Object.keys(o).some(k=>!['clientId','clientSecretFile','dashboardRedirectUri','applicationPermissions'].includes(k)) || !text(o.clientId) || !text(o.clientSecretFile) || !o.clientSecretFile.startsWith('/') || (o.dashboardRedirectUri!==undefined && !dashboardRedirect(o.dashboardRedirectUri)) ||
+      (permissions!==undefined && (!object(permissions) || Object.keys(permissions).some(k=>!['canReadDocuments','canWriteDocuments','canDeleteDocumentsAndWorkspaces','canRequestPurchases','canShareAndUnshareDocuments','canReadProfileInformation'].includes(k)) ||
+      (permissions.canReadDocuments!==undefined&&typeof permissions.canReadDocuments!=='boolean') ||
+      (permissions.canWriteDocuments!==undefined&&typeof permissions.canWriteDocuments!=='boolean') || (permissions.canDeleteDocumentsAndWorkspaces!==undefined&&typeof permissions.canDeleteDocumentsAndWorkspaces!=='boolean') ||
+      (permissions.canRequestPurchases!==undefined&&typeof permissions.canRequestPurchases!=='boolean') || (permissions.canShareAndUnshareDocuments!==undefined&&typeof permissions.canShareAndUnshareDocuments!=='boolean') ||
+      (permissions.canReadProfileInformation!==undefined&&typeof permissions.canReadProfileInformation!=='boolean')))) throw new Error('invalid_oauth_configuration');
+    oauth = Object.freeze({
+      clientId:o.clientId,
+      clientSecretFile:o.clientSecretFile,
+      // Operator attestations describe application settings; they grant no rights.
+      // Absence means unknown, including the four normally disabled permissions.
+      applicationPermissions:Object.freeze({...permissions}) as OnshapeApplicationPermissions,
+      ...(o.dashboardRedirectUri?{dashboardRedirectUri:o.dashboardRedirectUri as string}:{})
+    });
   }
   if(value.engineerAgentId!==undefined && !ref(value.engineerAgentId)) throw new Error('invalid_configuration');
   let delegation:Delegation|undefined;

@@ -4,6 +4,9 @@ import {mkdtemp,rm,readdir,readFile,writeFile,chmod,symlink} from 'node:fs/promi
 import {createHash,randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
+import {candidateAuthorization} from '../dist/candidate-authorization.js';
+import {credentials} from '../dist/credentials.js';
+import {parseConfig} from '../dist/config.js';
 import {RestClient} from '../dist/rest.js';
 import {candidateAttempts,CANDIDATE_MAX_BYTES,CANDIDATE_MAX_RECORDS} from '../dist/candidate-attempts.js';
 import {connectionOwner} from '../dist/config.js';
@@ -12,11 +15,11 @@ import {connectionOwner} from '../dist/config.js';
 // native atomic writer (registered in foundation.test.mjs) are mocked, not live.
 const D='a'.repeat(24),P='b'.repeat(24),W='c'.repeat(24),E='d'.repeat(24),M='e'.repeat(24),C='f'.repeat(24);
 const binding={agentId:'engineer',requesterSenderId:'owner',messageChannel:'discord',agentAccountId:'default',connectionRef:'owner-rest',documentId:D,primaryWorkspaceId:P,workspaceId:W,elementId:E};
-const input={sourceMicroversionId:M,restWriteAuthorized:true};
+const input={sourceMicroversionId:M};
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
 const root=await mkdtemp(path.join(tmpdir(),'onshape-workspace-preparation-'));
 test.after(()=>rm(root,{recursive:true,force:true}));
-const state=()=>mkdtemp(path.join(root,'state-'));
+const state=async()=>{const dir=await mkdtemp(path.join(root,'state-'));const store=await credentials(dir,binding.connectionRef,connectionOwner(binding));await store.save({accessToken:'access-DO-NOT-LOG',refreshToken:'refresh-DO-NOT-LOG',expiresAt:Date.now()+3600000,resource:'https://cad.onshape.com/api/',scopes:['OAuth2Read','OAuth2Write']});return dir;};
 const readRecord=async(stateDir)=>{
   const dir=path.join(stateDir,'claw-onshape-candidate-attempts'),files=(await readdir(dir)).filter(f=>f.endsWith('.json'));
   assert.equal(files.length,1);const text=await readFile(path.join(dir,files[0]),'utf8');
@@ -50,17 +53,17 @@ function provider(options={}){
   };
   return {fetcher,calls,get posts(){return posts;}};
 }
-const client=(stateDir,p,warnings=[])=>new RestClient(async()=>'access-DO-NOT-LOG',p.fetcher,{stateDir,warn:m=>warnings.push(m)});
+const client=(stateDir,p,warnings=[],b=binding)=>{const config=parseConfig({bindings:[b],engineerAgentId:b.agentId,liveReads:true,oauth:{clientId:'fixture',clientSecretFile:'/private/fixture',applicationPermissions:{canWriteDocuments:true}}});return new RestClient(async()=>'access-DO-NOT-LOG',p.fetcher,{stateDir,authorization:candidateAuthorization(()=>config,b,stateDir,()=>{}),warn:m=>warnings.push(m)});};
 
 test('creation requires persistent state; malformed/uncertain POSTs remain fenced across restart and changed requests',async()=>{
-  const noStore=provider();await assert.rejects(new RestClient(async()=>'fixture',noStore.fetcher).prepareCandidateWorkspace(binding,input),/candidate_store_required/);assert.equal(noStore.calls.length,0);
+  const noStore=provider();assert.equal((await new RestClient(async()=>'fixture',noStore.fetcher).prepareCandidateWorkspace(binding,input)).reason,'agent_policy_denied');assert.equal(noStore.calls.length,0);
   for(const mode of ['timeout','malformed','json','content-type',500,408,'foreign']){
     const stateDir=await state(),p=provider({mode}),logs=[];
     const result=await client(stateDir,p,logs).prepareCandidateWorkspace(binding,input);
     assert.equal(result.status,'unknown');assert.equal(result.attemptStatus,'UNKNOWN');assert.equal(p.posts,1);
     const {record,text}=await readRecord(stateDir);assert.equal(record.status,'UNKNOWN');assert.equal(record.attemptId,result.attemptId);
     assert(!text.includes('DO-NOT-LOG'));assert(logs.some(m=>m.includes('candidate_outcome_unresolved')));
-    const restarted=provider(),again=await client(stateDir,restarted,logs).prepareCandidateWorkspace({...binding,connectionRef:'renamed-rest',workspaceId:'8'.repeat(24)},
+    const restarted=provider(),again=await client(stateDir,restarted,logs,{...binding,workspaceId:'8'.repeat(24)}).prepareCandidateWorkspace({...binding,workspaceId:'8'.repeat(24)},
       {...input,sourceMicroversionId:'9'.repeat(24),candidateWorkspaceName:'changed-name',replaceCompletedAttemptId:result.attemptId});
     assert.equal(again.attemptId,result.attemptId);assert.equal(again.status,'unknown');assert.equal(restarted.calls.length,0);
     const reconciliation=provider();assert.equal((await client(stateDir,reconciliation).reconcileCandidateWorkspace(binding,result.attemptId)).status,'unknown');assert.equal(reconciliation.calls.length,0);

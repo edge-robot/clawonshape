@@ -14,6 +14,29 @@ Product result: **PASS — single-owner read/render journey**. Native dashboard 
 | Pinned render | PASS | Current 800×800 / 42,710-byte PNG, source revision and SHA-256 verified by Lead |
 | Discord response | PASS | Actual 19:01 UTC request returned delivered:true; user confirmed receiving the image |
 
+## OAuth/capability repository checkpoint (2026-10-12)
+
+This checkpoint is offline repository evidence; it has not been deployed and adds
+no live write acceptance to the October 11 read/render result above.
+
+- Read consent remains the default. Explicit read+write consent requires trusted
+  application-write confirmation and never upgrades an existing connection silently.
+- Status exposes a compact capability summary bounded to 2 KiB, with availability,
+  reasons and guidance. Missing application attestations remain unknown; the four
+  known disabled permissions must be recorded explicitly as false by the operator.
+- Scope mismatch, invalid stored grants and scope expansion during refresh fail
+  closed. Legacy scope-less records migrate to read only.
+- Candidate preparation uses exact-source verification, bounded persistent attempt
+  receipts and a trusted host authorization adapter. Claimed authorization and
+  target overrides are rejected; current authority/token/consent are rechecked
+  before POST. No candidate agent tool is registered.
+- Agent MCP mutation, immutable-version creation, deletion, sharing, purchases and
+  profile access remain unavailable. REST OAuth cannot establish MCP authority.
+
+See [OAuth capability contract](oauth-capabilities.md),
+[candidate receipt limits](candidate-preparation-receipts.md) and the translated
+[Engineer](../agents/mechanical-engineer.md)/[Lead](../agents/agent-lead.md) contracts.
+
 ## Provisioning already completed / user continuation
 
 The operator already provisioned the private secret and completed dashboard consent. Do not provision again. The command used was:
@@ -152,4 +175,4 @@ Temporary 0600 native renewal-diagnostic.json was validated and removed. No resp
 
 ## Final Discord E2E acceptance
 
-The authorized user requested the current plate at 19:01:23 UTC in #clawcad. Lead's active native rollout invoked onshape_delegate_render at 19:01:27 UTC. At 19:01:42 UTC its result contained status ok/code ready, delivered:true, microversion b83ee0a0efcda65537780ef8, /workspace/artifacts/claw-onshape/0b212c7c8914a116eba44d97ffc65c6a.png and sha256 3475c98025ecc2b6abc31eba18db48888843e4fa8570422cc0ab8f048f2e5c26. The plugin sets delivered:true only after awaited native originating delivery succeeds. Lead returned the document/workspace link and revision at 19:01:46 UTC. The real user confirmed: “Ja es hat geklappt.” Thus Discord→Lead→A2A→Engineer→native REST→verified pinned PNG→Discord passes. No CAD change occurred. Earlier sections are historical investigation evidence, superseded by this final acceptance where stated.
+The authorized user requested the current plate at 19:01:23 UTC in #clawcad. Lead's active native rollout invoked onshape_delegate_render at 19:01:27 UTC. At 19:01:42 UTC its result contained status ok/code ready, delivered:true, microversion b83ee0a0efcda65537780ef8, /workspace/artifacts/claw-onshape/0b212c7c8914a116eba44d97ffc65c6a.png and sha256 3475c98025ecc2b6abc31eba18db48888843e4fa8570422cc0ab8f048f2e5c26. The plugin sets delivered:true only after awaited native originating delivery succeeds. Lead returned the document/workspace link and revision at 19:01:46 UTC. The real user confirmed (translated from German): “Yes, it worked.” Thus Discord→Lead→A2A→Engineer→native REST→verified pinned PNG→Discord passes. No CAD change occurred. Earlier sections are historical investigation evidence, superseded by this final acceptance where stated.
