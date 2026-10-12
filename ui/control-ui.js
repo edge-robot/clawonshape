@@ -21,6 +21,7 @@ export default {
         const line=(text)=>{const p=document.createElement('p');p.textContent=text;mcpOutput.append(p);};
         const flag=(value)=>value===true?'Yes':value===false?'No':'UNKNOWN';
         line(`Provider: onshape · Configured: ${flag(mcp?.configured)} · Native integration: ${mcp?.enabled===true?'Enabled':mcp?.enabled===false?'Disabled':'UNKNOWN'}`);
+        if(mcp?.local){line(`Local service: ${flag(mcp.local.running)} · Credential: ${mcp.local.credential} · Refresh owner: Claw-Onshape`);}
         line(`Native OAuth: ${mcp?.oauth?.status??'UNKNOWN'} · Stored grant: ${flag(mcp?.oauth?.storedGrant)}`);
         line(`Expiry: ${mcp?.oauth?.expiresAt??'UNKNOWN'}${mcp?.oauth?.expired?' (expired)':''} · Requires operator action: ${flag(mcp?.oauth?.requiresOperatorAction)}`);
         line(mcp?.oauth?.reason??'Native status has not been loaded.');

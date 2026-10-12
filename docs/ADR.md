@@ -918,3 +918,71 @@ and enabling production tools to learn their effects.
 Fresh hosted schemas and scoped context, API v10 live skew-rejection semantics,
 custom feature namespace/application contract, code/import effects, narrow supported
 native invocation seam, credential composition and complete projection bypass tests.
+
+## ADR-018: Self-hosted MCP with one control-plane refresh owner
+
+Status: Accepted architecture, staged read-only implementation; mutation blocked.
+Date: 2026-10-12.
+
+### Supersession
+
+Amends ADR-006 and ADR-016's separate hosted MCP OAuth requirement **for the
+self-hosted connector**. Those decisions and hosted sprint evidence remain
+historical; hosted credentials must never be copied into REST. Amends ADR-017's
+preference for hosted investigation: use pinned altendky/onshape-mcp as the local
+starting point. ADR-001–005's authority, Candidate, CAS and verification gates
+remain. ADR-005's dynamic FeatureScript direction remains; the existing parameter
+update is the narrow first acceptance, not a general CAD policy framework.
+
+### Decision
+
+Claw-Onshape owns operator OAuth and the only refresh lifecycle. It atomically
+publishes accessToken, expiresAt (epoch milliseconds), and granted scopes to a
+protected runtime directory; null/reconnect/refresh invalidation revokes that
+handoff first. The MCP service receives no refresh token or client secret, never
+logs in or refreshes, reloads the file per request and refuses expired tokens.
+Clawake creates the service/configuration/mounts/private network and owns restart
+and health; it does not read, renew or broker credentials.
+
+REST owns bindings, source revision, Candidate workspace preparation, verification,
+rendering and approval. MCP owns CAD API execution via structured tools. Engineer
+gets guarded capabilities only, no unrestricted REST, credentials or raw write
+projection. Initial external-token mode rejects every write at the server and
+admits only exact-target read endpoints. Discovery does not remove that restriction.
+
+Use a separate rootless non-root service on a dedicated Podman network with no
+published port, read-only credential directory and filesystem, bounded resources
+and independent liveness/credential readiness. HTTP is upstream experimental;
+validate native OpenClaw transport before production switch. No custom proxy.
+
+### Evidence / consequences
+
+Upstream f78ddc48a445765f32fcf052d9d8e6d709497d56 lacks external-token-only auth
+and Candidate/CAS enforcement. A small isolated patch adds external credentials
+and a read-only HTTP branch; its original OAuth behavior remains unchanged.
+The generic updatePartStudioFeature POST body contains sourceMicroversion and
+rejectMicroversionSkew; provider documentation describes refusal on mismatch.
+Preflight reads do not provide atomic protection. Live stale-write rejection is
+not accepted merely from the schema. No mutation is enabled while the supported
+plugin-owned native invocation seam is absent. A narrow guarded mutation must
+consume an approved exact payload/attempt before dispatch and reconcile UNKNOWN
+without retry; raw generic writes must remain impossible through alternate routes.
+
+### Rejected alternatives
+
+Second user consent, shared refresh credentials, Clawake credential brokerage,
+agent-mounted token files, token CLI arguments, custom MCP proxy, direct Engineer
+REST and enabling writes to compensate for an unavailable native seam.
+
+### Implementation checkpoint — 2026-10-12
+
+Clawake deployed the separate pinned service; native operator discovery verifies
+five external-mode provider tool names and two native resource helpers. Production
+registry is local and disabled. Access-only handoff and read-only containment tests
+pass. Full upstream source schemas are preserved separately and are not native
+catalog acceptance. Independent REST baseline remains plateWidth = 50 mm.
+No Candidate creation or mutation occurred. The embedded catalog advertises API
+v16 while the isolated execution adapter deliberately fixes API v10 to match the
+existing REST path; exact mutation compatibility remains unaccepted. Native
+plugin invocation, complete schema acceptance, Candidate/CAS execution and durable
+mutation receipts remain mandatory gates. See the dated integration report.

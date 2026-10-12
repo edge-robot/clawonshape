@@ -1,0 +1,210 @@
+{
+  "upstream": "f78ddc48a445765f32fcf052d9d8e6d709497d56",
+  "servers": [
+    {
+      "url": "https://cad.onshape.com/api/v16",
+      "description": "Current"
+    }
+  ],
+  "operation": {
+    "tags": [
+      "PartStudio"
+    ],
+    "summary": "Update the definition of a Part Studio feature.",
+    "description": "Replaces an existing feature in the location of the existing feature. See the [Features API Guide](https://onshape-public.github.io/docs/api-adv/featureaccess/) for additional information.",
+    "operationId": "updatePartStudioFeature",
+    "parameters": [
+      {
+        "name": "did",
+        "in": "path",
+        "description": "Document ID.",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "wid",
+        "in": "path",
+        "description": "Workspace ID.",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "eid",
+        "in": "path",
+        "description": "Element ID.",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "fid",
+        "in": "path",
+        "description": "The id of the feature being updated. This id should be URL encoded and must match the featureId found in the serialized structure",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "requestBody": {
+      "description": "feature The serialized feature definition",
+      "content": {
+        "application/json;charset=UTF-8; qs=0.09": {
+          "schema": {
+            "$ref": "#/components/schemas/BTFeatureDefinitionCall-1406"
+          }
+        }
+      }
+    },
+    "responses": {
+      "default": {
+        "description": "default response",
+        "content": {
+          "application/json;charset=UTF-8; qs=0.09": {
+            "schema": {
+              "$ref": "#/components/schemas/BTFeatureDefinitionResponse-1617"
+            }
+          }
+        }
+      }
+    },
+    "deprecated": false,
+    "security": [
+      {
+        "OAuth2": [
+          "OAuth2Write"
+        ],
+        "BasicAuth": [
+          "OAuth2Write"
+        ]
+      }
+    ],
+    "x-BTVisibility": "PRODUCTION"
+  },
+  "path": "/partstudios/d/{did}/w/{wid}/e/{eid}/features/featureid/{fid}",
+  "schemas": {
+    "BTFeatureDefinitionCall-1406": {
+      "type": "object",
+      "properties": {
+        "btType": {
+          "type": "string",
+          "description": "Type of JSON object."
+        },
+        "feature": {
+          "$ref": "#/components/schemas/BTMFeature-134"
+        },
+        "libraryVersion": {
+          "type": "integer",
+          "description": "FeatureScript version used in the Part Studio. Do not modify.",
+          "format": "int32"
+        },
+        "microversionSkew": {
+          "type": "boolean",
+          "description": "On output, `true` indicates a microversion mismatch was encountered."
+        },
+        "rejectMicroversionSkew": {
+          "type": "boolean",
+          "description": "If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion."
+        },
+        "serializationVersion": {
+          "type": "string",
+          "description": "Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates."
+        },
+        "sourceMicroversion": {
+          "type": "string",
+          "description": "The state from which the result was extracted. Geometry ID interpretation is dependent on this document microversion."
+        }
+      }
+    },
+    "BTFeatureDefinitionResponse-1617": {
+      "type": "object",
+      "properties": {
+        "btType": {
+          "type": "string",
+          "description": "Type of JSON object."
+        },
+        "feature": {
+          "$ref": "#/components/schemas/BTMFeature-134"
+        },
+        "featureState": {
+          "$ref": "#/components/schemas/BTFeatureState-1688"
+        },
+        "libraryVersion": {
+          "type": "integer",
+          "description": "FeatureScript version used in the Part Studio. Do not modify.",
+          "format": "int32"
+        },
+        "microversionSkew": {
+          "type": "boolean",
+          "description": "On output, `true` indicates a microversion mismatch was encountered."
+        },
+        "rejectMicroversionSkew": {
+          "type": "boolean",
+          "description": "If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion."
+        },
+        "serializationVersion": {
+          "type": "string",
+          "description": "Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates."
+        },
+        "sourceMicroversion": {
+          "type": "string",
+          "description": "The state from which the result was extracted. Geometry ID interpretation is dependent on this document microversion."
+        }
+      }
+    },
+    "BTFeatureApiBase-1430": {
+      "type": "object",
+      "properties": {
+        "btType": {
+          "type": "string",
+          "description": "Type of JSON object."
+        },
+        "libraryVersion": {
+          "type": "integer",
+          "description": "FeatureScript version used in the Part Studio. Do not modify.",
+          "format": "int32"
+        },
+        "microversionSkew": {
+          "type": "boolean",
+          "description": "On output, `true` indicates a microversion mismatch was encountered."
+        },
+        "rejectMicroversionSkew": {
+          "type": "boolean",
+          "description": "If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion."
+        },
+        "serializationVersion": {
+          "type": "string",
+          "description": "Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates."
+        },
+        "sourceMicroversion": {
+          "type": "string",
+          "description": "The state from which the result was extracted. Geometry ID interpretation is dependent on this document microversion."
+        }
+      },
+      "discriminator": {
+        "propertyName": "btType",
+        "mapping": {
+          "BTAssemblyFeatureListResponse-1174": "#/components/schemas/BTAssemblyFeatureListResponse-1174",
+          "BTConfigurationResponse-2019": "#/components/schemas/BTConfigurationResponse-2019",
+          "BTConfigurationUpdateCall-2933": "#/components/schemas/BTConfigurationUpdateCall-2933",
+          "BTFeatureDefinitionCall-1406": "#/components/schemas/BTFeatureDefinitionCall-1406",
+          "BTFeatureDefinitionResponse-1617": "#/components/schemas/BTFeatureDefinitionResponse-1617",
+          "BTFeatureListResponse-2457": "#/components/schemas/BTFeatureListResponse-2457",
+          "BTFeatureScriptEvalCall-2377": "#/components/schemas/BTFeatureScriptEvalCall-2377",
+          "BTFeatureScriptEvalResponse-1859": "#/components/schemas/BTFeatureScriptEvalResponse-1859",
+          "BTFeatureSpecsResponse-664": "#/components/schemas/BTFeatureSpecsResponse-664",
+          "BTFeatureStudioContents-2239": "#/components/schemas/BTFeatureStudioContents-2239",
+          "BTSetFeatureRollbackCall-1899": "#/components/schemas/BTSetFeatureRollbackCall-1899",
+          "BTSetFeatureRollbackResponse-1042": "#/components/schemas/BTSetFeatureRollbackResponse-1042",
+          "BTUpdateFeaturesCall-1748": "#/components/schemas/BTUpdateFeaturesCall-1748",
+          "BTUpdateFeaturesResponse-1333": "#/components/schemas/BTUpdateFeaturesResponse-1333"
+        }
+      }
+    }
+  }
+}

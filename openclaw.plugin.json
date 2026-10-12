@@ -1,7 +1,7 @@
 {
   "id": "claw-onshape",
   "name": "Claw-Onshape",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Scoped Onshape REST reads and separate OAuth/MCP foundations",
   "enabledByDefault": false,
   "activation": {
@@ -244,6 +244,24 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
+            "pattern": "^/"
+          }
+        }
+      },
+      "localMcp": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "connectionRef",
+          "credentialDirectory"
+        ],
+        "properties": {
+          "connectionRef": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "credentialDirectory": {
+            "type": "string",
             "pattern": "^/"
           }
         }

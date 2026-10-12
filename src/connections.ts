@@ -27,7 +27,7 @@ export function connectionLifecycle(current:()=>Config,stateDir:()=>string,origi
     try{assertPrivateFile(c.oauth.clientSecretFile);}catch{return report('oauth_configuration_required');}
     if(!b||!name)return report('disconnected');
     if(pending.has(name))return report('authorization_in_progress');
-    const s=await credentials(stateDir(),name,connectionOwner(b)),code=s.status();
+    const s=await credentials(stateDir(),name,connectionOwner(b),current().localMcp?.connectionRef===name?current().localMcp?.credentialDirectory:undefined),code=s.status();
     let scopes:readonly string[]|undefined;try{scopes=s.read(true).scopes;}catch{}
     if(code==='unavailable')return report('credential_store_unavailable',false,scopes);
     if(code==='expired')return report('reconnect_required',false,scopes);
@@ -45,7 +45,7 @@ export function connectionLifecycle(current:()=>Config,stateDir:()=>string,origi
     if(!redirect||!origins().includes(new URL(redirect).origin))throw new Error('dashboard_callback_required');
     if(pending.size)throw new Error('connection_busy_or_state_unavailable');
     let clientSecret:string;try{clientSecret=await privateSecret(c.oauth.clientSecretFile);}catch{throw new Error('oauth_configuration_required');}
-    const store=await credentials(stateDir(),name,connectionOwner(b));
+    const store=await credentials(stateDir(),name,connectionOwner(b),current().localMcp?.connectionRef===name?current().localMcp?.credentialDirectory:undefined);
     if(pending.size)throw new Error('connection_busy_or_state_unavailable');
     let publish!:(v:{authorizationUrl:string;code:string;message:string})=>void,fail!:(e:Error)=>void;
     const started=new Promise<{authorizationUrl:string;code:string;message:string}>((r,j)=>{publish=r;fail=j;});
@@ -89,6 +89,6 @@ export function connectionLifecycle(current:()=>Config,stateDir:()=>string,origi
     }catch{a?.finish(new Error('oauth_reconnect_required'));res.writeHead(400).end('Authorization could not be completed. Return to the dashboard and choose Connect Onshape again.');}
     finally{if(a){a.callbacks--;if(a.closing)a.finish();await works.get(a.ref);}}
   };
-  const disconnect=async(name:string)=>{if(pending.has(name))throw new Error('connection_busy_or_state_unavailable');const {binding:b}=selected(name);const store=await credentials(stateDir(),name,connectionOwner(b));await store.exclusive(()=>store.save(null));outcomes.delete(name);return state('disconnected');};
+  const disconnect=async(name:string)=>{if(pending.has(name))throw new Error('connection_busy_or_state_unavailable');const {binding:b}=selected(name);const store=await credentials(stateDir(),name,connectionOwner(b),current().localMcp?.connectionRef===name?current().localMcp?.credentialDirectory:undefined);await store.exclusive(()=>store.save(null));outcomes.delete(name);return state('disconnected');};
   return {status,start,callback,disconnect,cancel:async()=>{for(const a of pending.values())a.finish(new Error('oauth_connect_expired'));await Promise.all(works.values());}};
 }

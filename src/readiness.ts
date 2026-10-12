@@ -58,6 +58,7 @@ export function userError(error:unknown){const code=error instanceof Error && er
 // Operator dashboard metadata only; never attached to agent readiness results.
 export type McpReadiness = {
   provider: 'onshape';
+  local?: {configured:boolean;running:boolean|null;credential:'AVAILABLE'|'MISSING'|'EXPIRED'|'UNKNOWN';expiry?:string;refreshOwner:'claw-onshape'};
   configured: boolean | null;
   enabled: boolean | null;
   oauth: {

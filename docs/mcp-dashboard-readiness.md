@@ -70,3 +70,19 @@ Deployment and operator browser/Lead continuation are recorded in the
 [Clawake deployment guide](clawake-mcp-dashboard-deployment-2026-10-12.md).
 The Lead role explains that Clawake administration belongs to the owning host
 operator outside the agent sandbox; this does not grant host tools to agents.
+
+## ADR-018 amendment — self-hosted status (2026-10-12)
+
+The separate hosted OAuth discussion above is historical for the local connector.
+Claw-Onshape remains the sole OAuth/refresh owner; no MCP login or hosted consent
+is required. Operator metadata now distinguishes local configuration, liveness,
+credential AVAILABLE/MISSING/EXPIRED/UNKNOWN and refresh ownership. Native saved
+registry enabled/configured remains independent of service liveness. Dashboard
+responses contain neither token nor credential path and are not attached to agent
+readiness results.
+
+Discovery remains UNKNOWN in the live dashboard because it does not store or
+reinterpret a names-only operator probe as complete current schema acceptance.
+The dated operator probe is PASS for tool names only. Mutation remains BLOCKED
+regardless of process or token availability. REST readiness retains its previous
+behavior. See [the integration report](self-hosted-mcp-integration-2026-10-12.md).

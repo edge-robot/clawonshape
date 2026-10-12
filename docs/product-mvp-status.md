@@ -206,3 +206,22 @@ administration outside the agent sandbox, without adding tool grants. Retained
 Codex conversations may need an operator-started /new. No OAuth, authenticated
 MCP discovery, CAD calls or Discord delivery was initiated. See
 [deployment and remaining operator steps](clawake-mcp-dashboard-deployment-2026-10-12.md).
+
+## Self-hosted MCP deployment checkpoint — 2026-10-12
+
+Claw-Onshape 0.2.2 is installed in Engineer; Lead retains its existing version and
+read/render configuration. Clawake manages the pinned separate local MCP service,
+private network, non-root isolation, health and restart. Claw-Onshape publishes
+access-only credentials and remains the only refresh owner. The operator renewed
+Read consent; liveness and credential readiness are HTTP 200. Native operator
+Discovery passes for five provider tools plus two native resource helpers. Saved
+production MCP points locally and remains disabled; agent grants, bindings, A2A
+and Discord configuration are preserved.
+
+Independent REST observation at 18:08:07 UTC confirms Camera Mount Plate
+plateWidth = 50 mm, feature state OK and microversion b83ee0a0efcda65537780ef8;
+a pinned render and feature baseline are preserved. This is REST acceptance,
+not native MCP auth/document/feature invocation acceptance. No new Discord journey,
+Candidate creation or CAD write is claimed. Full native schemas and a supported
+owner-bound plugin invocation interface remain blocked. Mutation is BLOCKED.
+See [the integration report](self-hosted-mcp-integration-2026-10-12.md).

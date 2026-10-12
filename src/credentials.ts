@@ -1,4 +1,5 @@
 import path from 'node:path';
+import {publishMcpCredential} from './mcp-credentials.ts';
 import {open,lstat,realpath,unlink} from 'node:fs/promises';
 import {lstatSync,realpathSync} from 'node:fs';
 import {ref} from './config.ts';
@@ -18,7 +19,7 @@ export async function privateSecret(filePath:string):Promise<string> {
   }catch{throw new Error('private_secret_unavailable');}
 }
 // Native host helpers own permission, symlink and atomic-file handling.
-export async function credentials(stateDir:string, connectionRef:string, owner:string) {
+export async function credentials(stateDir:string, connectionRef:string, owner:string, handoffDirectory?:string) {
   if (!ref(connectionRef) || !path.isAbsolute(stateDir) || !/^[a-f0-9]{64}$/.test(owner)) throw new Error('invalid_connection');
   const filePath=path.join(stateDir,'claw-onshape','credentials',`${connectionRef}.json`);
   const native=await import('openclaw/plugin-sdk/secret-file-runtime');
@@ -47,8 +48,10 @@ export async function credentials(stateDir:string, connectionRef:string, owner:s
   return {
     exclusive,
     async save(tokens:Tokens | null):Promise<void> {
+      if(handoffDirectory)await publishMcpCredential(handoffDirectory,null);
       try {await native.writePrivateSecretFileAtomic({rootDir:stateDir,filePath,content:JSON.stringify({owner,tokens}),durable:'file'});}
       catch {throw new Error('credential_store_unavailable');}
+      if(handoffDirectory&&tokens)await publishMcpCredential(handoffDirectory,tokens);
     },
     status(): 'disconnected'|'expired'|'connected'|'unavailable' {
       try{assertPrivateFile(filePath);const r=JSON.parse(native.readSecretFileSync(filePath,'Onshape connection',{rejectSymlink:true}));

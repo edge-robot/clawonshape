@@ -281,3 +281,14 @@ containment, atomic revision enforcement, guarded native invocation and an exact
 Part Studio contract. The dashboard changes no native settings or grants and
 has no MCP Connect/Disconnect controls. Native operator onboarding remains the
 future consent owner. [Detailed contract](../mcp-dashboard-readiness.md).
+
+## Self-hosted amendment — 2026-10-12
+
+ADR-018 supersedes this document's hosted separate-OAuth assumptions for the local
+connector. Claw-Onshape owns OAuth and the only refresh lifecycle; Clawake manages
+a separate private MCP service. Access-only atomic runtime handoff replaces the
+hosted MCP OAuth resource flow. REST Candidate preparation already exists internally
+with persistent uncertainty fencing; it is not missing and does not move to MCP.
+See [current topology and boundaries](../self-hosted-mcp-architecture.md) and
+[feature inventory](../self-hosted-mcp-feature-matrix.md). Production raw MCP remains
+disabled until supported guarded native invocation is demonstrated.

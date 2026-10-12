@@ -131,3 +131,17 @@ Unified Discord/Onshape dashboard provisioning, trusted multi-user onboarding,
 canonical account verification, public-client distribution and credential-based
 promotion gates require separate product/security scope. Provenance/duplicate
 cleanup is a structural deployment follow-up. No automatic merge or printing.
+
+## Self-hosted checkpoint — superseding next increment (2026-10-12)
+
+ADR-018 supersedes the hosted MCP OAuth assumption for the local connector. The
+Clawake service, sole REST refresh owner, access-only handoff and native operator
+discovery are implemented and tested. The production registry points locally but
+remains disabled. No Candidate has been created and no CAD write attempted.
+
+The previous next-increment sections remain historical. Exactly one next task:
+add a supported owner-bound native OpenClaw MCP acquisition/invocation interface
+that returns complete tool schemas to Claw-Onshape without projecting raw tools
+into Engineer sessions. This interface must precede guarded mutation construction,
+Candidate execution and a live approval request. See the
+[integration report](../self-hosted-mcp-integration-2026-10-12.md) for remaining gates.

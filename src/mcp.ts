@@ -1,7 +1,11 @@
 import {execFile} from 'node:child_process';
+import path from 'node:path';
+import {readFile} from 'node:fs/promises';
+import {assertPrivateFile} from './credentials.ts';
+import type {LocalMcp} from './config.ts';
 import {unknownMcpReadiness} from './readiness.ts';
 import type {McpReadiness} from './readiness.ts';
-export const MCP_URL='https://fs-mcp.labs.onshape.app/mcp';
+export const MCP_URL='http://clawonshape-mcp:8080/mcp';
 export type Capability = {name:string; enabled:false; reason:'mcp_execution_disabled'};
 export function filterCatalog(value:unknown):Capability[] {
   const v=value as {tools?:unknown;diagnostics?:unknown};
@@ -73,4 +77,25 @@ async function nativeStatus(args:string[]):Promise<string> {
   return new Promise((resolve,reject)=>execFile('openclaw',args,{timeout:15000,maxBuffer:1024*1024},(error,stdout)=>{
     if(error)reject(new Error('native_mcp_status_unavailable'));else resolve(stdout);
   }));
+}
+
+// Operator-only projection. Static native status is separate from service liveness,
+// credential expiry and successful authenticated discovery.
+export async function localMcpReadiness(base:McpReadiness,config:LocalMcp,fetcher:typeof fetch=fetch,now=Date.now()):Promise<McpReadiness>{
+  const local:NonNullable<McpReadiness['local']>={configured:true,running:null,credential:'UNKNOWN',refreshOwner:'claw-onshape'};
+  const file=path.join(config.credentialDirectory,'access-token.json');
+  try{
+    assertPrivateFile(file);const raw=await readFile(file,'utf8');if(Buffer.byteLength(raw)>16384)throw new Error();
+    const c=JSON.parse(raw);
+    if(c===null)local.credential='MISSING';
+    else if(record(c)&&Object.keys(c).every(k=>['accessToken','expiresAt','scopes'].includes(k))&&typeof c.accessToken==='string'&&c.accessToken.length>0&&!/\s/.test(c.accessToken)&&Number.isSafeInteger(c.expiresAt)&&Array.isArray(c.scopes)&&c.scopes.includes('OAuth2Read')){
+      const expiry=c.expiresAt as number;
+      if(expiry<=0||expiry>8640000000000000)throw new Error();
+      local.expiry=new Date(expiry).toISOString();local.credential=expiry<=now+30000?'EXPIRED':'AVAILABLE';
+    }
+  }catch(e){if((e as {code?:string}).code==='ENOENT')local.credential='MISSING';}
+  try{const response=await fetcher(new URL('/health',MCP_URL),{signal:AbortSignal.timeout(2000),redirect:'error'});local.running=response.status===200;await response.body?.cancel();}catch{local.running=false;}
+  return {...base,local,oauth:{status:'UNKNOWN',storedGrant:null,requiresOperatorAction:local.credential!=='AVAILABLE',reason:'Claw-Onshape owns OAuth and refresh. The local service receives only an expiring access token.'},
+    discovery:{status:'UNKNOWN',reason:'Native local catalog acceptance is separate from service and credential readiness.'},
+    operatorAction:'Validate the local native catalog and guarded invocation. CAD mutation remains blocked.'};
 }

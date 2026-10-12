@@ -1,0 +1,77 @@
+{
+  "evidenceType": "LIVE_NATIVE_DISCOVERY_AND_INDEPENDENT_REST_READS",
+  "upstream": "f78ddc48a445765f32fcf052d9d8e6d709497d56",
+  "patchSha256": "c97f3f80453cd01776552fb85594be2756e9871f32099e1a97dbc33c210e46cd",
+  "binarySha256": "b979220bf040c086367842c7aa28e7c01188c564ad4937830cfcd5759c611ec1",
+  "imageDigest": "sha256:d2a4404afabecf7059cd94427104a3b23cc5fe88cfdf371e6980357fd244e90f",
+  "service": {
+    "livenessHttp": 200,
+    "credentialReadinessHttp": 200,
+    "controlledReplacement": "STOP_THEN_CLAWAKE_APPLY_START",
+    "publishedPorts": false,
+    "uid": 1000
+  },
+  "native": {
+    "profile": "onshape-local-readonly-20261012",
+    "nativeDiscovery": "PASS",
+    "tools": [
+      "onshape__onshape_api_call",
+      "onshape__onshape_api_explain",
+      "onshape__onshape_api_schema",
+      "onshape__onshape_api_search",
+      "onshape__onshape_auth_status",
+      "onshape__resources_list",
+      "onshape__resources_read"
+    ],
+    "fullSchemas": "UNAVAILABLE_FROM_NATIVE_CLI",
+    "toolCalls": 0,
+    "agentGrantsChanged": false,
+    "productionEnabled": false
+  },
+  "rest": {
+    "observedAt": "2026-10-12T18:08:07.723Z",
+    "documentId": "8b63eacf80efca72049f8017",
+    "workspaceId": "1e76fac0ddca3ed10ecc9f28",
+    "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
+    "elementId": "7768b96c15d71e78cdbdd7d9",
+    "microversion": "b83ee0a0efcda65537780ef8",
+    "featureId": "F37MrGsqQOiSdYi_0",
+    "parameter": "plateWidth",
+    "expression": "50 mm",
+    "featureStatus": "OK",
+    "primaryAfterMicroversion": "b83ee0a0efcda65537780ef8",
+    "render": {
+      "width": 800,
+      "height": 800,
+      "bytes": 42710,
+      "sha256": "3475c98025ecc2b6abc31eba18db48888843e4fa8570422cc0ab8f048f2e5c26"
+    },
+    "providerWrites": 0,
+    "nativeMcpInvocation": false
+  },
+  "candidate": {
+    "created": false,
+    "liveCreationValidated": false
+  },
+  "mutation": {
+    "attempts": 0,
+    "approvalRequested": false,
+    "status": "BLOCKED"
+  },
+  "automatedTests": {
+    "upstreamRust": {
+      "passed": 697,
+      "failed": 0
+    },
+    "clawOnshape": {
+      "passed": 78,
+      "failed": 0
+    },
+    "clawake": {
+      "passed": 254,
+      "failed": 0
+    },
+    "typecheck": "PASS",
+    "ruffChangedPython": "PASS"
+  }
+}

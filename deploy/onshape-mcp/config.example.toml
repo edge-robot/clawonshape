@@ -1,0 +1,14 @@
+# Non-secret operator configuration, file must be 0600.
+[external_token]
+file = "/run/onshape-credentials/access-token.json"
+document_id = "8b63eacf80efca72049f8017"
+workspace_id = "1e76fac0ddca3ed10ecc9f28"
+element_id = "7768b96c15d71e78cdbdd7d9"
+
+[api]
+timeout = 30
+
+[http]
+host = "0.0.0.0"
+port = 8080
+public_url = "http://clawonshape-mcp:8080"

@@ -16,7 +16,7 @@ export function registerCli(api:OpenClawPluginApi, config:Config):void {
     const root=program.command('onshape').description('Operator Onshape connection management');
     const selected=(name:string) => {
       const b=config.bindings.find(b => b.connectionRef===name);if(!b) throw new Error('unknown_connection');
-      return credentials(api.runtime.state.resolveStateDir(),name,connectionOwner(b));
+      return credentials(api.runtime.state.resolveStateDir(),name,connectionOwner(b),config.localMcp?.connectionRef===name?config.localMcp.credentialDirectory:undefined);
     };
     root.command('status <connection>').action(async(name:string) => {
       let connected=false,grantedScopes:readonly string[]|undefined;
@@ -42,7 +42,7 @@ export function registerCli(api:OpenClawPluginApi, config:Config):void {
     root.command('mcp-discover <server>').option('--live','Authorize native MCP metadata requests',false).action(async(name:string,opts:{live?:boolean}) => {
       if(!opts.live) throw new Error('explicit_live_authorization_required');
       const cfg=api.runtime.config.current();const server=cfg.mcp?.servers?.[name];
-      if(server?.url!==MCP_URL || server.auth!=='oauth' || server.enabled===false) throw new Error('mcp_configuration_required');
+      if(server?.url!==MCP_URL || server.auth==='oauth' || server.enabled===false) throw new Error('mcp_configuration_required');
       process.stdout.write(JSON.stringify(await discover(name))+'\n');
     });
   },{descriptors:[{name:'onshape',description:'Manage Onshape connections',hasSubcommands:true}]});

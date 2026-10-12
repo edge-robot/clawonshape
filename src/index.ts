@@ -8,6 +8,7 @@ import {state,userError} from './readiness.ts';
 import {authorizedBinding,leadBinding,delegateRender,delegationKeySync,signResult} from './delegation.ts';
 import {saveRender,readRender,imageHash} from './render.ts';
 import {accessToken} from './authorization.ts';
+import {mcpTokenOwner} from './mcp-token-owner.ts';
 export default {
   id:'claw-onshape',name:'Claw-Onshape',
   register(api:OpenClawPluginApi) {
@@ -18,6 +19,11 @@ export default {
       return parseConfig(entry.config);
     };
     registerCli(api,config);
+    if(config.localMcp){
+      const owner=mcpTokenOwner(current,()=>api.runtime.state.resolveStateDir());
+      api.lifecycle.registerRuntimeLifecycle({id:'onshape-mcp-access-owner',dispose:owner.dispose,cleanup:owner.dispose});
+      void owner.sync().catch(()=>{});
+    }
     const lifecycle=registerDashboard(api,current);
     api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>) => {
       const initial=authorizedBinding(config,ctx)?.binding;if(!initial) return null;
@@ -38,7 +44,7 @@ export default {
           try {
             if(!params || typeof params!=='object' || Array.isArray(params) || Object.keys(params).length) throw new Error('invalid_arguments');
             const b=guard();
-            const store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b));
+            const store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),current().localMcp?.connectionRef===b.connectionRef?current().localMcp?.credentialDirectory:undefined);
             let usedToken:string | undefined;
             const oauth=current().oauth;
             const tokenGuard=()=>{guard();if(JSON.stringify(current().oauth)!==JSON.stringify(oauth))throw new Error('authorization_changed');};
@@ -84,7 +90,7 @@ export default {
       return {name:'onshape_render',label:'Show Camera Mount Plate',description:'Inspect the configured Camera Mount Plate and return its current Onshape PNG view pinned to the inspected microversion. No CAD writes.',parameters:emptySchema,
         async execute(_id:string,params:unknown){
           const guard=()=>{ctx.assertInvocationCurrent?.();const c=current(),a=authorizedBinding(c,ctx);if(!a||JSON.stringify(a)!==JSON.stringify(initial))throw new Error('authorization_changed');if(!c.liveReads)throw new Error('live_reads_disabled');return a.binding;};
-          try{noArgs(params);const b=guard(),store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b));
+          try{noArgs(params);const b=guard(),store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),current().localMcp?.connectionRef===b.connectionRef?current().localMcp?.credentialDirectory:undefined);
             const oauth=current().oauth;
             const tokenGuard=()=>{guard();if(JSON.stringify(current().oauth)!==JSON.stringify(oauth))throw new Error('authorization_changed');};
             let usedToken:string|undefined;const client=new RestClient(async()=>{usedToken=await accessToken(store,oauth,tokenGuard);return usedToken;});

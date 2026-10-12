@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/altendky/onshape-mcp",
+  "revision": "f78ddc48a445765f32fcf052d9d8e6d709497d56",
+  "workspaceVersion": "0.5.3-dev.0",
+  "license": "MIT OR Apache-2.0",
+  "toolchain": "1.99.0",
+  "patch": "patches/0001-external-token-readonly.patch",
+  "apiBase": "https://cad.onshape.com/api/v10",
+  "mode": "external-token (read-only MVP)",
+  "workingFork": "/home/kaos/Projects/01_pib/02_sw/onshape-mcp",
+  "workingBranch": "claw-onshape/external-token",
+  "workingForkCommit": "80d9f3a8e9cca3d89c3467d1035e5bb4a489bd4d"
+}

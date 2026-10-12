@@ -12,13 +12,14 @@ export type OnshapeApplicationPermissions = Readonly<{
   canReadProfileInformation?: boolean;
 }>;
 export type Delegation = Readonly<{leadAgentId:string; engineerAgentId:string; peerSenderId:string; accountId:string; keyFile:string; transportTokenFile?:string}>;
-export type Config = Readonly<{bindings: readonly Binding[]; oauth?: Readonly<{clientId: string; clientSecretFile: string; dashboardRedirectUri?:string; applicationPermissions:OnshapeApplicationPermissions}>; liveReads: boolean; engineerAgentId?:string; delegation?:Delegation}>;
+export type LocalMcp = Readonly<{connectionRef:string;credentialDirectory:string}>;
+export type Config = Readonly<{localMcp?:LocalMcp;bindings: readonly Binding[]; oauth?: Readonly<{clientId: string; clientSecretFile: string; dashboardRedirectUri?:string; applicationPermissions:OnshapeApplicationPermissions}>; liveReads: boolean; engineerAgentId?:string; delegation?:Delegation}>;
 export const id = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
 export const ref = (value: unknown): value is string => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(value);
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !/[\x00-\x1f]/.test(v);
 export function parseConfig(value: unknown): Config {
-  if (!object(value) || Object.keys(value).some(k => !['bindings','oauth','liveReads','engineerAgentId','delegation'].includes(k)) ||
+  if (!object(value) || Object.keys(value).some(k => !['bindings','oauth','liveReads','engineerAgentId','delegation','localMcp'].includes(k)) ||
       !Array.isArray(value.bindings) || value.bindings.length > 64 ||
       (value.liveReads !== undefined && typeof value.liveReads !== 'boolean')) throw new Error('invalid_configuration');
   const bindings: Binding[] = [];
@@ -68,7 +69,12 @@ export function parseConfig(value: unknown): Config {
       (d.transportTokenFile!==undefined&&(!text(d.transportTokenFile)||!d.transportTokenFile.startsWith('/')))||bindings.some(b=>b.agentId!==d.engineerAgentId))throw new Error('invalid_delegation');
     delegation=Object.freeze({leadAgentId:d.leadAgentId,engineerAgentId:d.engineerAgentId,peerSenderId:d.peerSenderId,accountId:d.accountId,keyFile:d.keyFile,...(d.transportTokenFile?{transportTokenFile:d.transportTokenFile}:{})});
   }
-  return Object.freeze({bindings:Object.freeze(bindings),oauth,liveReads:value.liveReads === true,...(value.engineerAgentId?{engineerAgentId:value.engineerAgentId as string}:{}),...(delegation?{delegation}:{})});
+  let localMcp:LocalMcp|undefined;
+  if(value.localMcp!==undefined){const m=value.localMcp;
+    if(!object(m)||Object.keys(m).some(k=>!['connectionRef','credentialDirectory'].includes(k))||!ref(m.connectionRef)||!text(m.credentialDirectory)||!m.credentialDirectory.startsWith('/')||!bindings.some(b=>b.connectionRef===m.connectionRef))throw new Error('invalid_configuration');
+    localMcp=Object.freeze({connectionRef:m.connectionRef,credentialDirectory:m.credentialDirectory});
+  }
+  return Object.freeze({...(localMcp?{localMcp}:{}),bindings:Object.freeze(bindings),oauth,liveReads:value.liveReads === true,...(value.engineerAgentId?{engineerAgentId:value.engineerAgentId as string}:{}),...(delegation?{delegation}:{})});
 }
 export function dashboardRedirect(value:unknown):boolean {
   try{const u=new URL(value as string);return typeof value==='string' && value===u.href && ['http:','https:'].includes(u.protocol) && ['localhost','127.0.0.1'].includes(u.hostname) && !!u.port && !u.username && !u.password && !u.search && !u.hash && u.pathname==='/plugins/claw-onshape/oauth/callback';}catch{return false;}

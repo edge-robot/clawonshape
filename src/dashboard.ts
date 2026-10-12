@@ -2,7 +2,7 @@ import type {OpenClawPluginApi} from 'openclaw/plugin-sdk/core';
 import type {Config} from './config.ts';
 import {connectionLifecycle,CALLBACK_PATH} from './connections.ts';
 import {userError} from './readiness.ts';
-import {mcpReadiness} from './mcp.ts';
+import {mcpReadiness,localMcpReadiness} from './mcp.ts';
 export function registerDashboard(api:OpenClawPluginApi,current:()=>Config,readMcp:typeof mcpReadiness=mcpReadiness){
   const lifecycle=connectionLifecycle(current,()=>api.runtime.state.resolveStateDir(),()=>api.runtime.config.current().gateway?.controlUi?.allowedOrigins??[]);
   const controls=api.session.controls;
@@ -18,7 +18,8 @@ export function registerDashboard(api:OpenClawPluginApi,current:()=>Config,readM
           const connections=[...new Set(current().bindings.map(b=>b.connectionRef))];
           const name=input?.connectionRef??(connections.length===1?connections[0]:undefined);
           if(actionId==='status'){
-            const mcp=await readMcp();
+            const native=await readMcp(),local=current().localMcp;
+            const mcp=local?await localMcpReadiness(native,local):native;
             let rest;try{rest=await lifecycle.status(name);}catch(e){rest=userError(e);}
             return {ok:true,result:{...rest,connections,mcp}};
           }
