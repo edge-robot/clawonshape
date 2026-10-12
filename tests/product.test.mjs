@@ -4,6 +4,7 @@ import {mkdtemp,writeFile,rm,lstat} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import {deflateSync} from 'node:zlib';
+import {createHash,createHmac} from 'node:crypto';
 import {parseConfig,connectionOwner,channelMatches} from '../dist/config.js';
 import {RestClient} from '../dist/rest.js';
 import {crc32,decodePng,validatePng,saveRender,readRender,imageHash} from '../dist/render.js';
@@ -60,6 +61,44 @@ test('signed A2A context restores exact authorized binding, not peer identity or
   const result={status:'ok',documentId:D,microversionId:M};const proof=signResult(result,contextId,key);
   assert(verifyResult({microversionId:M,documentId:D,status:'ok'},contextId,key,proof));assert(!verifyResult({...result,microversionId:D},contextId,key,proof));assert(!verifyResult(result,contextId+'x',key,proof));
 });
+test('A2A result signatures cover nested fields and arrays independent of object key order',()=>{
+  const context='fixture-context';
+  const result={code:'connected',capabilities:{create_candidate_workspace:{availability:'UNAVAILABLE',reason:'agent_policy_denied',requiredAction:'Keep disabled',checks:{internalAuthorization:'FAIL'}}},references:[{id:D,labels:['first','second']}]};
+  const proof=signResult(result,context,key);
+  const reordered={references:[{labels:['first','second'],id:D}],capabilities:{create_candidate_workspace:{checks:{internalAuthorization:'FAIL'},requiredAction:'Keep disabled',reason:'agent_policy_denied',availability:'UNAVAILABLE'}},code:'connected'};
+  assert(verifyResult(reordered,context,key,proof));
+  assert(verifyResult(JSON.parse(JSON.stringify(result)),context,key,proof));
+  for(const mutate of [
+    r=>{r.capabilities.create_candidate_workspace.availability='AVAILABLE';},
+    r=>{r.capabilities.create_candidate_workspace.reason='all_known_checks_passed';},
+    r=>{r.capabilities.create_candidate_workspace.requiredAction='Request write access';},
+    r=>{r.capabilities.create_candidate_workspace.checks.internalAuthorization='PASS';},
+    r=>{r.capabilities.create_candidate_workspace.extra=true;},
+    r=>{delete r.capabilities.create_candidate_workspace.reason;},
+    r=>{r.references[0].id=E;},
+    r=>{r.references[0].labels.reverse();},
+    r=>{r.references.push({id:E});},
+  ]){const changed=structuredClone(result);mutate(changed);assert(!verifyResult(changed,context,key,proof));}
+  assert(!verifyResult(result,context+'other',key,proof));
+  assert(!verifyResult(result,context,'cd'.repeat(32),proof));
+  assert(!verifyResult(result,context,key,'invalid-proof'));
+  // Previously valid flat result signatures keep their existing representation.
+  const flat={status:'ok',documentId:D,microversionId:M};
+  const oldProof=createHmac('sha256',Buffer.from(key,'hex')).update(`${context}\n${JSON.stringify(flat,Object.keys(flat).sort())}`).digest('hex');
+  assert(verifyResult({...flat},context,key,oldProof));
+});
+test('A2A signing rejects non-JSON fields, cycles, accessors and excessive nesting',()=>{
+  const cycle={};cycle.self=cycle;
+  let deep={};for(let i=0;i<34;i++)deep={nested:deep};
+  let getterCalls=0;const getter=Object.defineProperty({},'field',{enumerable:true,get(){getterCalls++;return 'unsafe';}});
+  const hidden=Object.defineProperty({},'field',{value:'hidden'});
+  const sparse=[];sparse.length=1;
+  const extraArray=[];extraArray.extra='unsigned';
+  const values=[{field:undefined},{field:NaN},{field:Infinity},{field:1n},{field:()=>true},{field:Symbol('x')},new Date(),cycle,deep,getter,hidden,{[Symbol('key')]:'value'},{field:sparse},{field:extraArray}];
+  for(const value of values){assert.throws(()=>signResult(value,'context',key),/^Error: delegation_result_invalid$/);assert.equal(verifyResult(value,'context',key,'0'.repeat(64)),false);}
+  assert.equal(getterCalls,0);
+  assert(verifyResult({field:null,items:[false,0,'']},'context',key,signResult({items:[false,0,''],field:null},'context',key)));
+});
 test('native A2A adapter sends compact signed context, polls same task and rejects unsigned results',async()=>{
   const root=await mkdtemp(path.join(tmpdir(),'onshape-delegate-'));try{
     const keyFile=path.join(root,'key'),transportTokenFile=path.join(root,'transport');await writeFile(keyFile,key,{mode:0o600});await writeFile(transportTokenFile,'fixture-a2a',{mode:0o600});
@@ -68,7 +107,50 @@ test('native A2A adapter sends compact signed context, polls same task and rejec
       if(r.method==='SendMessage'){contextId=r.params.message.contextId;assert.equal(contextId.length,128);assert(!JSON.stringify(r).includes('fixture-a2a'));return json({result:{task:{id:'task',contextId,status:{state:'TASK_STATE_WORKING'}}}});}
       const details={status:'unavailable',code:'disconnected',message:'Connect Onshape'};return json({result:{id:'task',contextId,status:{state:'TASK_STATE_COMPLETED'},artifacts:[{parts:[{text:JSON.stringify({...details,delegationProof:signResult(details,contextId,key)})}]}]}});};
     assert.equal((await delegateRender(c,c.bindings[0],()=>{},fetcher,async()=>{})).code,'disconnected');assert.equal(calls,2);
-    await assert.rejects(delegateRender(c,c.bindings[0],()=>{},async(_u,init)=>{const r=JSON.parse(init.body);return json({result:{id:'task',contextId:r.params.message.contextId,status:{state:'TASK_STATE_COMPLETED'},artifacts:[{parts:[{text:'{"status":"ok"}'}]}]}});},async()=>{}),/delegation_result_invalid/);
+    await assert.rejects(delegateRender(c,c.bindings[0],()=>{},async(_u,init)=>{const r=JSON.parse(init.body);return json({result:{id:'task',contextId:r.params.message.contextId,status:{state:'TASK_STATE_COMPLETED'},artifacts:[{parts:[{text:'{"status":"ok"}'}]}]}});},async()=>{},()=>{}),/delegation_result_invalid/);
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+test('rejected A2A results emit correlated warning audit records without sensitive payloads',async()=>{
+  const root=await mkdtemp(path.join(tmpdir(),'onshape-audit-'));
+  try{
+    const keyFile=path.join(root,'key'),transportTokenFile=path.join(root,'transport');
+    const token='fixture-transport-DO-NOT-LOG';await writeFile(keyFile,key,{mode:0o600});await writeFile(transportTokenFile,token,{mode:0o600});
+    const c=parseConfig({bindings:[B],delegation:{...DC,keyFile,transportTokenFile}});
+    const hash=text=>createHash('sha256').update(text).digest('hex');const logs=[];
+    let contextId,received;
+    const fetcher=mode=>async(_url,init)=>{
+      const req=JSON.parse(init.body);contextId=req.params.message.contextId;
+      const details={status:'unavailable',code:'connected',message:'payload-DO-NOT-LOG\nFORGED WARNING',capabilities:{create_candidate_workspace:{availability:'UNAVAILABLE',reason:'agent_policy_denied'}}};
+      const report={...details,delegationProof:signResult(details,contextId,key)};
+      if(mode==='tampered')report.capabilities.create_candidate_workspace.availability='AVAILABLE';
+      if(mode==='missing')delete report.delegationProof;
+      if(mode==='format')report.delegationProof='proof-DO-NOT-LOG';
+      received=mode==='json'?'invalid-json-DO-NOT-LOG':mode==='object'?'[]':JSON.stringify(report);
+      return json({result:{id:'task-DO-NOT-LOG',contextId:mode==='context'?'foreign-context-DO-NOT-LOG':contextId,status:{state:'TASK_STATE_COMPLETED'},artifacts:[{parts:[{text:received}]}]}});
+    };
+    for(const [mode,reason] of [['tampered','result_signature_mismatch'],['missing','missing_result_proof'],['format','invalid_result_proof_format'],['json','invalid_result_json'],['object','invalid_result_object'],['context','task_context_mismatch']]){
+      logs.length=0;
+      await assert.rejects(delegateRender(c,c.bindings[0],()=>{},fetcher(mode),async()=>{},m=>logs.push(m)),mode==='context'?/delegation_denied/:/delegation_result_invalid/);
+      assert.equal(logs.length,1);assert.match(logs[0],/^WARNING: Claw-Onshape rejected an unverified A2A result/);
+      const event=JSON.parse(logs[0].slice(logs[0].indexOf('{')));
+      assert.equal(event.event,'claw_onshape.a2a_result_rejected');assert.equal(event.schemaVersion,1);assert.equal(event.reason,reason);
+      assert.equal(event.severity,'WARNING');assert.equal(event.outcome,'rejected');assert.equal(new Date(event.timestamp).toISOString(),event.timestamp);
+      assert.match(event.eventId,/^[a-f0-9-]{36}$/);assert.match(event.bindingDigest,/^[a-f0-9]{32}$/);
+      assert.equal(event.leadAgentId,DC.leadAgentId);assert.equal(event.engineerAgentId,DC.engineerAgentId);assert.equal(event.contextSha256,hash(contextId));
+      if(mode!=='context'){assert.equal(event.taskSha256,hash('task-DO-NOT-LOG'));assert.equal(event.receivedResultSha256,hash(received));}
+      for(const secret of [key,token,contextId,'DO-NOT-LOG','FORGED WARNING','delegationProof'])assert(!logs[0].includes(secret));
+      assert(!logs[0].includes('\n'));
+    }
+    logs.length=0;await delegateRender(c,c.bindings[0],()=>{},fetcher('valid'),async()=>{},m=>logs.push(m));assert.equal(logs.length,0);
+    const originalWarn=console.warn;console.warn=m=>logs.push(m);
+    try{await assert.rejects(delegateRender(c,c.bindings[0],()=>{},fetcher('tampered'),async()=>{},()=>{throw new Error('logger-error-DO-NOT-LOG');}),/delegation_result_invalid/);assert.equal(logs.length,1);assert(!logs[0].includes('DO-NOT-LOG'));}finally{console.warn=originalWarn;}
+    logs.length=0;
+    // Exercise actual plugin logger wiring through the Lead tool, not only the callback.
+    const factories=[];plugin.register({logger:{warn:m=>logs.push(m)},pluginConfig:c,registerTool:f=>factories.push(f.create??f),registerCli:()=>{},session:{controls:{registerSessionAction:()=>{}}},registerHttpRoute:()=>{},lifecycle:{registerRuntimeLifecycle:()=>{}},runtime:{state:{resolveStateDir:()=>root},config:{current:()=>({plugins:{entries:{'claw-onshape':{enabled:true,config:c}}}})}}});
+    const ctx={agentId:DC.leadAgentId,requesterSenderId:B.requesterSenderId,messageChannel:B.messageChannel,agentAccountId:B.agentAccountId,deliveryContext:{channel:'discord',to:B.discordChannelId}};
+    const tool=factories.map(f=>f(ctx)).find(t=>t?.name==='onshape_delegate_render');assert(tool);
+    const previous=globalThis.fetch;globalThis.fetch=fetcher('tampered');
+    try{const result=await tool.execute('audit-test',{});assert.equal(result.isError,true);assert.equal(result.details.code,'delegation_result_invalid');assert.equal(logs.length,1);assert(logs[0].includes('result_signature_mismatch'));}finally{globalThis.fetch=previous;}
   }finally{await rm(root,{recursive:true,force:true});}
 });
 test('dashboard consent shares private store, enforces state/origin and updates readiness',async()=>{

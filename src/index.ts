@@ -102,7 +102,7 @@ export default {
       return {name:'onshape_delegate_render',label:'Ask Mechanical Engineer for Camera Mount Plate',description:'Delegate a configured, requester-authorized read/render task to the Mechanical Engineer over native A2A. Lead receives no Onshape credential or direct CAD capability.',parameters:emptySchema,
         async execute(_id:string,params:unknown){
           const guard=()=>{ctx.assertInvocationCurrent?.();const c=current();if(JSON.stringify(leadBinding(c,ctx))!==JSON.stringify(b)||JSON.stringify(c.delegation)!==JSON.stringify(config.delegation))throw new Error('authorization_changed');};
-          try{noArgs(params);guard();const details=await delegateRender(current(),b,guard);guard();
+          try{noArgs(params);guard();const details=await delegateRender(current(),b,guard,undefined,undefined,message=>api.logger.warn(message));guard();
             if(details.status!=='ok')return {content:[{type:'text' as const,text:typeof details.message==='string'?details.message:'The Mechanical Engineer could not load the Camera Mount Plate.'}],details,isError:true};
             if(details.documentId!==b.documentId||details.workspaceId!==b.workspaceId||details.elementId!==b.elementId||!id(details.microversionId)||typeof details.filePath!=='string'||typeof details.sha256!=='string'||!ctx.workspaceDir)throw new Error('delegation_denied');
             const bytes=await readRender(ctx.workspaceDir,details.filePath,details.sha256);guard();
