@@ -7,7 +7,7 @@ asset_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 build_dir=${CLAW_ONSHAPE_BUILD_DIR:?Set CLAW_ONSHAPE_BUILD_DIR to an empty build directory}
 mkdir -p "$build_dir"
 git clone "${CLAW_ONSHAPE_SOURCE_REPOSITORY:-https://github.com/edge-robot/onshape-mcp.git}" "$build_dir/source"
-git -C "$build_dir/source" checkout --detach 116bce6c1660045878b6c6b8a5e5fbff0b654f9f
+git -C "$build_dir/source" checkout --detach 612de76266efedc6b1f7fcc1fafe3063837ae8da
 podman run --rm --userns keep-id --user 1000:1000 -e CARGO_HOME=/build/.cargo \
   -v "$build_dir/source:/build:rw" -w /build \
   docker.io/library/rust:1.99-slim@sha256:2752b332db73fdbb7dc576f06c82ed1f312005784ef913d7e04a28f5f55dc581 \
@@ -16,4 +16,4 @@ mkdir -p "$build_dir/image"
 cp "$build_dir/source/target/debug/onshape-mcp" "$build_dir/image/onshape-mcp"
 cp "$build_dir/source/LICENSE-MIT" "$build_dir/source/LICENSE-APACHE" "$build_dir/image/"
 cp "$asset_dir/Dockerfile" "$build_dir/image/Dockerfile"
-podman build --tag localhost/clawonshape-mcp:116bce6-external-token-v2 "$build_dir/image"
+podman build --tag localhost/clawonshape-mcp:612de76-external-token-v3 "$build_dir/image"
