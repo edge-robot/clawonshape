@@ -18,4 +18,8 @@ The patch has no project IDs, feature names, Claw-Onshape package dependency,
 workflow engine or VC framework. Review target scope extensibility and Linux-only
 external credential I/O with upstream before proposing PRs. Non-external upstream
 OAuth retry behavior is unchanged; bounded mutation safety is claimed only for
-external-token execution. Detailed security semantics are in the local fork’s `docs/target-policy.md`; both new fork commits remain local until publication.
+external-token execution. Detailed security semantics are in the fork's
+`docs/target-policy.md`. The generic Rust changes and overview documentation are
+published on `edge-robot/onshape-mcp:claw-onshape/external-token`; the runtime build
+remains pinned to implementation revision `612de76266efedc6b1f7fcc1fafe3063837ae8da`.
+No changes were pushed to altendky/onshape-mcp and no branch was merged.

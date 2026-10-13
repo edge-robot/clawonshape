@@ -13,7 +13,8 @@
   "implementationCommit": "ff8b6d8dc347f79a2caeb332817f8dfecc7f6194",
   "forkRevision": "612de76266efedc6b1f7fcc1fafe3063837ae8da",
   "mutationApiBase": "https://cad.onshape.com/api/v16",
-  "buildSource": "pinned fork revision (local commits; not pushed)",
+  "buildSource": "pinned published revision from edge-robot/onshape-mcp",
+  "forkPublished": true,
   "historicalPatch": "patches/0001-external-token-readonly.patch",
   "imageDigest": "sha256:51fff34f3180a2c2bf5ede12f89c3b88e8290640696b54131fd3c1b21c51cde6",
   "binarySha256": "3afe162c304ef4bd2cfa10e4ee3d00b718ae5644ce35d94c72815e365986a26e"

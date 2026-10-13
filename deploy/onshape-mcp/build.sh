@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Run from the owning host; no credentials or production filesystem are mounted.
-# Until the fork commits are published, set CLAW_ONSHAPE_SOURCE_REPOSITORY to
-# the local onshape-mcp checkout. Clone checks out the exact commit, not its worktree.
+# The pinned revision is published in edge-robot/onshape-mcp. An optional
+# CLAW_ONSHAPE_SOURCE_REPOSITORY override still checks out the exact commit.
 asset_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 build_dir=${CLAW_ONSHAPE_BUILD_DIR:?Set CLAW_ONSHAPE_BUILD_DIR to an empty build directory}
 mkdir -p "$build_dir"
