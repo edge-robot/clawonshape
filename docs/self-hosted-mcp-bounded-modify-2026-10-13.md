@@ -45,6 +45,10 @@ and ADR-018 updated.
 
 ## E. MCP contract
 
+**Superseded checkpoint:** the later [native Engineer read test](native-mcp-engineer-readonly-2026-10-13.md)
+proves native explain/schema and authenticated feature invocation without an
+OpenClaw change or plugin MCP handle. Preserve the following as earlier evidence.
+
 Actual binary stdio tools/list exposes all five external-mode input schemas;
 explain/updatePartStudioFeature and schema/BTFeatureDefinitionCall-1406 PASS.
 OutputSchema is optional; dynamic API results do not advertise one. No schema
@@ -133,6 +137,6 @@ See [machine-readable evidence](evidence/self-hosted-mcp-bounded-modify-2026-10-
 
 ## L. Exactly one next task
 
-**Establish a supported lifecycle-owner-bound OpenClaw native catalog/schema and
-invocation handle**, accepted first through read-only target calls, without a
-custom MCP client or raw production write exposure.
+The earlier proposed plugin handle is unnecessary for native agent invocation.
+The next task is now [Gateway-owned read-only lifecycle acceptance](native-mcp-engineer-readonly-2026-10-13.md),
+following the successful native feature read and the separate CLI cleanup failure.

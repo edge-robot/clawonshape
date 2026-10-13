@@ -1018,3 +1018,20 @@ lifecycle owner. No runtime upgrade, private scheduler injection or custom clien
 is used to evade this limit. Production connector and mutations stay disabled
 until native schema/call acceptance and all live gates pass. No candidate,
 mutation, version or export is implied by this amendment.
+
+### ADR-018 native agent acceptance correction — 2026-10-13
+
+The Mechanical Engineer calls native MCP tools directly through OpenClaw; plugin
+tools own orchestration and independent REST inspection/verification. A public
+plugin-to-MCP handle is not required for this interaction. The earlier missing
+plugin handle and names-only CLI output must not be treated as proof that the
+native agent lacks MCP invocation or argument schemas.
+
+An isolated native LLM turn in the existing Engineer container successfully
+invoked auth metadata, explain, schema and the exact-target feature GET. A small
+generic fork fix admits the OpenAPI builder's JSON Accept header, preserving every
+target/revision/write restriction and Sans-IO decision logic. No OpenClaw patch
+or Claw-Onshape MCP wrapper is introduced. Production remains disabled and all
+CAD writes denied. One-shot Codex client cleanup still fails; Gateway-owned
+isolated lifecycle acceptance is the next test. See the
+[native read evidence](native-mcp-engineer-readonly-2026-10-13.md).

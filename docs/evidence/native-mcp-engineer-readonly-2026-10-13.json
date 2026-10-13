@@ -1,0 +1,183 @@
+{
+  "capturedAt": "2026-10-13T17:15:55.543Z",
+  "status": "PARTIAL \u2014 native MCP read PASS; one-shot CLI cleanup FAILED",
+  "container": "clawcad-mechanical-engineer",
+  "runtime": "OpenClaw 2026.9.9 (bcfc888)",
+  "mode": "native agent exec, LLM, direct tools, separate config/state/workspace",
+  "nativeCalls": [
+    {
+      "type": "dynamicToolCall",
+      "id": "exec-cc926d7d-6ab4-4767-b58b-49841b9ea11a",
+      "namespace": "openclaw",
+      "tool": "onshape__onshape_auth_status",
+      "arguments": {
+        "validate": false
+      },
+      "status": "completed",
+      "contentItems": [
+        {
+          "type": "inputText",
+          "text": "{\"status\":\"not_validated\",\"auth_method\":\"oauth\",\"last_check\":null,\"message\":\"OAuth access token present but not yet validated against Onshape API\"}"
+        }
+      ],
+      "success": true,
+      "durationMs": 65
+    },
+    {
+      "type": "dynamicToolCall",
+      "id": "exec-a3044ad0-c65a-4718-8c78-233bd9f0a86b",
+      "namespace": "openclaw",
+      "tool": "onshape__onshape_api_explain",
+      "arguments": {
+        "endpoint": "getPartStudioFeatures"
+      },
+      "status": "completed",
+      "contentItems": [
+        {
+          "type": "inputText",
+          "text": "{\"operation_id\":\"getPartStudioFeatures\",\"method\":\"GET\",\"path\":\"/partstudios/d/{did}/{wvm}/{wvmid}/e/{eid}/features\",\"description\":\"See the [Features API Guide](https://onshape-public.github.io/docs/api-adv/featureaccess/) for additional information.\",\"tags\":[\"PartStudio\"],\"parameters\":[{\"name\":\"did\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"The id of the document in which to perform the operation.\"},{\"name\":\"linkDocumentId\",\"location\":\"query\",\"required\":false,\"param_type\":\"string\",\"description\":\"The id of the document through which the above document should be accessed; only applicable when accessing a version of the document. This allows a user who has access to document a to see data from document b, as long as document b has been linked to document a by a user who has permission to both.\",\"default\":\"\"},{\"name\":\"wvm\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"Indicates which of workspace (w), version (v), or document microversion (m) id is specified below.\",\"enum_values\":[\"w\",\"v\",\"m\"]},{\"name\":\"wvmid\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"The id of the workspace, version or document microversion in which the operation should be performed.\"},{\"name\":\"eid\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"The id of the element in which to perform the operation.\"},{\"name\":\"configuration\",\"location\":\"query\",\"required\":false,\"param_type\":\"string\",\"description\":\"URL-encoded string of configuration values (separated by `;`). See the [Configurations API Guide](https://onshape-public.github.io/docs/api-adv/configs/) for details.\",\"default\":\"\"},{\"name\":\"rollbackBarIndex\",\"location\":\"query\",\"required\":false,\"param_type\":\"integer\",\"description\":\"Index specifying the location of the rollback bar when the call is evaluated. A -1 indicates that it should be at the end of the featurelist.\",\"default\":-1},{\"name\":\"elementMicroversionId\",\"location\":\"query\",\"required\":false,\"param_type\":\"string\",\"description\":\"A specific element microversion in which to evaluate the request.\"},{\"name\":\"includeGeometryIds\",\"location\":\"query\",\"required\":false,\"param_type\":\"boolean\",\"description\":\"If true, include the underlying geometry IDs in the feature definition.\",\"default\":true},{\"name\":\"featureId\",\"location\":\"query\",\"required\":false,\"param_type\":\"array\",\"description\":\"ID of a feature; repeat query param to add more than one\"},{\"name\":\"noSketchGeometry\",\"location\":\"query\",\"required\":false,\"param_type\":\"boolean\",\"description\":\"Whether or not to output simple sketch info without geometry\",\"default\":false}],\"has_request_body\":false,\"response_schema\":{\"description\":\"List of features instantiated within the Part Studio.\",\"properties\":{\"btType\":{\"description\":\"Type of JSON object.\",\"type\":\"string\"},\"defaultFeatures\":{\"description\":\"List of Onshape-defined features instantiated within the Part Studio.\",\"items\":{\"$ref\":\"#/components/schemas/BTMFeature-134\",\"x-bttype-options\":[\"BTMAssemblyFeature-887\",\"BTMFeatureInvalid-1031\",\"BTMSketch-151\",\"BTMVariableStudioReference-2764\"]},\"type\":\"array\"},\"featureStates\":{\"additionalProperties\":{\"$ref\":\"#/components/schemas/BTFeatureState-1688\"},\"description\":\"State of each feature, indicating if the feature is valid. Incorrectly defined features will still appear in the Feature list.\",\"type\":\"object\"},\"features\":{\"description\":\"List of user-defined features instantiated within the Part Studio.\",\"items\":{\"$ref\":\"#/components/schemas/BTMFeature-134\",\"x-bttype-options\":[\"BTMAssemblyFeature-887\",\"BTMFeatureInvalid-1031\",\"BTMSketch-151\",\"BTMVariableStudioReference-2764\"]},\"type\":\"array\"},\"imports\":{\"description\":\"Internal only. Do not modify.\",\"items\":{\"$ref\":\"#/components/schemas/BTMImport-136\"},\"type\":\"array\"},\"isComplete\":{\"description\":\"`true` if the features represent the entire part studio or `false` for a filtered subset.\",\"type\":\"boolean\"},\"libraryVersion\":{\"description\":\"FeatureScript version used in the Part Studio. Do not modify.\",\"format\":\"int32\",\"type\":\"integer\"},\"microversionSkew\":{\"description\":\"On output, `true` indicates a microversion mismatch was encountered.\",\"type\":\"boolean\"},\"rejectMicroversionSkew\":{\"description\":\"If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion.\",\"type\":\"boolean\"},\"rollbackIndex\":{\"description\":\"Index of the rollback bar location. `-1` indicates the bar is at the end of the Feature List.\",\"format\":\"int32\",\"type\":\"integer\"},\"serializationVersion\":{\"description\":\"Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates.\",\"type\":\"string\"},\"sourceMicroversion\":{\"description\":\"The document microversion from which the result was extracted. Part, face, edge, and vertex IDs are only valid for the same microversion.\",\"type\":\"string\"}},\"type\":\"object\"},\"response_content_types\":[\"application/json;charset=UTF-8; qs=0.09\"]}"
+        }
+      ],
+      "success": true,
+      "durationMs": 26
+    },
+    {
+      "type": "dynamicToolCall",
+      "id": "exec-be4f0753-5435-4cc0-b46f-032378b40235",
+      "namespace": "openclaw",
+      "tool": "onshape__onshape_api_explain",
+      "arguments": {
+        "endpoint": "updatePartStudioFeature"
+      },
+      "status": "completed",
+      "contentItems": [
+        {
+          "type": "inputText",
+          "text": "{\"operation_id\":\"updatePartStudioFeature\",\"method\":\"POST\",\"path\":\"/partstudios/d/{did}/w/{wid}/e/{eid}/features/featureid/{fid}\",\"description\":\"Replaces an existing feature in the location of the existing feature. See the [Features API Guide](https://onshape-public.github.io/docs/api-adv/featureaccess/) for additional information.\",\"tags\":[\"PartStudio\"],\"parameters\":[{\"name\":\"did\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"Document ID.\"},{\"name\":\"wid\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"Workspace ID.\"},{\"name\":\"eid\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"Element ID.\"},{\"name\":\"fid\",\"location\":\"path\",\"required\":true,\"param_type\":\"string\",\"description\":\"The id of the feature being updated. This id should be URL encoded and must match the featureId found in the serialized structure\"}],\"has_request_body\":true,\"request_body_schema\":{\"properties\":{\"btType\":{\"description\":\"Type of JSON object.\",\"type\":\"string\"},\"feature\":{\"$ref\":\"#/components/schemas/BTMFeature-134\",\"x-bttype-options\":[\"BTMAssemblyFeature-887\",\"BTMFeatureInvalid-1031\",\"BTMSketch-151\",\"BTMVariableStudioReference-2764\"]},\"libraryVersion\":{\"description\":\"FeatureScript version used in the Part Studio. Do not modify.\",\"format\":\"int32\",\"type\":\"integer\"},\"microversionSkew\":{\"description\":\"On output, `true` indicates a microversion mismatch was encountered.\",\"type\":\"boolean\"},\"rejectMicroversionSkew\":{\"description\":\"If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion.\",\"type\":\"boolean\"},\"serializationVersion\":{\"description\":\"Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates.\",\"type\":\"string\"},\"sourceMicroversion\":{\"description\":\"The state from which the result was extracted. Geometry ID interpretation is dependent on this document microversion.\",\"type\":\"string\"}},\"type\":\"object\"},\"request_body_content_type\":\"application/json;charset=UTF-8; qs=0.09\",\"response_schema\":{\"properties\":{\"btType\":{\"description\":\"Type of JSON object.\",\"type\":\"string\"},\"feature\":{\"$ref\":\"#/components/schemas/BTMFeature-134\",\"x-bttype-options\":[\"BTMAssemblyFeature-887\",\"BTMFeatureInvalid-1031\",\"BTMSketch-151\",\"BTMVariableStudioReference-2764\"]},\"featureState\":{\"$ref\":\"#/components/schemas/BTFeatureState-1688\"},\"libraryVersion\":{\"description\":\"FeatureScript version used in the Part Studio. Do not modify.\",\"format\":\"int32\",\"type\":\"integer\"},\"microversionSkew\":{\"description\":\"On output, `true` indicates a microversion mismatch was encountered.\",\"type\":\"boolean\"},\"rejectMicroversionSkew\":{\"description\":\"If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion.\",\"type\":\"boolean\"},\"serializationVersion\":{\"description\":\"Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates.\",\"type\":\"string\"},\"sourceMicroversion\":{\"description\":\"The state from which the result was extracted. Geometry ID interpretation is dependent on this document microversion.\",\"type\":\"string\"}},\"type\":\"object\"},\"response_content_types\":[\"application/json;charset=UTF-8; qs=0.09\"]}"
+        }
+      ],
+      "success": true,
+      "durationMs": 22
+    },
+    {
+      "type": "dynamicToolCall",
+      "id": "exec-77bcf209-4b70-4190-8211-119f0a738d94",
+      "namespace": "openclaw",
+      "tool": "onshape__onshape_api_schema",
+      "arguments": {
+        "schema": "BTFeatureDefinitionCall-1406"
+      },
+      "status": "completed",
+      "contentItems": [
+        {
+          "type": "inputText",
+          "text": "{\"name\":\"BTFeatureDefinitionCall-1406\",\"properties\":{\"btType\":{\"description\":\"Type of JSON object.\",\"type\":\"string\"},\"feature\":{\"$ref\":\"#/components/schemas/BTMFeature-134\",\"x-bttype-options\":[\"BTMAssemblyFeature-887\",\"BTMFeatureInvalid-1031\",\"BTMSketch-151\",\"BTMVariableStudioReference-2764\"]},\"libraryVersion\":{\"description\":\"FeatureScript version used in the Part Studio. Do not modify.\",\"format\":\"int32\",\"type\":\"integer\"},\"microversionSkew\":{\"description\":\"On output, `true` indicates a microversion mismatch was encountered.\",\"type\":\"boolean\"},\"rejectMicroversionSkew\":{\"description\":\"If `true`, the call will refuse to make the addition if the current microversion for the document does not match the source microversion. If `false`, a best-effort attempt is made to re-interpret the feature addition in the context of a newer document microversion.\",\"type\":\"boolean\"},\"serializationVersion\":{\"description\":\"Version of the structure serialization rules used to encode the output. This enables incompatibility detection during software updates.\",\"type\":\"string\"},\"sourceMicroversion\":{\"description\":\"The state from which the result was extracted. Geometry ID interpretation is dependent on this document microversion.\",\"type\":\"string\"}}}"
+        }
+      ],
+      "success": true,
+      "durationMs": 23
+    },
+    {
+      "type": "dynamicToolCall",
+      "id": "exec-4bbce1c5-d8a9-4fd3-b2c9-e95a319c6d38",
+      "namespace": "openclaw",
+      "tool": "onshape__onshape_api_call",
+      "arguments": {
+        "endpoint": "getPartStudioFeatures",
+        "path_params": {
+          "did": "8b63eacf80efca72049f8017",
+          "wvm": "w",
+          "wvmid": "1e76fac0ddca3ed10ecc9f28",
+          "eid": "7768b96c15d71e78cdbdd7d9"
+        }
+      },
+      "status": "completed",
+      "contentItems": [
+        {
+          "type": "inputText",
+          "text": "{\"btType\":\"BTFeatureListResponse-2457\",\"defaultFeatures\":[{\"btType\":\"BTMFeature-134\",\"featureId\":\"Origin\",\"featureType\":\"origin\",\"name\":\"Origin\",\"namespace\":\"\",\"nodeId\":\"MPoTar7VLRN+28Q5T\",\"parameterLibraries\":[],\"parameters\":[],\"returnAfterSubfeatures\":false,\"subFeatures\":[],\"suppressed\":false,\"suppressionState\":null},{\"btType\":\"BTMFeature-134\",\"featureId\":\"Top\",\"featureType\":\"defaultPlane\",\"name\":\"Top\",\"namespace\":\"\",\"nodeId\":\"MR7d9lW5P5hZkCeJQ\",\"parameterLibraries\":[],\"parameters\":[],\"returnAfterSubfeatures\":false,\"subFeatures\":[],\"suppressed\":false,\"suppressionState\":null},{\"btType\":\"BTMFeature-134\",\"featureId\":\"Front\",\"featureType\":\"defaultPlane\",\"name\":\"Front\",\"namespace\":\"\",\"nodeId\":\"M7J/57If7f0H3Eoc/\",\"parameterLibraries\":[],\"parameters\":[],\"returnAfterSubfeatures\":false,\"subFeatures\":[],\"suppressed\":false,\"suppressionState\":null},{\"btType\":\"BTMFeature-134\",\"featureId\":\"Right\",\"featureType\":\"defaultPlane\",\"name\":\"Right\",\"namespace\":\"\",\"nodeId\":\"MdyZXWj6n0dBRdlB4\",\"parameterLibraries\":[],\"parameters\":[],\"returnAfterSubfeatures\":false,\"subFeatures\":[],\"suppressed\":false,\"suppressionState\":null}],\"featureStates\":{\"F37MrGsqQOiSdYi_0\":{\"btType\":\"BTFeatureState-1688\",\"featureStatus\":\"OK\",\"inactive\":false},\"Front\":{\"btType\":\"BTFeatureState-1688\",\"featureStatus\":\"OK\",\"inactive\":false},\"Origin\":{\"btType\":\"BTFeatureState-1688\",\"featureStatus\":\"OK\",\"inactive\":false},\"Right\":{\"btType\":\"BTFeatureState-1688\",\"featureStatus\":\"OK\",\"inactive\":false},\"Top\":{\"btType\":\"BTFeatureState-1688\",\"featureStatus\":\"OK\",\"inactive\":false}},\"features\":[{\"btType\":\"BTMFeature-134\",\"featureId\":\"F37MrGsqQOiSdYi_0\",\"featureType\":\"clawcadMountPlate\",\"name\":\"ClawCAD Mount Plate 1\",\"namespace\":\"d067951db80e782995dff7998::vcc95087c2925cc5ac7dfa17e::e4ac30a0088ae51192cde74ab::mf3ba301bb6e1a9255162df5c\",\"nodeId\":\"MUaxOVHsyiZWCO7/8\",\"parameterLibraries\":[],\"parameters\":[{\"btType\":\"BTMParameterQuantity-147\",\"expression\":\"80 mm\",\"isInteger\":false,\"libraryRelationType\":\"DEFAULT\",\"nodeId\":\"wKywqpkeZbezP3w0\",\"parameterId\":\"plateLength\",\"parameterName\":\"\",\"units\":\"\",\"value\":0.0},{\"btType\":\"BTMParameterQuantity-147\",\"expression\":\"50 mm\",\"isInteger\":false,\"libraryRelationType\":\"DEFAULT\",\"nodeId\":\"vgwLvdajAR2lKIoO\",\"parameterId\":\"plateWidth\",\"parameterName\":\"\",\"units\":\"\",\"value\":0.0},{\"btType\":\"BTMParameterQuantity-147\",\"expression\":\"4 mm\",\"isInteger\":false,\"libraryRelationType\":\"DEFAULT\",\"nodeId\":\"9a8beOSEVRYdoVLE\",\"parameterId\":\"plateThickness\",\"parameterName\":\"\",\"units\":\"\",\"value\":0.0},{\"btType\":\"BTMParameterQuantity-147\",\"expression\":\"4 mm\",\"isInteger\":false,\"libraryRelationType\":\"DEFAULT\",\"nodeId\":\"9KuBO5m2Uonrfx3y\",\"parameterId\":\"holeDiameter\",\"parameterName\":\"\",\"units\":\"\",\"value\":0.0},{\"btType\":\"BTMParameterQuantity-147\",\"expression\":\"60 mm\",\"isInteger\":false,\"libraryRelationType\":\"DEFAULT\",\"nodeId\":\"OWZCPlqqWsTfzhEV\",\"parameterId\":\"holeSpacingX\",\"parameterName\":\"\",\"units\":\"\",\"value\":0.0},{\"btType\":\"BTMParameterQuantity-147\",\"expression\":\"30 mm\",\"isInteger\":false,\"libraryRelationType\":\"DEFAULT\",\"nodeId\":\"ZMl0COvUEvn4UAtc\",\"parameterId\":\"holeSpacingY\",\"parameterName\":\"\",\"units\":\"\",\"value\":0.0}],\"returnAfterSubfeatures\":false,\"subFeatures\":[],\"suppressed\":false,\"suppressionState\":null}],\"imports\":[{\"btType\":\"BTMImport-136\",\"namespace\":\"\",\"nodeId\":\"MMOiTbn6KQlgQvhfs\",\"path\":\"onshape/std/geometry.fs\",\"version\":\"3095.0\"}],\"isComplete\":true,\"libraryVersion\":3095,\"microversionSkew\":false,\"rejectMicroversionSkew\":false,\"rollbackIndex\":1,\"serializationVersion\":\"1.2.23\",\"sourceMicroversion\":\"b83ee0a0efcda65537780ef8\"}"
+        }
+      ],
+      "success": true,
+      "durationMs": 1693
+    }
+  ],
+  "nativeTurn": [
+    {
+      "thread_id": "01a13642-4a64-7e20-ae65-ee3035e391f4",
+      "turn_id": "01a13642-4b67-7090-b267-a4a744087e62",
+      "status": "completed",
+      "error_json": null
+    }
+  ],
+  "nativeFeature": {
+    "sourceMicroversion": "b83ee0a0efcda65537780ef8",
+    "serializationVersion": "1.2.23",
+    "libraryVersion": 3095,
+    "featureId": "F37MrGsqQOiSdYi_0",
+    "featureStatus": "OK",
+    "plateWidth": "50 mm"
+  },
+  "cliCleanup": "FAILED: codex-shared-client-release; exit 1",
+  "runtimeState": {
+    "productionConnectorEnabled": false,
+    "credentialPresent": true,
+    "refreshTokenPublished": false,
+    "mutationPolicyPresent": false
+  },
+  "cadWrites": 0,
+  "candidateCreated": false,
+  "forkCommit": "612de76266efedc6b1f7fcc1fafe3063837ae8da",
+  "imageDigest": "sha256:51fff34f3180a2c2bf5ede12f89c3b88e8290640696b54131fd3c1b21c51cde6",
+  "binarySha256": "3afe162c304ef4bd2cfa10e4ee3d00b718ae5644ce35d94c72815e365986a26e",
+  "quality": {
+    "cargoFmtCheck": "PASS",
+    "cargoClippyAllTargetsAllFeaturesDenyWarnings": "PASS",
+    "cargoWorkspaceTestsPassed": 607
+  },
+  "restVerification": {
+    "timestamp": "2026-10-13T17:15:35.483Z",
+    "status": "PASS",
+    "sourceMicroversion": "b83ee0a0efcda65537780ef8",
+    "primaryUnchanged": true,
+    "plateWidth": "50 mm",
+    "featureStatus": "OK",
+    "renderBytes": 42710,
+    "renderSha256": "3475c98025ecc2b6abc31eba18db48888843e4fa8570422cc0ab8f048f2e5c26",
+    "artifact": "state/deployment/artifacts/native-mcp-readonly-after-20261013/before.png"
+  },
+  "earlierFindings": [
+    {
+      "nativeCall": "onshape__onshape_auth_status",
+      "arguments": {
+        "validate": true
+      },
+      "success": false,
+      "state": "state"
+    },
+    {
+      "nativeCall": "onshape__onshape_auth_status",
+      "arguments": {
+        "validate": false
+      },
+      "success": true,
+      "state": "state-target-read"
+    },
+    {
+      "nativeCall": "onshape__onshape_api_explain",
+      "arguments": {
+        "endpoint": "getPartStudioFeatures"
+      },
+      "success": true,
+      "state": "state-schema-read"
+    },
+    {
+      "nativeCall": "onshape__onshape_auth_status",
+      "arguments": {
+        "validate": false
+      },
+      "success": true,
+      "state": "state-authenticated"
+    }
+  ]
+}

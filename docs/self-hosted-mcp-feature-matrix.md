@@ -54,7 +54,7 @@ No running process, OAuth consent, tool annotations, or preflight GET makes muta
 AVAILABLE. Native bounded invocation, server admission, durable no-replay receipts,
 and independent verification must all pass before requesting a live write.
 
-## 2026-10-13 — Issue #1 execution boundary checkpoint
+## 2026-10-13 — Issue #1 execution boundary checkpoint (before native read test)
 
 This dated section supersedes the earlier implementation status, while preserving
 historical evidence. Architecture reference:
@@ -95,4 +95,28 @@ OpenClaw or live mutation acceptance. Production remains read-only and disabled.
 Independently testable later gaps: owner-bound native schema/call handle; durable
 approved mutation attempt/reconciliation; live v16 CAS acceptance; audited
 FeatureScript/create operations; geometry acceptance; release/export provenance.
-Today's smallest next task is solely the native schema/call handle.
+The proposed plugin schema/call handle was an earlier hypothesis. The later
+native agent read test below supersedes it.
+
+## 2026-10-13 — Native Engineer read acceptance
+
+Evidence: [native LLM read test](native-mcp-engineer-readonly-2026-10-13.md).
+The agent uses native MCP tools alongside Claw-Onshape control-plane tools;
+plugin-owned MCP invocation is not required. OpenClaw source is unchanged.
+
+| Capability / Issue #1 skill | Classification | Actual evidence / remaining boundary |
+|---|---|---|
+| Native invocation | AVAILABLE | Five actual MCP calls completed in isolated Engineer LLM turn. |
+| Native schema use | AVAILABLE | Native explain/schema return complete inline API contracts and revision fields; structured feature arguments execute successfully. |
+| Raw tools/list descriptor export | PARTIAL | Server protocol test complete; CLI probe still names-only, byte-for-byte native descriptor export not established. |
+| Read features/parameters / inspect CAD | AVAILABLE | Native getPartStudioFeatures yields plateWidth=50 mm, feature OK and exact sourceMicroversion; independent REST agrees. |
+| Assigned target enforcement | AVAILABLE | Exact-target read succeeds after JSON Accept fix; provider-wide auth validation denied. Wrong-target unit cases remain tested. |
+| External-token rotation | AVAILABLE | Operator reconnect publishes read-only access metadata; native target GET proves usability, no refresh token in MCP. |
+| Mutation contract discovery | AVAILABLE | Native update explain and named request schema expose sourceMicroversion/rejectMicroversionSkew. No write executed. |
+| Candidate mutation / live stale-write rejection | UNKNOWN | Not exercised by the read test; production connector disabled, mutation config absent. |
+| Capture evidence | AVAILABLE | Actual native tool results and independent pinned REST render retained; no after-mutation evidence. |
+| Native one-shot lifecycle completion | PARTIAL | Model turn and calls complete, but Codex shared-client cleanup fails and agent exec exits 1. |
+
+Exactly one next task: repeat the bounded read test in a Gateway-owned isolated
+Engineer session and verify clean lifecycle completion. No SDK extension or
+custom MCP client is currently justified.
