@@ -986,3 +986,35 @@ v16 while the isolated execution adapter deliberately fixes API v10 to match the
 existing REST path; exact mutation compatibility remains unaccepted. Native
 plugin invocation, complete schema acceptance, Candidate/CAS execution and durable
 mutation receipts remain mandatory gates. See the dated integration report.
+
+### ADR-018 amendment — 2026-10-13 / Issue #1
+
+[Issue #1](https://github.com/edge-robot/clawonshape/issues/1) is the forward
+Mechanical Engineer interaction contract. The generic fork now implements
+operator-provisioned target/operation/feature exclusions and provider revision
+admission inside onshape-mcp. Reads and orchestration remain in Claw-Onshape REST;
+CAD writes must pass MCP execution admission. No proxy or second unrestricted
+Engineer mutation path is introduced. Clawake remains lifecycle/isolation only.
+
+External credentials retain sole Claw-Onshape refresh ownership. Bounded feature
+updates require sourceMicroversion and rejectMicroversionSkew:true and use the
+vendored catalog's v16 route. Existing external reads retain v10. This corrects the
+catalog/adapter version mismatch for writes; live provider compatibility remains
+unaccepted. Optional mutation authority defaults to absent/read. Nonempty immutable
+workspace exclusions must include the operator-resolved Primary ID.
+
+The pure typed scope can later be derived from verified subject/target/operation/
+approval/expiry claims, without changing the execution boundary. VC/VP is deferred.
+The MCP does not own Change Request, Review Candidate, approval or release state.
+Transport failures, 408, redirects and 5xx after writes are UNKNOWN; automatic
+transport retries/redirects and OAuth refresh are disabled for external execution.
+Provider CAS is not a durable attempt ledger. Exact operator approval/attempt
+receipts and UNKNOWN reconciliation remain control-plane gates before production.
+
+Complete tools/list input schemas already exist server-side and are now covered by
+a binary protocol contract test. OpenClaw 2026.9.9 probe discards schemas in its
+names-only projection; supported public harness materialization still needs its
+lifecycle owner. No runtime upgrade, private scheduler injection or custom client
+is used to evade this limit. Production connector and mutations stay disabled
+until native schema/call acceptance and all live gates pass. No candidate,
+mutation, version or export is implied by this amendment.

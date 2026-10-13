@@ -53,3 +53,46 @@ Local acceptance is recorded in [the integration report](self-hosted-mcp-integra
 No running process, OAuth consent, tool annotations, or preflight GET makes mutation
 AVAILABLE. Native bounded invocation, server admission, durable no-replay receipts,
 and independent verification must all pass before requesting a live write.
+
+## 2026-10-13 — Issue #1 execution boundary checkpoint
+
+This dated section supersedes the earlier implementation status, while preserving
+historical evidence. Architecture reference:
+[Issue #1](https://github.com/edge-robot/clawonshape/issues/1).
+AVAILABLE below means implemented and locally tested; it does not imply native
+OpenClaw or live mutation acceptance. Production remains read-only and disabled.
+
+| Capability | Classification | Current evidence / boundary |
+|---|---|---|
+| Complete server tools/list schemas | AVAILABLE | Binary MCP protocol test returns all five external-mode input schemas, exact api_call fields; explain/schema calls succeed. Output schemas are optional and dynamic API results have none. |
+| Complete native OpenClaw schema retrieval | BLOCKED | 2026.9.9 probe maps projected tools to names (`mcp-cli-Dt7GFrqd.mjs:319`); public harness materialization requires lifecycle-owned scheduler. No accepted plugin handle. |
+| Native tool invocation | BLOCKED | CLI has no call command; no accepted owner-bound plugin acquisition. Private hashed imports and custom MCP clients excluded. |
+| Read-only invocation | PARTIAL | MCP protocol calls and target read policy tested; independent REST control-plane tests pass; live native provider call unaccepted. |
+| Generic writes | PARTIAL | Only audited updatePartStudioFeature admitted by optional target policy; other mutations denied. Production mutation config absent. |
+| Target binding / operation allowlist | AVAILABLE | Exact document/workspace/element, finite operation enum, optional feature; raw api_call shares dispatch policy. |
+| Primary exclusion | AVAILABLE | Nonempty excluded workspace IDs mandatory; conflicts rejected. Operator must supply actual Primary ID; no name inference. |
+| Revision constraints | AVAILABLE | Required expected microversion, exact sourceMicroversion and boolean rejectMicroversionSkew:true; unmodified payload. |
+| Provider stale-write rejection | UNKNOWN | Vendored v16 contract declares rejection; no live stale-write request, compatibility or simultaneous duplicate acceptance claimed. |
+| External token / credential rotation | AVAILABLE | Access-only reload per dispatch; no OAuth/refresh/adoption; expiry and rotation regressions pass. |
+| Mutation attempt behavior | PARTIAL | Redirect/transport retry disabled; ambiguous transport, 408, redirect, 5xx => UNKNOWN/no retry/reconcile. Provider CAS bounds revision-changing replay. No durable mutation ledger yet. |
+| Production unrestricted write exposure | AVAILABLE (excluded) | Connector disabled, mutation absent; external-mode tools cannot escape execution policy. |
+
+| Mechanical Engineer skill (Issue #1) | Classification | Actual capability |
+|---|---|---|
+| Interpret assigned Change Request / explicit context | PARTIAL | Existing trusted binding and candidate orchestration; MCP consumes operator-provisioned scope, not workflow state. |
+| Inspect CAD | PARTIAL | REST inspection/render works; native MCP provider invocation blocked. |
+| Discover document/Part Studio | PARTIAL | REST target/workspace/elements inspection and catalog endpoints; external MCP reads restricted to assigned document. |
+| Read features/parameters | PARTIAL | REST pinned features; exact-target MCP GET policy; native live read pending. |
+| Mutate existing parameter | PARTIAL | Generic feature replacement with mandatory provider CAS implemented; first live 50→60 mm slice blocked by native invocation. |
+| Create/update features | PARTIAL | Existing-feature update supported; create/delete operations intentionally denied pending atomic revision audit. |
+| FeatureScript | MISSING | Catalog discovery does not authorize execution; FeatureScript writes remain denied. |
+| Operate only in assigned workspace | AVAILABLE | Server target/exclusion enforcement and existing REST candidate guards; live Candidate not created. |
+| Detect stale baseline | PARTIAL | Mandatory CAS request fields tested; actual provider rejection unknown. |
+| Validate result | PARTIAL | Independent REST feature/result regressions; no post-mutation live evidence. |
+| Capture evidence / review candidate | PARTIAL | Existing pinned REST rendering/receipts; no new candidate or after screenshot; mutation is not approval. |
+| Release discipline / artifact provenance | MISSING | Version/export remain separate future approval-gated work; no release performed. |
+
+Independently testable later gaps: owner-bound native schema/call handle; durable
+approved mutation attempt/reconciliation; live v16 CAS acceptance; audited
+FeatureScript/create operations; geometry acceptance; release/export provenance.
+Today's smallest next task is solely the native schema/call handle.

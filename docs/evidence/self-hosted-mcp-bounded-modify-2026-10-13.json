@@ -1,0 +1,123 @@
+{
+  "timestamp": "2026-10-13T14:27:43.503Z",
+  "status": "BLOCKED",
+  "cadWrites": 0,
+  "candidateCreated": false,
+  "architectureReference": "https://github.com/edge-robot/clawonshape/issues/1",
+  "fork": {
+    "revision": "116bce6c1660045878b6c6b8a5e5fbff0b654f9f",
+    "implementationRevision": "ff8b6d8dc347f79a2caeb332817f8dfecc7f6194",
+    "published": false
+  },
+  "quality": {
+    "rustFmt": "PASS",
+    "clippy": "PASS --locked --workspace --all-targets --all-features -- -D warnings",
+    "rustWorkspaceTests": 605,
+    "rustAllFeaturesTests": 605,
+    "clawOnshapeTests": 78,
+    "typecheck": "PASS",
+    "clawakeTests": 254
+  },
+  "runtime": {
+    "managedBy": "Clawake",
+    "imageDigest": "sha256:26c18e8d20a331d37b284174e33161c044c06fe657644f6e18f42082a255b46a",
+    "binarySha256": "85c1b22802dcc5c51e97bc75a334230a1a3c83e25c0107bc6258447de019acc7",
+    "health": 200,
+    "readiness": 200,
+    "uid": "1000:1000",
+    "readOnlyRoot": true,
+    "publishedPorts": {},
+    "productionConnectorEnabled": false,
+    "mutationConfigPresent": false
+  },
+  "credentials": {
+    "dashboardPort": 19489,
+    "unrelatedIsolatedDashboardPort": 19491,
+    "restConnection": "connected",
+    "accessTokenMatchesOwner": true,
+    "expiryMatchesOwner": true,
+    "publishedFields": [
+      "accessToken",
+      "expiresAt",
+      "scopes"
+    ],
+    "refreshTokenPublished": false,
+    "scopes": [
+      "OAuth2Read"
+    ],
+    "fileMode": "0600",
+    "engineerMount": "rw",
+    "mcpMount": "ro",
+    "soleRefreshOwner": "Claw-Onshape"
+  },
+  "native": {
+    "runtimeVersion": "2026.9.9",
+    "discovery": "PASS",
+    "tools": [
+      "onshape__onshape_api_call",
+      "onshape__onshape_api_explain",
+      "onshape__onshape_api_schema",
+      "onshape__onshape_api_search",
+      "onshape__onshape_auth_status",
+      "onshape__resources_list",
+      "onshape__resources_read"
+    ],
+    "fullSchemas": "UNAVAILABLE_FROM_NATIVE_CLI",
+    "toolCalls": 0,
+    "limitation": "probe projects names; public harness requires lifecycle-owned session scheduler; no accepted plugin acquisition/call handle"
+  },
+  "serverProtocolTest": {
+    "transport": "stdio",
+    "fullInputSchemas": "PASS",
+    "explain": "PASS",
+    "schema": "PASS",
+    "oauthLoginDenied": true,
+    "productionTruth": "No source schema mirror introduced"
+  },
+  "restBaseline": {
+    "documentId": "8b63eacf80efca72049f8017",
+    "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
+    "elementId": "7768b96c15d71e78cdbdd7d9",
+    "microversion": "b83ee0a0efcda65537780ef8",
+    "featureId": "F37MrGsqQOiSdYi_0",
+    "featureStatus": "OK",
+    "parameterId": "plateWidth",
+    "expression": "50 mm",
+    "parameterIndex": 1,
+    "libraryVersion": 3095,
+    "serializationVersion": "1.2.21",
+    "primaryMicroversionAfter": "b83ee0a0efcda65537780ef8",
+    "render": {
+      "size": 800,
+      "bytes": 42710,
+      "sha256": "3475c98025ecc2b6abc31eba18db48888843e4fa8570422cc0ab8f048f2e5c26",
+      "privateArtifact": "state/deployment/artifacts/self-hosted-mcp-before-20261013/before.png"
+    }
+  },
+  "mutationContract": {
+    "operation": "updatePartStudioFeature",
+    "method": "POST",
+    "route": "/partstudios/d/{did}/w/{wid}/e/{eid}/features/featureid/{fid}",
+    "requestSchema": "BTFeatureDefinitionCall-1406",
+    "responseSchema": "BTFeatureDefinitionResponse-1617",
+    "parameterSelector": "feature.parameters[parameterId=plateWidth].expression",
+    "apiVersion": "v16",
+    "requiredFields": [
+      "sourceMicroversion",
+      "rejectMicroversionSkew:true"
+    ],
+    "liveProviderCAS": "UNKNOWN"
+  },
+  "nextTask": "Establish a supported lifecycle-owner-bound OpenClaw native schema/catalog and invocation handle.",
+  "restV16Inspection": {
+    "timestamp": "2026-10-13T14:30:21.558Z",
+    "status": "PASS",
+    "sourceMicroversion": "b83ee0a0efcda65537780ef8",
+    "serializationVersion": "1.2.23",
+    "libraryVersion": 3095,
+    "featureId": "F37MrGsqQOiSdYi_0",
+    "plateWidth": "50 mm",
+    "featureStatus": "OK",
+    "cadWrites": 0
+  }
+}
