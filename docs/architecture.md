@@ -1,58 +1,82 @@
 # Architecture
 
-Claw-Onshape 0.2.0 is a native OpenClaw 2026.9.9 plugin. The real Discord → Lead →
-A2A → Engineer → REST → pinned PNG → Discord read/render slice is accepted.
-See [specification](../spec.md), [decisions](ADR.md) and
-[control/data-plane design](architecture/control-data-plane.md) for future scope.
+This plugin is intentionally narrow: a native OpenClaw extension that reads configured Onshape state and renders a pinned PNG for a trusted engineering flow.
 
-Four optional v2 tool factories enforce native role/requester context. Lead has
-only onshape_delegate_render; Engineer has status, inspection and rendering.
-Host configuration chooses the document/workspace/Part Studio; agents supply no
-URLs or target IDs. Execution rechecks current configuration, invocation authority
-and private credentials before requests and result delivery.
+## System view
 
-Native A2A authenticates the peer, but does not forward Discord requester identity.
-A Lead tool admitted for the exact trusted Discord sender/channel/account signs
-an expiring context tied to the configured Engineer binding. Engineer verifies
-peer/account/session/context before exposing reads and signs JSON results,
-including status and errors in the text-only A2A result channel. Lead verifies
-signature, exact target, microversion, private artifact path and PNG SHA-256 before
-using originating native Discord delivery. No identity is inferred from text.
+```text
+Discord user
+   ↓
+Robotics Lead (native role)
+   ↓ signed A2A delegation
+Mechanical Engineer (native role)
+   ↓ verified host binding + OAuth
+Onshape REST API
+   ↓
+Pinned PNG artifact + integrity metadata
+   ↓
+Lead returns final Discord response
+```
 
-REST is the control/reporting plane. Inspection uses three fixed GETs; rendering
-uses six fixed GETs including feature sourceMicroversion and pinned element/view
-checks. HTTP responses are bounded, redirects rejected and failures sanitized.
-PNG validation and private artifact handling are native; no screenshot service.
-Rendering is not dimensional engineering verification.
+## Primary responsibilities
 
-One OAuth implementation serves CLI and native Control UI adapters. The dashboard
-uses authenticated session actions: operator.read status, operator.admin connection
-changes. Its public callback validates one-use state and exact Host/path/redirect.
-Connect starts consent; users must follow the displayed authorization link.
-Operator application provisioning and user consent remain separate. Dashboard
-operator authority is not verified Discord identity; this MVP has one configured owner.
+### Lead agent
+- Accepts user intent and coordinates the request.
+- Calls the native delegated render flow.
+- Validates the signed Engineer response and PNG metadata before responding in Discord.
+- Receives no direct REST token or CAD tool.
 
-Private native credential files bind connection ownership. Consent, refresh and
-disconnect share an exclusive lock; callbacks drain before lock release. Renewal
-persists denial before an uncertain exchange and validates before saving tokens.
-Fresh-grant exchange passed live; successful provider-expired renewal/rotation is
-not established. Invalid/uncertain outcomes require reconnect. Files are not
-keyring-backed/encrypted; same-UID/root processes remain trusted. No credentials
-are returned to agents or stored in ordinary UI-visible config.
+### Mechanical Engineer
+- Owns CAD inspection and engineering interpretation.
+- Uses the host-configured Onshape target and connection.
+- Calls status, inspect, and render only when the trust checks pass.
+- Returns JSON status/results that include signed proof for the exact delegation context.
 
-Clawake owns installation, private mounts, explicit global and per-agent grants,
-configuration reconciliation and restarts. Native Agent Files get/set with
-expectedHash updates deployed roles. A native Codex thread retains its first role
-snapshot; a deliberate /new session activates a changed role. No generated JSON
-or internal session databases are edited by the plugin.
+### Host/plugin layer
+- Enforces trusted routing, binding, and requester checks.
+- Holds the configured document/workspace/element IDs and OAuth connection references.
+- Stores private credentials in native private files and checks them before execution.
+- Rejects missing identity data, invalid callbacks, and unverified state.
 
-MCP is the future contained CAD data plane. Current implementation provides only
-explicit operator metadata discovery; all execution remains disabled. External
-native MCP config is an independent authority surface and must stay disabled in
-agent runtimes. Current provider schemas/containment/revision contracts need proof
-before implementing dynamic FeatureScript execution.
+## Control/data-plane split
 
-Onshape remains authoritative. REST candidate workspace/version/concurrency gates,
-geometry verification and before/after reporting are future capabilities. Primary
-writes, all CAD mutation, merge and printing are disabled. No standalone service,
-database, broker, workflow engine, duplicate revision history or extra agent.
+Claw-Onshape owns the control plane: OAuth and sole refresh ownership, trusted
+target selection, signed A2A context, Candidate preparation, approval, independent
+REST inspection/verification and pinned rendering. Existing REST reads and
+orchestration remain valid.
+
+onshape-mcp owns the CAD data plane: structured tool execution, exact target and
+operation admission, revision constraints and mutation uncertainty. OpenClaw is
+the native MCP client; the Engineer invokes MCP tools alongside plugin tools.
+The plugin does not contain a second MCP client or an unrestricted REST CAD
+mutation path. Clawake owns service lifecycle, image pins, mounts and isolation.
+
+Isolated native MCP feature reads pass. Production access and live CAD writes
+remain disabled pending the remaining workflow and runtime gates. See
+[native read acceptance](native-mcp-engineer-readonly-2026-10-13.md) and
+[ADR-018](ADR.md).
+
+## What is intentionally not included
+
+- agent-side CAD writes
+- branch creation or merge operations
+- dynamic FeatureScript or production MCP execution
+- generic multi-user self-service onboarding
+- any fallback path that skips authorization validation
+
+## Design constraints
+
+- Onshape is the authoritative source for CAD state.
+- The plugin never infers trust from prompt text or user names.
+- The trusted state is derived from native host configuration and signed delegation context.
+- Rendering is evidence of inspection output, not proof of dimensional correctness.
+- Unknown or failed state remains `UNKNOWN` or `UNAVAILABLE`; it does not become capability.
+
+## Important references
+
+- [README.md](../README.md) — current operator-facing overview
+- [docs/product-mvp-status.md](product-mvp-status.md) — current validation status
+- [docs/mcp-dashboard-readiness.md](mcp-dashboard-readiness.md) — dashboard readiness and disabled MCP scope
+- [docs/oauth-capabilities.md](oauth-capabilities.md) — OAuth and permission boundaries
+- [agents/mechanical-engineer.md](../agents/mechanical-engineer.md) — role instructions
+- [agents/agent-lead.md](../agents/agent-lead.md) — delegation contract
