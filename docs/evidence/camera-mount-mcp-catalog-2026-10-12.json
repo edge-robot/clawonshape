@@ -1,0 +1,37 @@
+{
+  "evidenceClass": "CURRENT AUTHENTICATED: native CLI probe projected names only, not full schemas",
+  "runtime": "clawonshape-mcp-sprint-20261012",
+  "provider": "onshape",
+  "nativeCommand": "openclaw mcp probe onshape --json",
+  "exitCode": 0,
+  "providerToolCount": 14,
+  "providerTools": [
+    "create_feature_studio",
+    "create_geometry",
+    "edit_featurescript_notes",
+    "get_api_usage",
+    "get_featurescript",
+    "list_feature_studios",
+    "logout",
+    "put_featurescript",
+    "read_featurescript_notes",
+    "search_featurescript_documentation",
+    "set_api_allocation",
+    "test_feature",
+    "test_featurescript",
+    "whoami"
+  ],
+  "nativeCatalogHelpers": [
+    "prompts_get",
+    "prompts_list",
+    "resources_list",
+    "resources_read"
+  ],
+  "diagnosticCount": 0,
+  "providerFilterApplied": false,
+  "cadToolsExecuted": 0,
+  "fullInputSchemasRetrieved": false,
+  "outputSchemasRetrieved": false,
+  "publicSchemaHelperResult": "Session MCP runtime scheduler has not been bound by its lifecycle owner",
+  "privateModulesImported": false
+}

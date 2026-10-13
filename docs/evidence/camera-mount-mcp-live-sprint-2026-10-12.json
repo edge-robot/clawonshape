@@ -1,0 +1,208 @@
+{
+  "observedAt": "2026-10-12T13:27:31.534Z",
+  "evidenceClass": "CURRENT HOST: trusted configuration and failed REST read prerequisite; no successful CAD read",
+  "runtime": "clawcad-mechanical-engineer",
+  "agentId": "clawcad-mechanical-engineer",
+  "documentId": "8b63eacf80efca72049f8017",
+  "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
+  "sourceWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
+  "elementId": "7768b96c15d71e78cdbdd7d9",
+  "restCredentialStateBefore": "expired",
+  "restReadResult": "READ_BLOCKED",
+  "error": "oauth_refresh_response_invalid",
+  "restCredentialEffect": "Existing accessToken lifecycle persisted null before refresh; rejected response was not saved. Reconnection required; no retry.",
+  "cadGetRequestsDispatched": 0,
+  "mcpEnabled": false,
+  "configFingerprintBefore": "df0e4ad3615314df1a5764fc08ae22524c630c432c4d13c5f03d70f7570b88d4",
+  "configFingerprintAfter": "df0e4ad3615314df1a5764fc08ae22524c630c432c4d13c5f03d70f7570b88d4",
+  "currentMicroversionId": null,
+  "featureId": null,
+  "widthParameterPath": null,
+  "currentWidthMm": null,
+  "candidateWorkspaceId": null,
+  "nativeOAuthInitiated": false,
+  "authenticatedSchemaDiscoveryPerformed": false,
+  "mcpToolCalls": 0,
+  "candidateCreationAttempts": 0,
+  "cadMutationAttempts": 0,
+  "productionConfigChanged": false,
+  "productionGrantsChanged": false,
+  "restReconnectionFollowup": {
+    "observedAt": "2026-10-12T13:35:56.408Z",
+    "restCredentialState": "connected",
+    "result": "READ_VERIFIED",
+    "documentName": "wegwerf-document",
+    "workspaceName": "Main",
+    "elementName": "Part Studio 1",
+    "elementType": "PARTSTUDIO",
+    "microversionId": "b83ee0a0efcda65537780ef8",
+    "primaryMicroversionAfterRead": "b83ee0a0efcda65537780ef8",
+    "workspaceListMicroversionField": "823def379a8ff6e87eae3036",
+    "revisionEvidence": "currentmicroversion endpoint and immutable feature sourceMicroversion agree; workspace-list microversion field differs and is not used as the source baseline",
+    "serializationVersion": "1.2.21",
+    "libraryVersion": 3095,
+    "featureCount": 1,
+    "isComplete": true,
+    "rollbackIndex": 1,
+    "feature": {
+      "btType": "BTMFeature-134",
+      "featureId": "F37MrGsqQOiSdYi_0",
+      "name": "ClawCAD Mount Plate 1",
+      "featureType": "clawcadMountPlate",
+      "namespace": "d067951db80e782995dff7998::vcc95087c2925cc5ac7dfa17e::e4ac30a0088ae51192cde74ab::mf3ba301bb6e1a9255162df5c",
+      "suppressed": false,
+      "featureStatus": "OK",
+      "parameters": [
+        {
+          "parameterId": "plateLength",
+          "expression": "80 mm"
+        },
+        {
+          "parameterId": "plateWidth",
+          "expression": "50 mm",
+          "nodeId": "vgwLvdajAR2lKIoO",
+          "btType": "BTMParameterQuantity-147",
+          "value": 0,
+          "units": "",
+          "isInteger": false,
+          "libraryRelationType": "DEFAULT",
+          "parameterName": ""
+        },
+        {
+          "parameterId": "plateThickness",
+          "expression": "4 mm"
+        },
+        {
+          "parameterId": "holeDiameter",
+          "expression": "4 mm"
+        },
+        {
+          "parameterId": "holeSpacingX",
+          "expression": "60 mm"
+        },
+        {
+          "parameterId": "holeSpacingY",
+          "expression": "30 mm"
+        }
+      ]
+    },
+    "intendedChange": {
+      "featureId": "F37MrGsqQOiSdYi_0",
+      "parameterId": "plateWidth",
+      "parameterPath": "features[0].parameters[1].expression",
+      "beforeExpression": "50 mm",
+      "afterExpression": "60 mm",
+      "preserveOtherParameters": true
+    },
+    "configFingerprintBefore": "df0e4ad3615314df1a5764fc08ae22524c630c432c4d13c5f03d70f7570b88d4",
+    "configFingerprintAfter": "df0e4ad3615314df1a5764fc08ae22524c630c432c4d13c5f03d70f7570b88d4"
+  },
+  "isolatedNativeOnboarding": {
+    "operatorApproval": "Explicit user approval to start isolated runtime and provide native MCP sign-in; OAuth2Read OAuth2Write; schema discovery only",
+    "runtime": "clawonshape-mcp-sprint-20261012",
+    "management": "Clawake independent inventory; setup preview and explicit setup --execute",
+    "dashboardOrigin": "http://localhost:19491",
+    "productionInventoryModified": false,
+    "freshCredentialStorage": true,
+    "productionCredentialsCopied": false,
+    "providerBrowserConsentCompleted": true,
+    "nativeConfigValidation": "PASS",
+    "nativeVersion": "2026.9.9",
+    "initialStartupIssue": "Gateway token missing; isolated restart cycle interrupted in-container token bootstrap",
+    "bootstrapResolution": "Clawake SystemdService.stop; native doctor_command with --generate-gateway-token; Clawake managed restart",
+    "nativeBootstrapExitCode": 0,
+    "ownGatewayTokenPresent": true,
+    "gatewayTokenDisplayed": false,
+    "readyHttpStatus": 200,
+    "nativeSettingsOpenedInBrowser": true,
+    "productionConfigFingerprintAfterIsolatedStartup": "df0e4ad3615314df1a5764fc08ae22524c630c432c4d13c5f03d70f7570b88d4",
+    "productionMcpEnabledAfterIsolatedStartup": false,
+    "nativeSavedStatus": {
+      "enabled": true,
+      "hasTokens": false,
+      "requiresAuthorization": false,
+      "state": "unauthenticated",
+      "expiresAt": null
+    },
+    "browserHandoffCorrection": {
+      "reportedError": "token mismatch / unauthorized on port 19491",
+      "initialPendingDevices": 0,
+      "initialPairedDevices": 0,
+      "earlierLauncherDefect": "Parsed public Dashboard URL from text output; native URL contained no token",
+      "nativeSupportedFix": "openclaw dashboard --json \u2192 browserUrl \u2192 host browser; preserve native handoff, map isolated published port",
+      "correctedBrowserHandoffOpened": true,
+      "browserBootstrapExpiresAtMs": 1791814796410,
+      "bootstrapUrlDisplayed": false,
+      "browserAuthenticationConfirmed": false
+    },
+    "nativeLoginResult": {
+      "runtime": "clawonshape-mcp-sprint-20261012",
+      "execution": "Native OpenClaw CLI in digest-pinned Clawake-derived one-shot with same isolated state, host network for native loopback callback",
+      "scopes": [
+        "OAuth2Read",
+        "OAuth2Write"
+      ],
+      "browserOpened": true,
+      "credentialsSavedByOpenClaw": true,
+      "exitCode": 0,
+      "providerTokensDisplayed": false,
+      "cadToolsCalled": false
+    },
+    "browserAuthenticationConfirmed": true,
+    "screenshotEvidence": {
+      "mcpSettings": "/home/kaos/Pictures/screenshot-2026-10-12_16-24-41.png",
+      "dashboard": "/home/kaos/Pictures/screenshot-2026-10-12_16-22-41.png",
+      "nativeSignInButtonVisible": false,
+      "pluginDashboardExpected": false,
+      "reason": "Isolated diagnostic runtime has no plugins installed; native CLI used for consent"
+    },
+    "nativeSavedStatusAfterLogin": {
+      "provider": "onshape",
+      "isolatedMember": "clawonshape-mcp-sprint-20261012",
+      "enabled": true,
+      "hasTokens": true,
+      "requiresAuthorization": false,
+      "storedState": "authorized",
+      "expiresAt": 1791819126680
+    }
+  },
+  "oauthStateCurrent": "Native isolated OAuth successful; native authenticated catalog names verified; full schema export blocked by owner-bound runtime acquisition",
+  "currentPrimaryResult": "BLOCKED \u2014 provider/native contract insufficient",
+  "currentAuthenticatedDiscovery": {
+    "evidenceClass": "CURRENT AUTHENTICATED: native CLI probe projected names only, not full schemas",
+    "runtime": "clawonshape-mcp-sprint-20261012",
+    "provider": "onshape",
+    "nativeCommand": "openclaw mcp probe onshape --json",
+    "exitCode": 0,
+    "providerToolCount": 14,
+    "providerTools": [
+      "create_feature_studio",
+      "create_geometry",
+      "edit_featurescript_notes",
+      "get_api_usage",
+      "get_featurescript",
+      "list_feature_studios",
+      "logout",
+      "put_featurescript",
+      "read_featurescript_notes",
+      "search_featurescript_documentation",
+      "set_api_allocation",
+      "test_feature",
+      "test_featurescript",
+      "whoami"
+    ],
+    "nativeCatalogHelpers": [
+      "prompts_get",
+      "prompts_list",
+      "resources_list",
+      "resources_read"
+    ],
+    "diagnosticCount": 0,
+    "providerFilterApplied": false,
+    "cadToolsExecuted": 0,
+    "fullInputSchemasRetrieved": false,
+    "outputSchemasRetrieved": false,
+    "publicSchemaHelperResult": "Session MCP runtime scheduler has not been bound by its lifecycle owner",
+    "privateModulesImported": false
+  }
+}
