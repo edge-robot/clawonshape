@@ -4,12 +4,17 @@
   "workspaceVersion": "0.5.3-dev.0",
   "license": "MIT OR Apache-2.0",
   "toolchain": "1.99.0",
-  "patch": "patches/0001-external-token-readonly.patch",
   "apiBase": "https://cad.onshape.com/api/v10",
-  "mode": "external-token (read-only MVP)",
+  "mode": "external-token; optional bounded modify; deployed read-only",
   "workingFork": "/home/kaos/Projects/01_pib/02_sw/onshape-mcp",
   "workingBranch": "claw-onshape/external-token",
-  "workingForkCommit": "c959c2d126b518e2ae248b21eabb58206bd9dae6",
+  "workingForkCommit": "116bce6c1660045878b6c6b8a5e5fbff0b654f9f",
   "forkRepository": "https://github.com/edge-robot/onshape-mcp",
-  "implementationCommit": "80d9f3a"
+  "implementationCommit": "ff8b6d8dc347f79a2caeb332817f8dfecc7f6194",
+  "forkRevision": "116bce6c1660045878b6c6b8a5e5fbff0b654f9f",
+  "mutationApiBase": "https://cad.onshape.com/api/v16",
+  "buildSource": "pinned fork revision (local commits; not pushed)",
+  "historicalPatch": "patches/0001-external-token-readonly.patch",
+  "imageDigest": "sha256:26c18e8d20a331d37b284174e33161c044c06fe657644f6e18f42082a255b46a",
+  "binarySha256": "85c1b22802dcc5c51e97bc75a334230a1a3c83e25c0107bc6258447de019acc7"
 }
