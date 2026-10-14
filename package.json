@@ -1,6 +1,6 @@
 {
   "name": "@edge-robot/claw-onshape",
-  "version": "0.2.2",
+  "version": "0.2.7",
   "type": "module",
   "private": true,
   "engines": {
@@ -11,9 +11,12 @@
     "openclaw.plugin.json",
     "README.md",
     "docs",
-    "agents",
-    "deploy/roles",
-    "spec.md"
+    "spec.md",
+    "skills",
+    "scripts/sync-engineer-workshop-skills.mjs",
+    "agents/robotics-lead/definition",
+    "agents/mechanical-engineer/definition",
+    "scripts/workshop-skills.mjs"
   ],
   "openclaw": {
     "extensions": [

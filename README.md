@@ -1,21 +1,21 @@
 # Claw-Onshape
 
-Claw-Onshape is a native OpenClaw 2026.9.9 plugin for reading and rendering Onshape CAD context. The accepted path today is read-only: Discord → Robotics Lead → signed A2A → Mechanical Engineer → Onshape REST → pinned PNG delivery.
+Claw-Onshape is a native OpenClaw 2026.9.9 plugin for reading and rendering Onshape CAD context. The accepted inspection path is Discord → Robotics Lead → signed A2A → Mechanical Engineer → native Onshape MCP. Claw-Onshape owns credentials and independently verifies feature observations; the existing REST render path delivers pinned PNGs.
 
 Current status:
 
 - Read/render flow is accepted for one configured owner.
-- Isolated native MCP feature reads pass; production MCP and CAD mutation remain disabled.
-- Candidate preparation exists as an internal REST control-plane helper, with no agent creation tool.
+- Gateway-owned native MCP feature reads pass, including hole diameter inspection. Candidate mutation is implemented but has not yet passed live write acceptance; the deployed target remains read-only.
+- Candidate preparation and exact-payload approval are operator dashboard actions. Engineer performs approved feature updates through native MCP; no agent creation tool is granted.
 - Deployment and configuration reconciliation are owned by Clawake.
 - Native dashboard and CLI share the same OAuth connection lifecycle.
 
 Start here:
 
-- [Native MCP read acceptance](docs/native-mcp-engineer-readonly-2026-10-13.md) — latest Engineer test and remaining lifecycle gap
+- [Live read evidence](docs/dashboard-connection-fix-2026-10-14.md) — Gateway-owned hole inspection and request-policy repair
 - [docs/product-mvp-status.md](docs/product-mvp-status.md) — current product acceptance and known gaps
-- [agents/mechanical-engineer.md](agents/mechanical-engineer.md) — engineer role and onboarding
-- [agents/agent-lead.md](agents/agent-lead.md) — A2A and delegation contract
+- [agents/mechanical-engineer/workspace/AGENTS.md](agents/mechanical-engineer/workspace/AGENTS.md) — engineer role and onboarding
+- [agents/robotics-lead/workspace/AGENTS.md](agents/robotics-lead/workspace/AGENTS.md) — A2A and delegation contract
 - [docs/mcp-dashboard-readiness.md](docs/mcp-dashboard-readiness.md) — dashboard and MCP status
 - [spec.md](spec.md) — broader product specification
 
@@ -29,8 +29,8 @@ Start here:
 
 ## What is explicitly not enabled
 
-- CAD writes, workspace mutation, branch creation, merge, publish, or print
-- production MCP access or dynamic FeatureScript work
+- unapproved CAD writes, writes to protected Primary, merge, publish, or print
+- unapproved MCP writes or dynamic FeatureScript work
 - arbitrary user/self-service multi-user onboarding
 - any bypass of the trusted requester and binding checks
 
@@ -43,7 +43,7 @@ npm install --cache /tmp/clawonshape-npm-cache
 npm run typecheck
 npm test
 npm pack --cache /tmp/clawonshape-npm-cache
-openclaw plugins install ./edge-robot-claw-onshape-0.2.2.tgz
+openclaw plugins install ./edge-robot-claw-onshape-0.2.7.tgz
 ```
 
 Validate the installed plugin with:
@@ -151,6 +151,20 @@ No role is allowed to invent a mutation path, candidate workspace write path, or
 - [docs/product-mvp-status.md](docs/product-mvp-status.md) — acceptance checkpoint
 - [docs/oauth-capabilities.md](docs/oauth-capabilities.md) — OAuth and permission matrix
 - [docs/mcp-dashboard-readiness.md](docs/mcp-dashboard-readiness.md) — dashboard and MCP readiness
-- [agents/mechanical-engineer.md](agents/mechanical-engineer.md) — engineer instructions
-- [agents/agent-lead.md](agents/agent-lead.md) — lead contract
+- [agents/mechanical-engineer/workspace/AGENTS.md](agents/mechanical-engineer/workspace/AGENTS.md) — engineer instructions
+- [agents/robotics-lead/workspace/AGENTS.md](agents/robotics-lead/workspace/AGENTS.md) — lead contract
 - [spec.md](spec.md) — product specification
+
+## Current self-hosted deployment layout
+
+Use `deploy/team.json` as the canonical Clawake inventory. The actual agent
+workspaces are `agents/<role>/workspace`; deployment definitions are
+`agents/<role>/definition/ROLE.md`. Runtime state, credentials, packages and
+unreviewed artifacts remain in ignored `state/`. Agent IDs remain unchanged during
+migration. The three Engineer Workshop skills stay editable through the native
+Workshop UI; their reviewed exports are outside the active workspace.
+
+See [workspace/state migration](docs/workspace-state-migration-2026-10-14.md) for
+paths, preview/apply commands, native skill export/import, backups and acceptance.
+
+See [free engineering tasks and Candidate execution](docs/free-engineering-tasks-2026-10-14.md) for the implemented native write workflow and its acceptance limits.

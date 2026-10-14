@@ -72,7 +72,7 @@ function dashboard(c,root,read){
 }
 test('operator scope is checked before native reads; no native metadata enters shared agent lifecycle',async()=>{
   let calls=0;const d=dashboard(parseConfig({bindings:[]}),'/tmp',async()=>{calls++;return projectMcpStatus(native());});
-  assert.deepEqual(d.actions.map(a=>[a.id,a.requiredScopes]),[['status',['operator.read']],['connect',['operator.admin']],['disconnect',['operator.admin']]]);
+  assert.deepEqual(d.actions.map(a=>[a.id,a.requiredScopes]),[['status',['operator.read']],['connect',['operator.admin']],['disconnect',['operator.admin']],['candidate-prepare',['operator.admin']],['candidate-check',['operator.admin']],['mutation-status',['operator.read']],['mutation-approve',['operator.admin']],['mutation-reconcile',['operator.admin']]]);
   for(const scopes of [[],['operator.write'],['agent']])assert.equal((await d.status(scopes)).result.code,'authorization_changed');
   assert.equal(calls,0);
   const status=await d.status(['operator.read']);assert.equal(status.result.code,'not_configured');assert.equal(status.result.mcp.enabled,false);assert.equal(calls,1);
@@ -98,11 +98,11 @@ test('REST connected/disconnected statuses remain independent with no network, r
     await store.save(null);result=(await d.status(['operator.read'])).result;assert.equal(result.code,'disconnected');assert.equal(result.mcp.configured,true);
   }finally{globalThis.fetch=originalFetch;await rm(root,{recursive:true,force:true});}
 });
-test('existing UI separates REST and MCP, keeps mutation blocked and exposes only REST controls',async()=>{
+test('dashboard preserves successful REST status and offers native read/write consent',async()=>{
   const originalDocument=globalThis.document;
   class Element{
     children=[];value='';textContent='';attrs={};
-    append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}
+    append(...items){this.children.push(...items);if(this.attrs['aria-label']==='Configured Onshape connection'&&!this.value&&items.length)this.value=items[0].value;}replaceChildren(...items){this.children=items;}
     setAttribute(k,v){this.attrs[k]=v;}removeAttribute(k){delete this.attrs[k];}remove(){}
   }
   globalThis.document={createElement:()=>new Element()};
@@ -110,12 +110,19 @@ test('existing UI separates REST and MCP, keeps mutation blocked and exposes onl
     let page;ui.activate({ui:{registerNavigation:()=>{},registerPage:p=>page=p}});
     const container=new Element(),requests=[];
     const view=page.mount(container,{signal:{aborted:false},host:{request:async(method,args)=>{
-      requests.push([method,args.actionId]);return {ok:true,result:{code:'not_configured',message:'REST fixture',connections:[],mcp:projectMcpStatus(native())}};
+      requests.push([method,args.actionId,args.payload]);return {ok:true,result:{code:'connected',message:'REST fixture',connections:['owner-rest'],mcp:projectMcpStatus(native())}};
     }}});
     await new Promise(resolve=>setImmediate(resolve));
     const nodes=e=>[e,...e.children.flatMap(nodes)],all=nodes(container),text=all.map(e=>e.textContent).join('\n');
-    for(const label of ['Onshape REST','Onshape MCP','CAD mutation: BLOCKED','Disabled','HISTORICAL','UNKNOWN'])assert(text.includes(label));
+    for(const label of ['Onshape REST','Onshape MCP','CAD mutation: approved Candidate payload and bound MCP execution policy required.','Disabled','HISTORICAL','UNKNOWN'])assert(text.includes(label));
     assert(!text.includes('Connect MCP'));assert(!text.includes('Disconnect MCP'));assert(text.includes('Connect Onshape'));
-    assert.deepEqual(requests,[['plugins.sessionAction','status']]);view.dispose();
+    assert(text.includes('Status: connected'));assert(!text.includes('plugin_unavailable'));
+    const connectWrite=all.find(e=>e.textContent==='Connect Onshape read/write');
+    const disconnect=all.find(e=>e.textContent==='Disconnect Onshape');
+    assert.equal(connectWrite.disabled,false);assert.equal(disconnect.disabled,false);
+    assert.deepEqual(requests,[['plugins.sessionAction','status',{}]]);
+    all.find(e=>e.attrs['aria-label']==='Configured Onshape connection').value='owner-rest';
+    await connectWrite.onclick();
+    assert.deepEqual(requests.at(-1),['plugins.sessionAction','connect',{connectionRef:'owner-rest',requestRestWriteAccess:true}]);view.dispose();
   }finally{globalThis.document=originalDocument;}
 });

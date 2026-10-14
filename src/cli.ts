@@ -1,3 +1,4 @@
+import {sameAuthorizationConfig} from './authorization-snapshot.ts';
 import {connect} from './oauth-listener.ts';
 export {connect} from './oauth-listener.ts';
 import {Consent} from './oauth.ts';
@@ -34,7 +35,7 @@ export function registerCli(api:OpenClawPluginApi, config:Config):void {
       const store=await selected(name);
       const clientSecret=await privateSecret(config.oauth.clientSecretFile);
       // Invalidate old access before starting consent. Failed reconnect leaves no usable connection.
-      const guard=()=>{const entry=api.runtime.config.current().plugins?.entries?.['claw-onshape'];if(entry?.enabled!==true)throw new Error('authorization_changed');const c=parseConfig(entry.config);if(JSON.stringify(c)!==JSON.stringify(config))throw new Error('authorization_changed');};
+      const guard=()=>{const entry=api.runtime.config.current().plugins?.entries?.['claw-onshape'];if(entry?.enabled!==true)throw new Error('authorization_changed');const c=parseConfig(entry.config);if(!sameAuthorizationConfig(c,config))throw new Error('authorization_changed');};
       const requestedScopes:OAuthScope[]=[OAUTH_SCOPE_READ];
       if (opts.restWrite) requestedScopes.push(OAUTH_SCOPE_WRITE);
       await authorizeConnection(store,guard,save=>connect(new Consent(config.oauth!.clientId,clientSecret,fetch,Date.now,undefined,requestedScopes),save));

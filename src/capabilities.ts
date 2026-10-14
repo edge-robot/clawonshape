@@ -1,3 +1,4 @@
+import {sameBinding} from './authorization-snapshot.ts';
 import type {Binding,Config,OnshapeApplicationPermissions} from './config.ts';
 import {id} from './config.ts';
 import type {OAuthScope} from './oauth.ts';
@@ -35,7 +36,7 @@ const actions:Readonly<Record<string,string>>={
 };
 function resolve(rule:Rule,input:Input):CapabilityResult{
   const {config,binding}=input,setting=config.oauth?.applicationPermissions[rule.permission];
-  const bound=!!binding&&config.bindings.some(b=>JSON.stringify(b)===JSON.stringify(binding));
+  const bound=!!binding&&config.bindings.some(b=>sameBinding(b,binding));
   const engineer=config.engineerAgentId??config.delegation?.engineerAgentId??binding?.agentId;
   const target=bound&&id(binding?.documentId)&&id(binding?.workspaceId);
   const rendered=rule.operation==='render_part_studio',elementReady=!rendered||id(binding?.elementId);

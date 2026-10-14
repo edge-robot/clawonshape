@@ -2,6 +2,7 @@ import {bindingFor,connectionOwner} from './config.ts';
 import type {Binding,Config,Identity} from './config.ts';
 import {credentials} from './credentials.ts';
 import {OAUTH_SCOPE_READ,OAUTH_SCOPE_WRITE} from './oauth.ts';
+import {authorizationSnapshot,matchesAuthorizationSnapshot,sameBinding} from './authorization-snapshot.ts';
 
 export type CandidateAuthorizationCheck=Readonly<{
   availability:'AVAILABLE'|'UNAVAILABLE'|'UNKNOWN';
@@ -16,7 +17,7 @@ const authorities=new WeakMap<object,{check:Check;dispatch:(binding:Binding,writ
 
 export function candidateAuthorization(current:()=>Config,identity:Identity,stateDir:string,assertConsent:()=>void):CandidateAuthorization {
   const initial=current(),context=Object.freeze({...identity,deliveryContext:identity.deliveryContext?Object.freeze({...identity.deliveryContext}):undefined});
-  const initialBinding=bindingFor(initial,context),snapshot=JSON.stringify(initial);
+  const initialBinding=bindingFor(initial,context),snapshot=authorizationSnapshot(initial);
   const value=Object.freeze({}) as CandidateAuthorization;
   let store:Awaited<ReturnType<typeof credentials>>|undefined;
   const validate=(binding:Binding,write:boolean,token?:string):CandidateAuthorizationCheck|undefined=>{
@@ -27,7 +28,7 @@ export function candidateAuthorization(current:()=>Config,identity:Identity,stat
     // Signed A2A contexts authorize reads only and must not become write grants.
     const selected=bindingFor(config,context);
     if(!initialBinding||!selected||context.agentId!==engineer||context.messageChannel==='a2a')return denied('agent_policy_denied');
-    if(JSON.stringify(config)!==snapshot||JSON.stringify(selected)!==JSON.stringify(initialBinding)||JSON.stringify(binding)!==JSON.stringify(selected))return denied('authorization_changed');
+    if(!matchesAuthorizationSnapshot(config,snapshot)||!sameBinding(selected,initialBinding)||!sameBinding(binding,selected))return denied('authorization_changed');
     if(!config.liveReads)return denied('live_reads_disabled');
     if(write){try{assertConsent();}catch{return denied('agent_policy_denied');}}
     if(!store)return;
@@ -42,7 +43,7 @@ export function candidateAuthorization(current:()=>Config,identity:Identity,stat
       if(permission!==true)return denied('app_permission_write_unknown','UNKNOWN');
     }
     // No await between the final authority check and returning the decision.
-    try{context.assertInvocationCurrent?.();if(JSON.stringify(current())!==snapshot)return denied('authorization_changed');if(write)assertConsent();}catch{return denied('authorization_changed');}
+    try{context.assertInvocationCurrent?.();if(!matchesAuthorizationSnapshot(current(),snapshot))return denied('authorization_changed');if(write)assertConsent();}catch{return denied('authorization_changed');}
     return {availability:'AVAILABLE',reason:'authorized'};
   };
   authorities.set(value,{

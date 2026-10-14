@@ -1035,3 +1035,36 @@ or Claw-Onshape MCP wrapper is introduced. Production remains disabled and all
 CAD writes denied. One-shot Codex client cleanup still fails; Gateway-owned
 isolated lifecycle acceptance is the next test. See the
 [native read evidence](native-mcp-engineer-readonly-2026-10-13.md).
+
+### ADR-019 — Separate agent workspaces and private state — 2026-10-14
+
+Use the existing Clawake inventory/Quadlet lifecycle with optional `state_path`;
+retain the nested state default for compatibility. ClawOnshape's canonical inventory
+is deploy/team.json, with workspace/definition files under agents/<role> and all
+private/generated data under ignored state/. Preserve deployment identities and
+native state/session ownership during this physical migration.
+
+Native Workshop state remains the active editable skill source. Reviewed exports
+live outside the active workspace; revision-bound native Proposal/Apply APIs own
+imports. Package templates must not shadow customized Workshop skills. Explicit
+package file inclusion prevents packaging a live agent workspace. Deprecated
+ClawCAD plugins are removed natively, with old grants and mounts withdrawn. Runtime
+backups remain private; old deployment data is retired only after acceptance.
+
+See [migration and runtime evidence](workspace-state-migration-2026-10-14.md).
+
+### ADR-020 — Free signed tasks and approved native Candidate updates — 2026-10-14
+
+Lead delegates engineering intent as inspect/edit/verify task text with a signed
+request envelope. Engineer selects native MCP tools through editable Workshop
+skills. Control-plane completion verifies feature observations independently;
+agent interpretation remains explicitly separate from verified observations.
+
+Candidate update proposals contain a complete native v16 feature payload. An
+operator reviews the payload hash, the control plane persists uncertainty before
+publishing bounded approval, and MCP admits the matching unexpired request under
+target/feature/revision constraints. Primary is excluded. Unknown outcomes require
+reconciliation, not retry. Future VC/VP claims replace local issuer trust at this
+execution-admission seam; no additional credential framework is introduced now.
+
+See [workflow and limitations](free-engineering-tasks-2026-10-14.md).

@@ -1,3 +1,4 @@
+import {authorizationSnapshot,matchesAuthorizationSnapshot} from './authorization-snapshot.ts';
 import type {Config} from './config.ts';
 import {connectionOwner} from './config.ts';
 import {credentials} from './credentials.ts';
@@ -9,9 +10,9 @@ export function mcpTokenOwner(current:()=>Config,stateDir:()=>string){
   const sync=():Promise<void>=>{
     if(stopped)return Promise.resolve();if(active)return active;
     active=(async()=>{
-      const config=current(),m=config.localMcp;if(!m)return;
+      const config=current(),snapshot=authorizationSnapshot(config),m=config.localMcp;if(!m)return;
       const b=config.bindings.find(b=>b.connectionRef===m.connectionRef);if(!b)throw new Error('invalid_configuration');
-      const guard=()=>{if(stopped||JSON.stringify(current())!==JSON.stringify(config))throw new Error('authorization_changed');};
+      const guard=()=>{if(stopped||!matchesAuthorizationSnapshot(current(),snapshot))throw new Error('authorization_changed');};
       const store=await credentials(stateDir(),b.connectionRef,connectionOwner(b),m.credentialDirectory);
       try{
         await accessToken(store,config.oauth,guard);

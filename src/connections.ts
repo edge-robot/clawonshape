@@ -1,3 +1,4 @@
+import {sameBinding,sameOAuth} from './authorization-snapshot.ts';
 import type {IncomingMessage,ServerResponse} from 'node:http';
 import type {Config,Binding} from './config.ts';
 import {connectionOwner} from './config.ts';
@@ -18,7 +19,7 @@ export function connectionLifecycle(current:()=>Config,stateDir:()=>string,origi
   const works=new Map<string,Promise<void>>();
   const outcomes=new Map<string,ReturnType<typeof userError>>();
   const selected=(name:string)=>{const c=current(),bs=c.bindings.filter(b=>b.connectionRef===name);if(!bs.length)throw new Error('not_configured');return {config:c,binding:bs[0]};};
-  const unchanged=(b:Binding,c:Config)=>{const n=selected(b.connectionRef);if(JSON.stringify(n.binding)!==JSON.stringify(b)||JSON.stringify(n.config.oauth)!==JSON.stringify(c.oauth))throw new Error('authorization_changed');};
+  const unchanged=(b:Binding,c:Config)=>{const n=selected(b.connectionRef);if(!sameBinding(n.binding,b)||!sameOAuth(n.config.oauth,c.oauth))throw new Error('authorization_changed');};
   const status=async(name?:string)=>{
     const c=current(),b=name?selected(name).binding:undefined;
     const report=(code:Parameters<typeof state>[0],connected=false,grantedScopes?:readonly string[])=>({...state(code),capabilities:capabilitySummary({config:c,binding:b,connected,grantedScopes})});

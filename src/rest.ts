@@ -10,6 +10,15 @@ import {decodePng, IMAGE_SIZE, VIEW_MATRIX} from './render.ts';
 
 export const REST_BASE = 'https://cad.onshape.com/api/v10/';
 
+export type FeatureObservation = {microversionId:string;featureId:string;plateWidth:string;featureStatus:string};
+export function validateFeatureObservation(value:unknown):asserts value is FeatureObservation {
+  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!=='featureId,featureStatus,microversionId,plateWidth')throw new Error('invalid_arguments');
+  const v=value as FeatureObservation;
+  if(!id(v.microversionId)||typeof v.featureId!=='string'||!/^[A-Za-z0-9_]{1,100}$/.test(v.featureId)||
+    typeof v.plateWidth!=='string'||v.plateWidth.length<1||v.plateWidth.length>120||
+    typeof v.featureStatus!=='string'||!/^[A-Z_]{1,40}$/.test(v.featureStatus))throw new Error('invalid_arguments');
+}
+
 type WorkspaceInfo = {id?: unknown; documentId?: unknown; microversion?: unknown};
 type ElementInfo = {id?: unknown; elementType?: unknown};
 type SourceFeatures = {sourceMicroversion?: unknown; features?: unknown};
@@ -159,6 +168,67 @@ export class RestClient {
 
   async inspect(binding: Binding) {
     return (await this.inspectSnapshot(binding)).summary;
+  }
+
+  // Independent control-plane verification of observations made by native MCP.
+  // No MCP invocation or caller-selected provider target is accepted here.
+  async verifyFeatureRead(binding: Binding, observation: FeatureObservation) {
+    validateFeatureObservation(observation);
+    const {elements} = await this.inspectSnapshot(binding);
+    if (!binding.elementId || !elements.some(e=>e.id===binding.elementId && e.elementType==='PARTSTUDIO')) throw new Error('target_not_part_studio');
+    const response = await this.get(`partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`) as {
+      sourceMicroversion?:unknown; features?:{featureId?:unknown;parameters?:{parameterId?:unknown;expression?:unknown}[]}[];
+      featureStates?:Record<string,{featureStatus?:unknown}>;
+    };
+    if(response.sourceMicroversion!==observation.microversionId)throw new Error('source_revision_conflict');
+    if(!Array.isArray(response.features)||response.features.length>1000)throw new Error('provider_protocol_error');
+    const feature=response.features.find(f=>f.featureId===observation.featureId);
+    const widths=feature?.parameters?.filter(p=>p.parameterId==='plateWidth');
+    if(widths?.length!==1||widths[0].expression!==observation.plateWidth||response.featureStates?.[observation.featureId]?.featureStatus!==observation.featureStatus)throw new Error('feature_observation_mismatch');
+    return {status:'ok',code:'ready',documentId:binding.documentId,workspaceId:binding.workspaceId,elementId:binding.elementId,
+      ...observation,verification:'independent_rest_match',observedAt:new Date().toISOString(),
+      onshapeUrl:`https://cad.onshape.com/documents/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}`};
+  }
+
+  async verifyFeatureEvidence(binding:Binding,evidence:FeatureReadEvidence) {
+    validateFeatureReadEvidence(evidence);
+    const {elements}=await this.inspectSnapshot(binding);
+    if(!binding.elementId||!elements.some(e=>e.id===binding.elementId&&e.elementType==='PARTSTUDIO'))throw new Error('target_not_part_studio');
+    const response=await this.get(`partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`) as {
+      sourceMicroversion?:unknown;features?:{featureId?:unknown;parameters?:{parameterId?:unknown;expression?:unknown}[]}[];
+      featureStates?:Record<string,{featureStatus?:unknown}>;
+    };
+    if(response.sourceMicroversion!==evidence.microversionId)throw new Error('source_revision_conflict');
+    if(!Array.isArray(response.features)||response.features.length>1000)throw new Error('provider_protocol_error');
+    for(const observed of evidence.observations){
+      const features=response.features.filter(f=>f.featureId===observed.featureId);
+      if(features.length!==1||response.featureStates?.[observed.featureId]?.featureStatus!==observed.featureStatus)throw new Error('feature_observation_mismatch');
+      if(observed.parameterId!==undefined){
+        const parameters=features[0].parameters?.filter(p=>p.parameterId===observed.parameterId);
+        if(parameters?.length!==1||parameters[0].expression!==observed.expression)throw new Error('feature_observation_mismatch');
+      }
+    }
+    return {...evidence,verification:'independent_rest_match' as const,observedAt:new Date().toISOString()};
+  }
+
+  async featureUpdateBaseline(binding:Binding,featureId:string) {
+    if(binding.workspaceId===binding.primaryWorkspaceId)throw new Error('protected_primary_workspace');
+    const {elements,workspaces}=await this.inspectSnapshot(binding);
+    if(!binding.elementId||!elements.some(e=>e.id===binding.elementId&&e.elementType==='PARTSTUDIO')||!workspaces.some(w=>w.id===binding.primaryWorkspaceId))throw new Error('target_not_part_studio');
+    const token=await this.accessToken();
+    const response=await jsonRequest(this.fetcher,`https://cad.onshape.com/api/v16/partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`,{method:'GET',headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}}) as {sourceMicroversion?:unknown;features?:Record<string,unknown>[];serializationVersion?:unknown;libraryVersion?:unknown;featureStates?:Record<string,{featureStatus?:unknown}>};
+    if(!id(response.sourceMicroversion)||!Array.isArray(response.features))throw new Error('provider_protocol_error');
+    const matches=response.features.filter(f=>f.featureId===featureId);if(matches.length!==1)throw new Error('feature_observation_mismatch');
+    const primary=await this.get(`documents/d/${binding.documentId}/w/${binding.primaryWorkspaceId}/currentmicroversion`) as {microversion?:unknown};
+    if(!id(primary.microversion))throw new Error('provider_protocol_error');
+    return {sourceMicroversion:response.sourceMicroversion,primaryMicroversionId:primary.microversion,feature:matches[0],featureStatus:response.featureStates?.[featureId]?.featureStatus,
+      body:{feature:matches[0],serializationVersion:response.serializationVersion,libraryVersion:response.libraryVersion,sourceMicroversion:response.sourceMicroversion,rejectMicroversionSkew:true}};
+  }
+
+  async sourceRevision(binding:Binding) {
+    await this.inspectSnapshot(binding);
+    const response=await this.get(`partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`) as {sourceMicroversion?:unknown};
+    if(!id(response.sourceMicroversion))throw new Error('source_revision_missing');return response.sourceMicroversion;
   }
 
   async render(binding: Binding) {
@@ -390,5 +460,21 @@ export class RestClient {
       }
     });
     return this.boundedCandidateResult(result);
+  }
+}
+
+
+export type FeatureReadEvidence={microversionId:string;observations:{featureId:string;featureStatus:string;parameterId?:string;expression?:string}[]};
+export function validateFeatureReadEvidence(value:unknown):asserts value is FeatureReadEvidence {
+  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!=='microversionId,observations')throw new Error('invalid_arguments');
+  const v=value as FeatureReadEvidence;
+  if(!id(v.microversionId)||!Array.isArray(v.observations)||!v.observations.length||v.observations.length>50)throw new Error('invalid_arguments');
+  const seen=new Set<string>();
+  for(const o of v.observations){
+    if(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).some(k=>!['featureId','featureStatus','parameterId','expression'].includes(k))||
+      typeof o.featureId!=='string'||!/^[A-Za-z0-9_]{1,100}$/.test(o.featureId)||typeof o.featureStatus!=='string'||!/^[A-Z_]{1,40}$/.test(o.featureStatus)||
+      ((o.parameterId===undefined)!==(o.expression===undefined))||
+      (o.parameterId!==undefined&&(typeof o.parameterId!=='string'||!/^[A-Za-z0-9_]{1,100}$/.test(o.parameterId)||typeof o.expression!=='string'||!o.expression.length||o.expression.length>256)))throw new Error('invalid_arguments');
+    const key=o.featureId+'\n'+(o.parameterId??'');if(seen.has(key))throw new Error('invalid_arguments');seen.add(key);
   }
 }

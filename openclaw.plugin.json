@@ -1,7 +1,7 @@
 {
   "id": "claw-onshape",
   "name": "Claw-Onshape",
-  "version": "0.2.2",
+  "version": "0.2.7",
   "description": "Scoped Onshape REST reads and separate OAuth/MCP foundations",
   "enabledByDefault": false,
   "activation": {
@@ -19,7 +19,14 @@
       "onshape_inspect",
       "onshape_status",
       "onshape_render",
-      "onshape_delegate_render"
+      "onshape_delegate_render",
+      "onshape_verify_feature_read",
+      "onshape_delegate_inspect",
+      "onshape_delegate_task",
+      "onshape_complete_task",
+      "onshape_propose_update",
+      "onshape_mutation_context",
+      "onshape_reconcile_update"
     ]
   },
   "toolMetadata": {
@@ -33,6 +40,27 @@
       "optional": true
     },
     "onshape_delegate_render": {
+      "optional": true
+    },
+    "onshape_verify_feature_read": {
+      "optional": true
+    },
+    "onshape_delegate_inspect": {
+      "optional": true
+    },
+    "onshape_delegate_task": {
+      "optional": true
+    },
+    "onshape_complete_task": {
+      "optional": true
+    },
+    "onshape_propose_update": {
+      "optional": true
+    },
+    "onshape_mutation_context": {
+      "optional": true
+    },
+    "onshape_reconcile_update": {
       "optional": true
     }
   },

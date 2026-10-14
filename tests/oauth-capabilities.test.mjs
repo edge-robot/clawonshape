@@ -68,6 +68,15 @@ test('agent-supplied authorization and target overrides cannot impersonate host 
   assert.equal(result.reason,'authorization_changed');assert.equal(f.calls.length,0);
 });
 
+test('candidate authorization survives semantic config/binding reordering through POST dispatch',async()=>{
+  const f=await fixture({onFetch:async(_call,{setConfig})=>{
+    const reverse=value=>Object.fromEntries(Object.entries(value).reverse());
+    setConfig(parseConfig({...reverse(base),bindings:[reverse(B)],oauth:{...reverse(base.oauth),applicationPermissions:reverse(base.oauth.applicationPermissions)}}));
+  }});
+  const result=await f.client.prepareCandidateWorkspace(Object.fromEntries(Object.entries(B).reverse()),{sourceMicroversionId:M});
+  assert.equal(result.status,'ok');assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+});
+
 test('revoked configuration, scopes, invocation authority and changed tokens prevent candidate POST',async()=>{
   for(const change of ['config','scope','disconnect']){
     const f=await fixture({onFetch:async(call,{store,setConfig})=>{

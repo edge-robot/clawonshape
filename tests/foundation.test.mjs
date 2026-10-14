@@ -53,7 +53,7 @@ test('package entry loads; manifest/optional tool/CLI metadata agree (mock regis
   assert.deepEqual(pkg.openclaw.extensions,['./dist/index.js']);
   assert.equal(pkg.peerDependencies.openclaw,'2026.9.9');
   assert.equal(plugin.id,manifest.id);
-  const host=capture();assert.equal(host.factories.length,4);assert.equal(host.factories[0].opts.optional,true);
+  const host=capture();assert.equal(host.factories.length,manifest.contracts.tools.length);assert.equal(host.factories[0].opts.optional,true);
   assert.equal(host.factories[0].factory(binding).name,manifest.contracts.tools[0]);
   assert.equal(host.cli[0].opts.descriptors[0].name,manifest.cliCommands[0].name);
   assert.equal(manifest.enabledByDefault,false);

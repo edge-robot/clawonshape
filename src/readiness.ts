@@ -1,4 +1,5 @@
 export const messages = {
+  feature_observation_mismatch:'The native MCP observation does not match a fresh independent Onshape read. No verified result is available.',
   plugin_unavailable:'Claw-Onshape is unavailable. Ask the operator to enable it for the Mechanical Engineer.',
   not_configured:'Claw-Onshape is installed, but no authorized user connection has been configured yet.',
   oauth_configuration_required:'Claw-Onshape is installed, but the Onshape application has not been configured yet. Ask the operator to provision the application.',
