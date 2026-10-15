@@ -94,8 +94,8 @@
       "plugins": [
         {
           "id": "claw-onshape",
-          "artifact_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/packages/edge-robot-claw-onshape-0.2.7.tgz",
-          "sha256": "sha256:727b75b5bc299616e1f8649840c0e18c72c6b41df054362e137f63f15d9c636d",
+          "artifact_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/packages/edge-robot-claw-onshape-0.2.8.tgz",
+          "sha256": "sha256:7b11f07ff4b3dbbc9ce8fd59f45dbd568e162bdbed5e47ddb9d2f6499d0c47d3",
           "config": {
             "bindings": [
               {
@@ -239,8 +239,8 @@
       "plugins": [
         {
           "id": "claw-onshape",
-          "artifact_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/packages/edge-robot-claw-onshape-0.2.7.tgz",
-          "sha256": "sha256:727b75b5bc299616e1f8649840c0e18c72c6b41df054362e137f63f15d9c636d",
+          "artifact_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/packages/edge-robot-claw-onshape-0.2.8.tgz",
+          "sha256": "sha256:7b11f07ff4b3dbbc9ce8fd59f45dbd568e162bdbed5e47ddb9d2f6499d0c47d3",
           "config": {
             "bindings": [
               {

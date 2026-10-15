@@ -12,6 +12,7 @@ import {Consent,parseTokens} from '../dist/oauth.js';
 import {accessToken} from '../dist/authorization.js';
 import {assessCapabilities,capabilitySummary} from '../dist/capabilities.js';
 import {connectionLifecycle} from '../dist/connections.js';
+import {registerDashboard} from '../dist/dashboard.js';
 
 const manifestText=await readFile(new URL('../openclaw.plugin.json',import.meta.url),'utf8');
 const D='a'.repeat(24),P='b'.repeat(24),W='c'.repeat(24),E='d'.repeat(24),M='e'.repeat(24),C='f'.repeat(24);
@@ -38,9 +39,26 @@ async function fixture(options={}){
     return json({id:D});
   };
   const client=new RestClient(options.token??(async()=>grant.accessToken),fetcher,{stateDir,authorization:options.forged?{}:authority,warn:m=>warnings.push(m)});
-  return {stateDir,store,client,calls,warnings,setConfig:v=>{config=v;}};
+  return {stateDir,store,client,calls,warnings,fetcher,setConfig:v=>{config=v;}};
 }
 const prepare=(f,input={})=>f.client.prepareCandidateWorkspace(B,{sourceMicroversionId:M,...input});
+
+test('dashboard administrator can prepare a Candidate for a Discord-channel-bound target without impersonating an agent',async()=>{
+ const config=parseConfig({...base,bindings:[{...B,workspaceId:P,discordChannelId:'123456789012345678'}]});
+ const f=await fixture({config}),actions=[],originalFetch=globalThis.fetch;
+ globalThis.fetch=f.fetcher;
+ try{
+  registerDashboard({session:{controls:{registerSessionAction:a=>actions.push(a)}},registerHttpRoute:()=>{},lifecycle:{registerRuntimeLifecycle:()=>{}},runtime:{state:{resolveStateDir:()=>f.stateDir},config:{current:()=>({})}}},()=>config);
+  const handler=actions.find(a=>a.id==='candidate-prepare').handler;
+  const denied=await handler({payload:{connectionRef:B.connectionRef},client:{scopes:['operator.read']}});
+  assert.equal(denied.result.code,'authorization_changed');assert.equal(f.calls.length,0);
+  const result=await handler({payload:{connectionRef:B.connectionRef},client:{scopes:['operator.admin']}});
+  assert.equal(result.result.status,'ok',JSON.stringify(result));assert.equal(result.result.references.candidateWorkspaceId,C);
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+  const again=await handler({payload:{connectionRef:B.connectionRef},client:{scopes:['operator.admin']}});
+  assert.equal(again.result.status,'ok');assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+ }finally{globalThis.fetch=originalFetch;}
+});
 
 test('candidate authorization uses actual grants, application attestations and explicit host consent',async()=>{
   for(const [options,reason,availability] of [

@@ -16,18 +16,29 @@ type Check=(binding:Binding,write:boolean,token?:string)=>Promise<CandidateAutho
 const authorities=new WeakMap<object,{check:Check;dispatch:(binding:Binding,write:boolean,token:string)=>CandidateAuthorizationCheck}>();
 
 export function candidateAuthorization(current:()=>Config,identity:Identity,stateDir:string,assertConsent:()=>void):CandidateAuthorization {
-  const initial=current(),context=Object.freeze({...identity,deliveryContext:identity.deliveryContext?Object.freeze({...identity.deliveryContext}):undefined});
-  const initialBinding=bindingFor(initial,context),snapshot=authorizationSnapshot(initial);
+  return candidateAuthority(current,identity,stateDir,assertConsent);
+}
+
+// Called only by the native operator session-action handler. Never synthesize a
+// Discord/agent identity from a configured binding to authorize a dashboard action.
+export function operatorCandidateAuthorization(current:()=>Config,binding:Binding,stateDir:string,assertOperator:()=>void):CandidateAuthorization {
+  return candidateAuthority(current,undefined,stateDir,assertOperator,Object.freeze({...binding}));
+}
+
+function candidateAuthority(current:()=>Config,identity:Identity|undefined,stateDir:string,assertConsent:()=>void,operatorBinding?:Binding):CandidateAuthorization {
+  const initial=current(),context=identity?Object.freeze({...identity,deliveryContext:identity.deliveryContext?Object.freeze({...identity.deliveryContext}):undefined}):undefined;
+  const select=(config:Config)=>operatorBinding?config.bindings.find(b=>sameBinding(b,operatorBinding)):context?bindingFor(config,context):undefined;
+  const initialBinding=select(initial),snapshot=authorizationSnapshot(initial);
   const value=Object.freeze({}) as CandidateAuthorization;
   let store:Awaited<ReturnType<typeof credentials>>|undefined;
   const validate=(binding:Binding,write:boolean,token?:string):CandidateAuthorizationCheck|undefined=>{
     const denied=(reason:CandidateAuthorizationCheck['reason'],availability:'UNAVAILABLE'|'UNKNOWN'='UNAVAILABLE'):CandidateAuthorizationCheck=>({availability,reason});
     let config:Config;
-    try{context.assertInvocationCurrent?.();config=current();}catch{return denied('authorization_changed');}
+    try{context?.assertInvocationCurrent?.();if(operatorBinding)assertConsent();config=current();}catch{return denied('authorization_changed');}
     const engineer=config.engineerAgentId??config.delegation?.engineerAgentId??'clawcad-mechanical-engineer';
     // Signed A2A contexts authorize reads only and must not become write grants.
-    const selected=bindingFor(config,context);
-    if(!initialBinding||!selected||context.agentId!==engineer||context.messageChannel==='a2a')return denied('agent_policy_denied');
+    const selected=select(config);
+    if(!initialBinding||!selected||selected.agentId!==engineer||(!operatorBinding&&(!context||context.agentId!==engineer||context.messageChannel==='a2a')))return denied('agent_policy_denied');
     if(!matchesAuthorizationSnapshot(config,snapshot)||!sameBinding(selected,initialBinding)||!sameBinding(binding,selected))return denied('authorization_changed');
     if(!config.liveReads)return denied('live_reads_disabled');
     if(write){try{assertConsent();}catch{return denied('agent_policy_denied');}}
@@ -43,13 +54,13 @@ export function candidateAuthorization(current:()=>Config,identity:Identity,stat
       if(permission!==true)return denied('app_permission_write_unknown','UNKNOWN');
     }
     // No await between the final authority check and returning the decision.
-    try{context.assertInvocationCurrent?.();if(!matchesAuthorizationSnapshot(current(),snapshot))return denied('authorization_changed');if(write)assertConsent();}catch{return denied('authorization_changed');}
+    try{context?.assertInvocationCurrent?.();if(!matchesAuthorizationSnapshot(current(),snapshot))return denied('authorization_changed');if(write||operatorBinding)assertConsent();}catch{return denied('authorization_changed');}
     return {availability:'AVAILABLE',reason:'authorized'};
   };
   authorities.set(value,{
     check:async(binding,write,token)=>{
       const result=validate(binding,write,token);if(result)return result;
-      try{store=await credentials(stateDir,initialBinding!.connectionRef,connectionOwner(initialBinding!));}catch{return {availability:'UNAVAILABLE',reason:'reconnect_required'};}
+      try{store=await credentials(stateDir,initialBinding!.connectionRef,connectionOwner(initialBinding!),initial.localMcp?.credentialDirectory);}catch{return {availability:'UNAVAILABLE',reason:'reconnect_required'};}
       return validate(binding,write,token)??{availability:'UNAVAILABLE',reason:'agent_policy_denied'};
     },
     // Synchronous recheck after all awaited preflight/persistence steps, with no

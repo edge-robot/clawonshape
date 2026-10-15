@@ -3,7 +3,7 @@ import type {Config} from './config.ts';
 import {connectionOwner} from './config.ts';
 import {connectionLifecycle,CALLBACK_PATH} from './connections.ts';
 import {RestClient} from './rest.ts';
-import {candidateAuthorization} from './candidate-authorization.ts';
+import {operatorCandidateAuthorization} from './candidate-authorization.ts';
 import {credentials} from './credentials.ts';
 import {accessToken} from './authorization.ts';
 import {authorizationSnapshot,matchesAuthorizationSnapshot} from './authorization-snapshot.ts';
@@ -53,7 +53,7 @@ export function registerDashboard(api:OpenClawPluginApi,current:()=>Config,readM
           const store=await credentials(api.runtime.state.resolveStateDir(),binding.connectionRef,connectionOwner(binding),initial.localMcp?.credentialDirectory);
           const proposals=await mutationStore(api.runtime.state.resolveStateDir(),binding);
           if(actionId==='mutation-status')return response({status:'ok',target:{documentId:binding.documentId,workspaceId:binding.workspaceId,elementId:binding.elementId,primaryWorkspaceId:binding.primaryWorkspaceId},oauthWrite:store.read(true).scopes.includes('OAuth2Write'),proposals:await proposals.list()});
-          const client=new RestClient(()=>accessToken(store,initial.oauth,assertOperator),fetch,{stateDir:api.runtime.state.resolveStateDir(),authorization:candidateAuthorization(current,{...binding},api.runtime.state.resolveStateDir(),assertOperator)});
+          const client=new RestClient(()=>accessToken(store,initial.oauth,assertOperator),fetch,{stateDir:api.runtime.state.resolveStateDir(),authorization:operatorCandidateAuthorization(current,binding,api.runtime.state.resolveStateDir(),assertOperator)});
           if(actionId==='candidate-prepare'||actionId==='candidate-check'){
             if(actionId==='candidate-prepare'&&binding.workspaceId!==binding.primaryWorkspaceId)throw new Error('candidate_already_assigned');
             if(actionId==='candidate-check'&&(!input?.candidateWorkspaceId||input.candidateWorkspaceId===binding.primaryWorkspaceId))throw new Error('protected_primary_workspace');
