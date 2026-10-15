@@ -1,0 +1,18 @@
+{
+  // Convenience for editors only. Agents MUST be started with scripts/dev.sh, which is
+  // the authoritative definition of mounts, read-only overlays and git identity.
+  "name": "clawonshape-dev",
+  "build": { "dockerfile": "../Containerfile", "context": "..", "target": "dev" },
+  "workspaceFolder": "/workspaces/clawonshape",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/clawonshape,type=bind",
+  "mounts": [
+    "source=${localWorkspaceFolder}/../onshape-mcp,target=/workspaces/onshape-mcp,type=bind,readonly"
+  ],
+  "runArgs": ["--userns=keep-id", "--cap-drop=all", "--security-opt=no-new-privileges"],
+  "containerEnv": {
+    "HOME": "/home/dev",
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "core.hooksPath",
+    "GIT_CONFIG_VALUE_0": "/opt/devcontainer/hooks"
+  }
+}
