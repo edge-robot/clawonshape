@@ -13,6 +13,67 @@ Product priority update: Increment 0 connectivity/onboarding and Increment 1
 Discord read/render take precedence over MCP mutation work. ADR-008–011 record
 the implemented product slice; ADR-001–007's plane/security boundaries remain.
 
+## ADR-review-2026-10-15: Candidate mutation runs through the native MCP client and onshape-mcp admission, not a plugin-side MCP factory
+
+Status: Accepted direction (2026-10-15, review comment 6194334830 on
+[edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2)); open decisions listed below.
+
+### Context
+
+The candidate lifecycle gate in [src/candidate-authorization.ts](../src/candidate-authorization.ts) and the
+REST denial in [src/rest.ts](../src/rest.ts) block every write-capable candidate operation unless the
+connection has a verified `OAuth2Write` REST grant. That correctly protects candidate *workspace creation*.
+A first draft of this review proposed a plugin-side "MCP mutation factory" for candidate *feature edits*.
+
+The deployed system already works differently: the Engineer calls onshape-mcp directly through the
+OpenClaw native MCP client (`mcp.servers.onshape`, provisioned by Clawake). ClawOnshape only publishes the
+access token and the approval file. A plugin factory would duplicate onshape-mcp's admission and would
+need an unverified native call facade.
+
+### Decision
+
+1. **No plugin-side MCP factory, client or `/mcp` proxy.** The OpenClaw native MCP client is the transport.
+   Clawake provisions it.
+2. **onshape-mcp owns execution admission:** target, excluded Primary workspace, operation enum, revision
+   CAS (`sourceMicroversion` + `rejectMicroversionSkew`), exact approved body, single attempt.
+3. **ClawOnshape owns** OAuth and token publication, identity, proposals, approvals, receipts and
+   `UNKNOWN` reconciliation.
+4. Candidate **workspace creation** stays REST-gated (`OAuth2Write`).
+5. The **model/view/controller split** stays in scope. Agent and dashboard consume one normalized status
+   model. The dashboard is never the decision source.
+
+The interface between ClawOnshape and onshape-mcp is specified in
+[docs/interface/onshape-mcp.md](interface/onshape-mcp.md).
+
+### Required architectural separation (unchanged)
+
+- Model: connection state, OAuth grant metadata, workspace IDs, candidate attempts, authorization snapshot,
+  provider-readiness state.
+- View: dashboard rendering and agent-facing capability/status summaries.
+- Controller: capability evaluation, auth enforcement, session actions, proposal/approval/reconcile
+  orchestration.
+
+### Open decisions
+
+| Topic | Tracking |
+|---|---|
+| Dynamic candidate target: Clawake reprovisioning vs. claims in the approval file (contract G3) | [edge-robot/clawonshape#3](https://github.com/edge-robot/clawonshape/issues/3) |
+| Approval file is optional in the server (contract G2, high) | [edge-robot/onshape-mcp#2](https://github.com/edge-robot/onshape-mcp/issues/2) |
+| Client timeout equals server timeout, so `UNKNOWN` may be lost (contract G9, high) | [edge-robot/clawake#17](https://github.com/edge-robot/clawake/issues/17) |
+| `/mcp` without HTTP authentication: accept with network boundary? (contract G8) | [edge-robot/clawonshape#7](https://github.com/edge-robot/clawonshape/issues/7) |
+| `spec.md` still says MCP CAD execution is disabled (contract G10) | [edge-robot/clawonshape#8](https://github.com/edge-robot/clawonshape/issues/8) |
+| Whether `before_tool_call` covers native MCP tools | unverified; needs a live hook test (clawonshape#2) |
+| Rewrite title and body of clawonshape#2 to this decision | clawonshape#2 |
+
+Further contract gaps (G1, G4–G7, G11, G12) are tracked in §11 of the interface contract.
+
+### Rejected alternatives
+
+- Plugin-side MCP mutation factory or proxy (duplicates server admission; unverified native call facade).
+- Keep all candidate editing behind the REST-only `OAuth2Write` gate.
+- MCP mutation as a generic provider passthrough without server-side admission.
+- The dashboard status object as the source of truth for control-plane decisions.
+
 ## ADR-001: REST controls the engineering process; MCP performs CAD work
 
 Status: Accepted
