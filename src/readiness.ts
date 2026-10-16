@@ -81,6 +81,7 @@ export const messages = {
   onshape_unavailable: 'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
   oauth_reconnect_required: 'Onshape authorization did not complete. Choose Connect Onshape to retry.',
   oauth_connect_expired: 'Onshape authorization timed out. Choose Connect Onshape to retry.',
+  approval_expired_not_dispatched: 'Approval expired without execution. Create a new proposal.',
   connection_busy_or_state_unavailable:
     'Another connection action is active, or the private state directory is unavailable. Wait and refresh; ask the operator if it persists.',
 } as const;

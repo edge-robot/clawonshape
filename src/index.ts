@@ -230,7 +230,10 @@ export default {
                     ? 'Get the approved Candidate update for this signed task; performs no MCP call. Returns apiCall: ' +
                       'parse the text result if needed and pass apiCall unchanged as the arguments of ' +
                       'onshape__onshape_api_call, exactly once, then call onshape_reconcile_update.'
-                    : 'Independently reconcile Candidate parameters/state and Primary preservation after a native update; never retries a write.',
+                    : 'Independently reconcile Candidate parameters/state and Primary preservation after a native update; ' +
+                      'never retries a write. Terminal outcomes: VERIFIED, or REJECTED with reason ' +
+                      'approval_expired_not_dispatched when the approval expired without execution; report REJECTED ' +
+                      'and stop, a new proposal is required.',
               parameters: {
                 type: 'object',
                 properties: {

@@ -30,7 +30,13 @@ export type MutationProposal = {
   approvedAt?: string;
   expiresAt?: number;
   resultMicroversion?: string;
+  // Only on REJECTED receipts (contract §4 reconcile rule 4).
+  reason?: 'approval_expired_not_dispatched';
+  rejectedAt?: string;
 };
+// Contract §4 reconcile rule 4: wait 60 s past expiresAt, which covers the server's 30 s Onshape
+// timeout (§7), so that a dispatch admitted just before expiry has finished before REJECTED.
+export const APPROVAL_DISPATCH_GRACE_MS = 60_000;
 // Contract §4.1: the Engineer passes `apiCall` unchanged as the onshape_api_call arguments.
 export type ExecutionContext = {
   status: 'ok';
@@ -270,52 +276,73 @@ export async function mutationStore(stateDir: string, binding: Binding, now: () 
         },
       };
     },
+    // Contract §4: on an UNKNOWN receipt apply rules 1–4 in order. VERIFIED and REJECTED are terminal and
+    // are the only transitions; both persist the receipt first and then reset the approval file to null.
     async reconcile(value: string, client: RestClient, approvalDirectory: string) {
-      return exclusive(async () => {
-        const record = await read(value);
-        if (record.status !== 'UNKNOWN') {
-          throw new Error('invalid_arguments');
-        }
-        const current = await client.featureUpdateBaseline(binding, record.featureId);
-        if (current.primaryMicroversionId !== record.primaryMicroversionId) {
-          throw new Error('primary_revision_changed');
-        }
-        if (current.sourceMicroversion === record.sourceMicroversion) {
-          throw new Error('mutation_outcome_unknown');
-        }
-        // Verify feature identity/state and approved expressions, not full geometry.
-        const approved = record.body.feature as {
-          featureId?: unknown;
-          featureType?: unknown;
-          suppressed?: unknown;
-          parameters?: {parameterId?: unknown; expression?: unknown}[];
-        };
-        const observed = current.feature as typeof approved;
-        if (
-          observed.featureId !== approved.featureId ||
-          observed.featureType !== approved.featureType ||
-          observed.suppressed !== approved.suppressed ||
-          current.featureStatus !== 'OK'
-        ) {
-          throw new Error('mutation_verification_mismatch');
-        }
-        for (const parameter of approved.parameters ?? []) {
-          if (parameter.expression !== undefined) {
-            const matches = observed.parameters?.filter((p) => p.parameterId === parameter.parameterId);
-            if (matches?.length !== 1 || matches[0].expression !== parameter.expression) {
-              throw new Error('mutation_verification_mismatch');
-            }
-          }
-        }
-        const verified = {...record, status: 'VERIFIED' as const, resultMicroversion: current.sourceMicroversion};
-        await save(verified);
+      const finish = async (terminal: MutationProposal) => {
+        await save(terminal);
         await native.writePrivateSecretFileAtomic({
           rootDir: approvalDirectory,
           filePath: path.join(approvalDirectory, 'approved-update.json'),
           content: 'null',
           durable: 'file',
         });
-        return verified;
+        return terminal;
+      };
+      return exclusive(async () => {
+        const record = await read(value);
+        if (record.status !== 'UNKNOWN') {
+          throw new Error('invalid_arguments');
+        }
+        const current = await client.featureUpdateBaseline(binding, record.featureId);
+        // Rule 1: Primary changed. Stays UNKNOWN.
+        if (current.primaryMicroversionId !== record.primaryMicroversionId) {
+          throw new Error('primary_revision_changed');
+        }
+        // Rule 2: Candidate changed. Verify feature identity/state and approved expressions, not full geometry.
+        if (current.sourceMicroversion !== record.sourceMicroversion) {
+          const approved = record.body.feature as {
+            featureId?: unknown;
+            featureType?: unknown;
+            suppressed?: unknown;
+            parameters?: {parameterId?: unknown; expression?: unknown}[];
+          };
+          const observed = current.feature as typeof approved;
+          if (
+            observed.featureId !== approved.featureId ||
+            observed.featureType !== approved.featureType ||
+            observed.suppressed !== approved.suppressed ||
+            current.featureStatus !== 'OK'
+          ) {
+            throw new Error('mutation_verification_mismatch');
+          }
+          for (const parameter of approved.parameters ?? []) {
+            if (parameter.expression !== undefined) {
+              const matches = observed.parameters?.filter((p) => p.parameterId === parameter.parameterId);
+              if (matches?.length !== 1 || matches[0].expression !== parameter.expression) {
+                throw new Error('mutation_verification_mismatch');
+              }
+            }
+          }
+          return finish({...record, status: 'VERIFIED', resultMicroversion: current.sourceMicroversion});
+        }
+        // Rule 3: Candidate unchanged within the grace. A receipt without a valid expiry stays UNKNOWN.
+        const at = now();
+        const expiresAt = record.expiresAt;
+        if (
+          expiresAt === undefined ||
+          !Number.isSafeInteger(expiresAt) ||
+          at < expiresAt + APPROVAL_DISPATCH_GRACE_MS
+        ) {
+          throw new Error('mutation_outcome_unknown');
+        }
+        // Rule 4: Candidate unchanged after the grace; the approval expired without a dispatch.
+        return finish({
+          ...record,
+          status: 'REJECTED',
+          reason: 'approval_expired_not_dispatched',
+          rejectedAt: new Date(at).toISOString(),
+        });
       });
     },
   };

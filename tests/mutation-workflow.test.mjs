@@ -185,6 +185,130 @@ async function approvedReceipt(t0 = 1_800_000_000_000) {
   return {root, directory, approvalFile, clock, store, client, proposal, expiresAt: approved.expiresAt};
 }
 
+// Contract §4: 60 s grace after expiresAt before rule 4 applies.
+const GRACE = 60000;
+const changedFeature = {
+  ...feature,
+  parameters: [
+    {parameterId: 'holeDiameter', expression: '5 mm'},
+    {parameterId: 'plateWidth', expression: '50 mm'},
+  ],
+};
+
+test('reconcile (a) Primary changed stays UNKNOWN and leaves the approval file untouched', async () => {
+  const r = await approvedReceipt();
+  try {
+    const before = await readFile(r.approvalFile, 'utf8');
+    r.client.current = baseline({primaryMicroversionId: M});
+    await assert.rejects(r.store.reconcile(r.proposal.id, r.client, r.directory), /primary_revision_changed/);
+    // Rule 1 precedes rule 4: an expired approval with a changed Primary is not closed as REJECTED.
+    r.clock.now = r.expiresAt + GRACE;
+    await assert.rejects(r.store.reconcile(r.proposal.id, r.client, r.directory), /primary_revision_changed/);
+    assert.equal((await r.store.read(r.proposal.id)).status, 'UNKNOWN');
+    assert.equal(await readFile(r.approvalFile, 'utf8'), before);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
+test('reconcile (b) Candidate changed and matching becomes VERIFIED and resets the approval file', async () => {
+  const r = await approvedReceipt();
+  try {
+    // Rule 2 precedes rule 4: a dispatch that landed is verified even after the grace period.
+    r.clock.now = r.expiresAt + GRACE;
+    r.client.current = baseline({sourceMicroversion: D});
+    const verified = await r.store.reconcile(r.proposal.id, r.client, r.directory);
+    assert.equal(verified.status, 'VERIFIED');
+    assert.equal(verified.resultMicroversion, D);
+    assert.equal((await r.store.read(r.proposal.id)).status, 'VERIFIED');
+    assert.equal(JSON.parse(await readFile(r.approvalFile, 'utf8')), null);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
+test('reconcile (c) Candidate changed but mismatching stays UNKNOWN', async () => {
+  const r = await approvedReceipt();
+  try {
+    const before = await readFile(r.approvalFile, 'utf8');
+    r.client.current = baseline({sourceMicroversion: D, feature: changedFeature});
+    await assert.rejects(r.store.reconcile(r.proposal.id, r.client, r.directory), /mutation_verification_mismatch/);
+    assert.equal((await r.store.read(r.proposal.id)).status, 'UNKNOWN');
+    assert.equal(await readFile(r.approvalFile, 'utf8'), before);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
+test('reconcile (d) unchanged Candidate within the 60 s grace stays UNKNOWN', async () => {
+  const r = await approvedReceipt();
+  try {
+    const before = await readFile(r.approvalFile, 'utf8');
+    r.clock.now = r.expiresAt + GRACE - 1;
+    await assert.rejects(r.store.reconcile(r.proposal.id, r.client, r.directory), /mutation_outcome_unknown/);
+    assert.equal((await r.store.read(r.proposal.id)).status, 'UNKNOWN');
+    assert.equal(await readFile(r.approvalFile, 'utf8'), before);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
+test('reconcile (e) unchanged Candidate after the grace closes as REJECTED and resets the approval file', async () => {
+  const r = await approvedReceipt();
+  try {
+    r.clock.now = r.expiresAt + GRACE;
+    const rejected = await r.store.reconcile(r.proposal.id, r.client, r.directory);
+    assert.equal(rejected.status, 'REJECTED');
+    assert.equal(rejected.reason, 'approval_expired_not_dispatched');
+    assert.equal(rejected.rejectedAt, new Date(r.expiresAt + GRACE).toISOString());
+    const stored = await r.store.read(r.proposal.id);
+    assert.deepEqual(stored, rejected);
+    // All other receipt fields are kept.
+    assert.equal(stored.payloadHash, r.proposal.payloadHash);
+    assert.equal(stored.expiresAt, r.expiresAt);
+    assert.deepEqual(stored.body, body);
+    assert.equal(JSON.parse(await readFile(r.approvalFile, 'utf8')), null);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
+test('reconcile (f) a REJECTED receipt does not block a new proposal and approval', async () => {
+  const r = await approvedReceipt();
+  try {
+    r.clock.now = r.expiresAt + GRACE;
+    assert.equal((await r.store.reconcile(r.proposal.id, r.client, r.directory)).status, 'REJECTED');
+    const next = await r.store.propose(request, body, 'Second attempt after expiry.', r.client);
+    assert.equal(next.status, 'PROPOSED');
+    const approved = await r.store.approve(next.id, next.payloadHash, r.directory, r.client, () => {});
+    assert.equal(approved.status, 'UNKNOWN');
+    assert.equal(JSON.parse(await readFile(r.approvalFile, 'utf8')).proposalId, next.id);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
+test('reconcile (g) terminal REJECTED and VERIFIED receipts are refused without a file write', async () => {
+  const r = await approvedReceipt();
+  try {
+    r.clock.now = r.expiresAt + GRACE;
+    await r.store.reconcile(r.proposal.id, r.client, r.directory);
+    const next = await r.store.propose(request, body, 'Verified attempt.', r.client);
+    await r.store.approve(next.id, next.payloadHash, r.directory, r.client, () => {});
+    r.client.current = baseline({sourceMicroversion: D});
+    assert.equal((await r.store.reconcile(next.id, r.client, r.directory)).status, 'VERIFIED');
+    await writeFile(r.approvalFile, 'sentinel', {mode: 0o600});
+    for (const id of [r.proposal.id, next.id]) {
+      await assert.rejects(r.store.reconcile(id, r.client, r.directory), /invalid_arguments/);
+    }
+    assert.equal(await readFile(r.approvalFile, 'utf8'), 'sentinel');
+    assert.equal((await r.store.read(r.proposal.id)).status, 'REJECTED');
+    assert.equal((await r.store.read(next.id)).status, 'VERIFIED');
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});
+
 test('executionContext is unavailable once the approval has expired', async () => {
   const r = await approvedReceipt();
   try {

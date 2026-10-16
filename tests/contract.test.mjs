@@ -47,6 +47,25 @@ test('contract fixture copy has the version this plugin implements', async () =>
   assert.equal((await fixture('expectations.json')).contractVersion, CONTRACT_VERSION);
 });
 
+// Codes emitted by the mutation workflow that error-codes.json does not list yet. They are generic plugin
+// codes; adding them is a contract change request in the report of
+// docs/prompts/2026-10-16-mutation-context-and-expired-approval.md. Remove entries once the contract lists them.
+const PENDING_CONTRACT_CODES = ['authorization_changed', 'invalid_arguments', 'provider_protocol_error'];
+
+test('every code the mutation workflow can emit is listed in error-codes.json', async () => {
+  const codes = await fixture('error-codes.json');
+  const listed = new Set([...codes.plugin, ...codes.server]);
+  const source = await readFile(new URL('../dist/mutation-workflow.js', import.meta.url), 'utf8');
+  const emitted = new Set([...source.matchAll(/\bError\('([a-z0-9_]+)'\)/g)].map((m) => m[1]));
+  for (const m of source.matchAll(/\breason: '([a-z0-9_]+)'/g)) {
+    emitted.add(m[1]);
+  }
+  assert(emitted.has('approval_expired_not_dispatched'), 'REJECTED reason must be emitted by the workflow');
+  assert(emitted.has('mutation_outcome_unknown'));
+  const unlisted = [...emitted].filter((code) => !listed.has(code)).sort();
+  assert.deepEqual(unlisted, PENDING_CONTRACT_CODES);
+});
+
 // Minimal, dependency-free check of the onshape_api_call inputSchema parts the execution context uses.
 function validateApiCallInput(schema, input) {
   const errors = [];
