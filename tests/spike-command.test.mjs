@@ -1,4 +1,4 @@
-// Spike (docs/prompts/2026-10-16-plugin-command-spike.md and -spike-2.md, edge-robot/clawonshape#13): throwaway
+// Spike (docs/prompts/2026-10-16-plugin-command-spike.md, -spike-2.md and -spike-3.md, edge-robot/clawonshape#13): throwaway
 // clawcad_spike plugin command. Only registration, redaction, the reply bound and the follow-up scheduling are
 // tested here; Discord visibility and the real handler context are live checks.
 import test from 'node:test';
@@ -306,6 +306,12 @@ test('reply 2 looks up the adapter by provider id and is posted once 120 s later
   assert.equal(followUp.length, 1);
   assert.equal(event(followUp[0]).invocationId, invocationId);
   assert.equal(event(followUp[0]).outcome, 'sent');
+  // The default `from` does not qualify (it ends with the sender id), so only `to` is tried.
+  assert.equal(event(followUp[0]).source, 'to');
+  assert.deepEqual(event(followUp[0]).attempts, [
+    {source: 'from', outcome: 'skipped', reason: 'not_qualified'},
+    {source: 'to', outcome: 'sent'},
+  ]);
   for (const secret of [...SECRETS, TO, FROM]) {
     assert(!followUp[0].includes(secret));
   }
@@ -351,5 +357,159 @@ test('reply 2 fails closed with one logged reason per missing piece or failure',
     failed.map((e) => [e.outcome, e.reason]),
     [['not_sent', 'send_failed']],
   );
+  assert.equal(failed[0].source, null);
+  assert.deepEqual(failed[0].attempts.at(-1), {source: 'to', outcome: 'send_failed', errorClass: 'Error'});
   assert(!JSON.stringify(failed).includes('TOKEN-DO-NOT-LOG'));
+});
+
+// Spike 3: live native slash shapes (evidence row 3b). `from` names the channel, `to` the interaction user.
+const LIVE_FROM = `discord:channel:${DISCORD_CHANNEL}`;
+const LIVE_TO = `slash:${SENDER}`;
+// Runs one invocation through the 120 s timer. `behaviour(target, call)` decides per sendText call.
+async function runFollowUp(t, extra, behaviour) {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  const calls = [];
+  const outbound = {
+    sendText: async (params) => {
+      calls.push(params);
+      return behaviour(params.to, calls.length);
+    },
+  };
+  const {commands, logs} = load({agents: [LEAD], outbound});
+  const ctx = context({from: LIVE_FROM, to: LIVE_TO, ...extra});
+  await commands[0].handler(ctx);
+  t.mock.timers.tick(120_000);
+  await settle();
+  t.mock.timers.tick(10 * 120_000);
+  await settle();
+  const lines = logs.filter((m) => m.includes('"claw_onshape.spike_follow_up"'));
+  assert.equal(lines.length, 1);
+  for (const raw of [LIVE_FROM, LIVE_TO, ctx.from, ctx.to, ...SECRETS].filter((v) => typeof v === 'string')) {
+    assert(!lines[0].includes(raw), `follow-up log must not contain ${raw}`);
+  }
+  // No target string is ever constructed: every call gets exactly the host-provided value.
+  for (const params of calls) {
+    assert(params.to === ctx.from || params.to === ctx.to, 'sendText target must be ctx.from or ctx.to');
+    assert.equal(params.cfg, ctx.config);
+  }
+  return {ctx, calls, logged: event(lines[0])};
+}
+class ProviderRejectError extends Error {
+  name = 'ProviderRejectError';
+}
+
+test('reply 2 prefers a qualifying ctx.from and stops after it is sent', async (t) => {
+  const {calls, logged} = await runFollowUp(t, {}, () => ({messageId: 'm1'}));
+  assert.deepEqual(
+    calls.map((c) => c.to),
+    [LIVE_FROM],
+  );
+  assert.equal(logged.outcome, 'sent');
+  assert.equal(logged.source, 'from');
+  assert.equal(logged.reason, undefined);
+  assert.deepEqual(logged.attempts, [{source: 'from', outcome: 'sent'}]);
+});
+
+test('reply 2 falls back to ctx.to once when ctx.from fails, never retrying a source', async (t) => {
+  const {calls, logged} = await runFollowUp(t, {}, (target) => {
+    if (target === LIVE_FROM) {
+      throw new ProviderRejectError('rejected TOKEN-DO-NOT-LOG');
+    }
+    return {messageId: 'm2'};
+  });
+  assert.deepEqual(
+    calls.map((c) => c.to),
+    [LIVE_FROM, LIVE_TO],
+  );
+  assert.equal(logged.outcome, 'sent');
+  assert.equal(logged.source, 'to');
+  assert.deepEqual(logged.attempts, [
+    {source: 'from', outcome: 'send_failed', errorClass: 'ProviderRejectError'},
+    {source: 'to', outcome: 'sent'},
+  ]);
+  assert(!JSON.stringify(logged).includes('TOKEN-DO-NOT-LOG'));
+});
+
+test('reply 2 logs both failures with bounded error classes only', async (t) => {
+  const {calls, logged} = await runFollowUp(t, {}, (target) => {
+    throw target === LIVE_FROM ? new TypeError('from TOKEN-DO-NOT-LOG') : new ProviderRejectError('to');
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(logged.outcome, 'not_sent');
+  assert.equal(logged.reason, 'send_failed');
+  assert.equal(logged.source, null);
+  assert.deepEqual(logged.attempts, [
+    {source: 'from', outcome: 'send_failed', errorClass: 'TypeError'},
+    {source: 'to', outcome: 'send_failed', errorClass: 'ProviderRejectError'},
+  ]);
+  assert(!JSON.stringify(logged).includes('TOKEN-DO-NOT-LOG'));
+  assert(!JSON.stringify(logged).includes('stack'));
+});
+
+test('error class is null unless it is a short alphabetic name', async (t) => {
+  const named = (name) => Object.assign(new Error('x'), {name});
+  const getterThrows = {
+    get name() {
+      throw new Error('TOKEN-DO-NOT-LOG');
+    },
+  };
+  const cases = [
+    [named('A'.repeat(40)), 'A'.repeat(40)],
+    [named('A'.repeat(41)), null],
+    [named('Bad Name'), null],
+    [named('Err1'), null],
+    [named(''), null],
+    [named('TOKEN-DO-NOT-LOG'), null],
+    ['TOKEN-DO-NOT-LOG', null],
+    [null, null],
+    [{name: 7}, null],
+    [getterThrows, null],
+  ];
+  for (const [thrown, expected] of cases) {
+    const {logged} = await runFollowUp(t, {from: undefined}, () => {
+      throw thrown;
+    });
+    assert.deepEqual(logged.attempts.at(-1), {source: 'to', outcome: 'send_failed', errorClass: expected});
+    assert(!JSON.stringify(logged).includes('TOKEN-DO-NOT-LOG'));
+  }
+});
+
+test('ctx.from qualifies only with the discord prefix and the channel id at its end', async (t) => {
+  const notQualified = [
+    {from: `slash:${DISCORD_CHANNEL}`},
+    {from: `discord:${SENDER}`},
+    {from: `discord:channel:${DISCORD_CHANNEL}`, channelId: undefined},
+    {from: `discord:channel:${DISCORD_CHANNEL}`, channelId: '999'},
+    {from: `discord:${'x'.repeat(200)}:${DISCORD_CHANNEL}`},
+    {from: 42},
+    {from: undefined},
+  ];
+  for (const extra of notQualified) {
+    const {calls, logged} = await runFollowUp(t, extra, () => ({}));
+    assert.deepEqual(
+      calls.map((c) => c.to),
+      [LIVE_TO],
+    );
+    assert.equal(logged.source, 'to');
+    assert.deepEqual(logged.attempts, [
+      {source: 'from', outcome: 'skipped', reason: 'not_qualified'},
+      {source: 'to', outcome: 'sent'},
+    ]);
+  }
+  // Qualifying from that fails, no usable to: from is tried once, to is reported as unavailable.
+  const {calls, logged} = await runFollowUp(t, {to: undefined}, () => {
+    throw new TypeError('x');
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(logged.outcome, 'not_sent');
+  assert.equal(logged.reason, 'send_failed');
+  assert.deepEqual(logged.attempts, [
+    {source: 'from', outcome: 'send_failed', errorClass: 'TypeError'},
+    {source: 'to', outcome: 'skipped', reason: 'conversation_target_unavailable'},
+  ]);
+  // Neither source usable: nothing is sent.
+  const none = await runFollowUp(t, {from: undefined, to: undefined}, () => ({}));
+  assert.equal(none.calls.length, 0);
+  assert.equal(none.logged.reason, 'conversation_target_unavailable');
+  assert.equal(none.logged.source, null);
 });
