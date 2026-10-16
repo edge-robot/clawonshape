@@ -150,6 +150,7 @@ replace the interim proof without changing the plane boundaries.
 
 - Contract channel C changes incompatibly (claims; mandatory file) → major version, four-step
   migration (server expand → plugin migrate → live E2E → contract), server first.
+  **P1 done 2026-10-16:** contract `1.0.0-draft` (`c637cc9`), [edge-robot/clawonshape#14](https://github.com/edge-robot/clawonshape/issues/14); expand step issued to rust-mcp-dev (`onshape-mcp/docs/prompts/2026-10-16-approval-v2-expand.md`).
 - `scripts/provision-candidate-mcp.mjs` and runtime edits of `deploy/team.json` leave the mutation
   path (M3, M11). Clawake provisions only static bounds.
 - Approver identities become configuration (Clawake inventory → plugin config), separate from the
