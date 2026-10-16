@@ -1,6 +1,7 @@
 import {bindingFor, connectionOwner} from './config.ts';
 import type {Binding, Config, Identity} from './config.ts';
 import {credentials} from './credentials.ts';
+import type {Tokens} from './oauth.ts';
 import {OAUTH_SCOPE_READ, OAUTH_SCOPE_WRITE} from './oauth.ts';
 import {authorizationSnapshot, matchesAuthorizationSnapshot, sameBinding} from './authorization-snapshot.ts';
 
@@ -118,7 +119,7 @@ function candidateAuthority(
     if (!store) {
       return;
     }
-    let grant;
+    let grant: Tokens;
     try {
       grant = store.read(token === undefined);
     } catch {

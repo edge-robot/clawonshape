@@ -54,7 +54,7 @@ export function registerDashboard(
             const native = await readMcp(),
               local = current().localMcp;
             const mcp = local ? await localMcpReadiness(native, local) : native;
-            let rest;
+            let rest: Awaited<ReturnType<typeof lifecycle.status>> | ReturnType<typeof userError>;
             try {
               rest = await lifecycle.status(name);
             } catch (e) {

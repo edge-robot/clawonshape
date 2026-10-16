@@ -99,7 +99,7 @@ export default {
                   usedToken = await accessToken(store, oauth, tokenGuard);
                   return usedToken;
                 });
-                let result;
+                let result: Awaited<ReturnType<typeof client.inspect>>;
                 try {
                   result = await client.inspect(b);
                 } catch (e) {

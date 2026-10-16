@@ -1,6 +1,7 @@
 import path from 'node:path';
 import {publishMcpCredential} from './mcp-credentials.ts';
 import {open, lstat, realpath, unlink} from 'node:fs/promises';
+import type {FileHandle} from 'node:fs/promises';
 import {lstatSync, realpathSync} from 'node:fs';
 import {ref} from './config.ts';
 import type {Tokens} from './oauth.ts';
@@ -49,7 +50,7 @@ export async function credentials(stateDir: string, connectionRef: string, owner
     // Hold through an entire consent attempt; disconnect never reports success while
     // an outstanding callback could subsequently restore the connection.
     const lockPath = path.join(stateDir, `.claw-onshape-${connectionRef}.lock`);
-    let lock;
+    let lock: FileHandle;
     try {
       const root = await lstat(stateDir);
       if (

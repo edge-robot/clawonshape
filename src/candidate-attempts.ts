@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
 import {mkdir, open, lstat, realpath, unlink, opendir} from 'node:fs/promises';
+import type {FileHandle} from 'node:fs/promises';
 import path from 'node:path';
 import {connectionOwner, id} from './config.ts';
 import type {Binding} from './config.ts';
@@ -149,7 +150,7 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
     ): Promise<T> {
       await privateDirectory(dir);
       const lockPath = path.join(dir, '.lock');
-      let lock;
+      let lock: FileHandle;
       try {
         lock = await open(
           lockPath,
@@ -173,7 +174,7 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
           }
         }
         const read = async (): Promise<CandidateAttempt | undefined> => {
-          let file;
+          let file: FileHandle;
           try {
             file = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
           } catch (e) {

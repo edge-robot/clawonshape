@@ -114,7 +114,7 @@ export async function mutationStore(stateDir: string, binding: Binding) {
   };
   // Never omit an unreadable receipt: it could contain an unresolved attempt.
   const list = async () => {
-    const entries = [];
+    const entries: Awaited<ReturnType<typeof read>>[] = [];
     for (const f of await readdir(root)) {
       if (f.endsWith('.json')) {
         entries.push(await read(f.slice(0, -5)));
