@@ -1,6 +1,6 @@
 {
   "name": "@edge-robot/claw-onshape",
-  "version": "0.2.10",
+  "version": "0.2.11-spike.1",
   "type": "module",
   "private": true,
   "engines": {

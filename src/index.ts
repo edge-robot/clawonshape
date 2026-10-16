@@ -22,6 +22,7 @@ import {accessToken} from './authorization.ts';
 import {mcpTokenOwner} from './mcp-token-owner.ts';
 import {mutationStore, mutationToolFailure} from './mutation-workflow.ts';
 import path from 'node:path';
+import {registerSpikeCommand} from './spike-command.ts';
 export default {
   id: 'claw-onshape',
   name: 'Claw-Onshape',
@@ -35,6 +36,8 @@ export default {
       return parseConfig(entry.config);
     };
     registerCli(api, config);
+    // SPIKE ONLY (edge-robot/clawonshape#13): Lead gateway only; not for release.
+    registerSpikeCommand(api, config);
     if (config.localMcp) {
       const owner = mcpTokenOwner(current, () => api.runtime.state.resolveStateDir());
       api.lifecycle.registerRuntimeLifecycle({
