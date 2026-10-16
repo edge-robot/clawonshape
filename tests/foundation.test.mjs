@@ -26,11 +26,13 @@ globalThis.__nativeFiles = new Map();
 globalThis.__nativeWrites = [];
 registerHooks({
   resolve(specifier, context, next) {
-    if (specifier === 'openclaw/plugin-sdk/secret-file-runtime') return {url: 'mock:safe-files', shortCircuit: true};
+    if (specifier === 'openclaw/plugin-sdk/secret-file-runtime') {
+      return {url: 'mock:safe-files', shortCircuit: true};
+    }
     return next(specifier, context);
   },
   load(url, context, next) {
-    if (url === 'mock:safe-files')
+    if (url === 'mock:safe-files') {
       return {
         format: 'module',
         shortCircuit: true,
@@ -45,6 +47,7 @@ registerHooks({
       }
     `,
       };
+    }
     return next(url, context);
   },
 });
@@ -122,8 +125,9 @@ test('exact trusted user/agent/channel/account exposure and connection ownership
     {...binding, requesterSenderId: 'other'},
     {...binding, messageChannel: 'slack'},
     {...binding, agentAccountId: 'other'},
-  ])
+  ]) {
     assert.equal(factory(ctx), null);
+  }
   assert.equal(bindingFor(parseConfig(config()), {...binding, sessionKey: 'unrelated'}).documentId, D);
   assert.throws(
     () => parseConfig(config({bindings: [binding, {...binding, requesterSenderId: 'other'}]})),
@@ -140,8 +144,9 @@ test('strict config denies unknowns, invalid IDs, missing identity, duplicate bi
     config({bindings: [{...binding, requesterSenderId: ''}]}),
     config({bindings: [binding, binding]}),
     config({oauth: {clientId: 'x', clientSecretFile: 'relative'}}),
-  ])
+  ]) {
     assert.throws(() => parseConfig(bad));
+  }
   assert.deepEqual(parseConfig({bindings: []}).bindings, []);
   assert.equal(parseConfig({bindings: []}).liveReads, false);
   const c = parseConfig(config());
@@ -318,8 +323,9 @@ test('OAuth wrong state/host/path/duplicates/expiry/cancellation rejected before
     [`/other?state=${state}&code=x`, 'localhost:8765'],
     [`/?state=${state}&code=x`, 'attacker.invalid'],
     [`/?state=${state}&code=x#fragment`, 'localhost:8765'],
-  ])
+  ]) {
     await assert.rejects(c.complete(url, host), /oauth_callback_invalid/);
+  }
   assert.equal(calls, 0);
   now = 300000;
   await assert.rejects(c.complete(`/?state=${state}&code=x`, 'localhost:8765'), /oauth_callback_invalid/);
@@ -347,11 +353,12 @@ test('OAuth denied consent consumes state, unsafe responses and errors never lea
     /^Error: oauth_consent_denied$/,
   );
   await assert.rejects(c.complete(`/?state=${state}&code=x`, 'localhost:8765'), /oauth_callback_invalid/);
-  for (const extra of [{token_type: 'other'}, {expires_in: Infinity}, {access_token: 'a\nb'}])
+  for (const extra of [{token_type: 'other'}, {expires_in: Infinity}, {access_token: 'a\nb'}]) {
     assert.throws(
       () => parseTokens({access_token: 'a', refresh_token: 'b', expires_in: 3600, ...extra}),
       /oauth_response_invalid/,
     );
+  }
   const write = parseTokens(
     {access_token: 'a', refresh_token: 'b', expires_in: 3600, token_type: 'Bearer', scope: 'OAuth2Read OAuth2Write'},
     Date.now(),
@@ -391,15 +398,17 @@ test('MCP native discovery has no REST credentials, every catalog operation disa
   });
   assert.equal(caps.length, 14);
   assert(caps.every((t) => t.enabled === false));
-  for (const name of [...names, 'future_unknown_write'])
+  for (const name of [...names, 'future_unknown_write']) {
     assert.throws(() => rejectMcpCall(name, {did: D, wid: P, approval: 'human said yes'}), /mcp_execution_disabled/);
+  }
   for (const v of [
     {tools: names, diagnostics: [{message: 'fixture-secret'}]},
     {tools: ['bad secret name'], diagnostics: []},
     {tools: ['same', 'same'], diagnostics: []},
     {},
-  ])
+  ]) {
     assert.throws(() => filterCatalog(v), /^Error: mcp_discovery_failed$/);
+  }
   await assert.rejects(
     discover('../escape', async () => assert.fail()),
     /invalid_mcp_server/,
@@ -613,7 +622,9 @@ test('mock integration: revocation during REST blocks final result', async () =>
   let n = 0;
   globalThis.fetch = async () => {
     n++;
-    if (n === 3) host.setEntry({enabled: true, config: config({bindings: []})});
+    if (n === 3) {
+      host.setEntry({enabled: true, config: config({bindings: []})});
+    }
     return json(n === 1 ? {id: D} : n === 2 ? [{id: W}, {id: P}] : [{id: E}]);
   };
   try {
@@ -679,8 +690,9 @@ test('prepareCandidateWorkspace creates candidate from exact source revision and
     async () => tokens().accessToken,
     async (url, init) => {
       calls.push({url, init});
-      if (init.method === 'POST')
+      if (init.method === 'POST') {
         assert.deepEqual(JSON.parse(init.body), {name: 'candidate-workspace', microversionId: M});
+      }
       return json(replies.shift());
     },
   );
@@ -785,15 +797,21 @@ test('prepareCandidateWorkspace detects source revision drift conflicts and avoi
     async (url, init) => {
       calls.push({url, init});
       const p = new URL(url).pathname;
-      if (p === `/api/v10/documents/${D}`) return json({id: D});
-      if (p === `/api/v10/documents/d/${D}/workspaces`)
+      if (p === `/api/v10/documents/${D}`) {
+        return json({id: D});
+      }
+      if (p === `/api/v10/documents/d/${D}/workspaces`) {
         return json([
           {id: W, documentId: D},
           {id: P, documentId: D},
         ]);
-      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`)
+      }
+      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`) {
         return json({sourceMicroversion: N, features: [{featureId: F}]});
-      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion: N});
+      }
+      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) {
+        return json({microversion: N});
+      }
       return json({});
     },
   );
@@ -808,16 +826,24 @@ test('prepareCandidateWorkspace detects source revision drift conflicts and avoi
     async (url, init) => {
       calls.push({url, init});
       const p = new URL(url).pathname;
-      if (p === `/api/v10/documents/${D}`) return json({id: D});
-      if (p === `/api/v10/documents/d/${D}/workspaces`)
+      if (p === `/api/v10/documents/${D}`) {
+        return json({id: D});
+      }
+      if (p === `/api/v10/documents/d/${D}/workspaces`) {
         return json([
           {id: W, documentId: D},
           {id: P, documentId: D},
         ]);
-      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`)
+      }
+      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`) {
         return json({sourceMicroversion: M, features: [{featureId: F}]});
-      if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) return json([{id: E, elementType: 'PARTSTUDIO'}]);
-      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion: N});
+      }
+      if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) {
+        return json([{id: E, elementType: 'PARTSTUDIO'}]);
+      }
+      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) {
+        return json({microversion: N});
+      }
       return json({});
     },
   );
@@ -837,7 +863,9 @@ test('prepareCandidateWorkspace returns UNKNOWN on uncertain POST outcome withou
     async () => tokens().accessToken,
     async (url, init) => {
       const p = new URL(url).pathname;
-      if (p === `/api/v10/documents/${D}`) return json({id: D});
+      if (p === `/api/v10/documents/${D}`) {
+        return json({id: D});
+      }
       if (p === `/api/v10/documents/d/${D}/workspaces`) {
         if (init.method === 'POST') {
           posts++;
@@ -848,10 +876,15 @@ test('prepareCandidateWorkspace returns UNKNOWN on uncertain POST outcome withou
           {id: P, documentId: D},
         ]);
       }
-      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`)
+      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`) {
         return json({sourceMicroversion: M, features: [{featureId: F}]});
-      if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) return json([{id: E, elementType: 'PARTSTUDIO'}]);
-      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion: M});
+      }
+      if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) {
+        return json([{id: E, elementType: 'PARTSTUDIO'}]);
+      }
+      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) {
+        return json({microversion: M});
+      }
       return json({});
     },
   );
@@ -883,7 +916,9 @@ async function candidateFixture(options = {}) {
     async (url, init) => {
       calls.push({url, method: init.method});
       const p = new URL(url).pathname;
-      if (p === `/api/v10/documents/${D}`) return json({id: D});
+      if (p === `/api/v10/documents/${D}`) {
+        return json({id: D});
+      }
       if (p === `/api/v10/documents/d/${D}/workspaces`) {
         if (init.method === 'POST') {
           assert.equal(JSON.parse(init.body).microversionId, M);
@@ -891,13 +926,18 @@ async function candidateFixture(options = {}) {
         }
         return json(workspaces);
       }
-      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`)
+      if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`) {
         return json({sourceMicroversion: M, features: []});
-      if (p === `/api/v10/documents/d/${D}/m/${M}/elements`)
+      }
+      if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) {
         return json('sourceElements' in options ? options.sourceElements : [{id: E, elementType: 'PARTSTUDIO'}]);
-      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion: M});
-      if (p === `/api/v10/documents/d/${D}/w/${C}/currentmicroversion`)
+      }
+      if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) {
+        return json({microversion: M});
+      }
+      if (p === `/api/v10/documents/d/${D}/w/${C}/currentmicroversion`) {
         return json({microversion: options.candidateRevision ?? M});
+      }
       throw new Error('Unexpected fixture route');
     },
   );
@@ -907,12 +947,12 @@ async function candidateFixture(options = {}) {
 test('candidate preparation requires the same exact baseline for existing and newly created workspaces', async () => {
   for (const existing of [true, false]) {
     const fixture = await candidateFixture({candidateRevision: '9'.repeat(24)});
-    if (existing)
+    if (existing) {
       await assert.rejects(
         fixture.client.prepareCandidateWorkspace(fixture.b, {...fixture.input, candidateWorkspaceId: fixture.C}),
         /^Error: candidate_revision_conflict$/,
       );
-    else {
+    } else {
       const result = await fixture.client.prepareCandidateWorkspace(fixture.b, fixture.input);
       assert.equal(result.status, 'created_unverified');
       assert.equal(result.candidateWorkspaceId, fixture.C);
@@ -985,12 +1025,12 @@ test('candidate preparation rejects foreign or absent candidate membership in bo
       const fixture = await candidateFixture({
         workspaces: [{id: W, documentId: D}, {id: P, documentId: D}, ...candidate],
       });
-      if (existing)
+      if (existing) {
         await assert.rejects(
           fixture.client.prepareCandidateWorkspace(fixture.b, {...fixture.input, candidateWorkspaceId: fixture.C}),
           /^Error: workspace_not_in_document$/,
         );
-      else {
+      } else {
         const result = await fixture.client.prepareCandidateWorkspace(fixture.b, fixture.input);
         assert.equal(result.status, 'created_unverified');
         assert.equal(result.candidateWorkspaceId, fixture.C);

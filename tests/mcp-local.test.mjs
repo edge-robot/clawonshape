@@ -99,6 +99,7 @@ test('external-token config requires existing connection and denies unknown secr
     {connectionRef: 'foreign', credentialDirectory: '/run/private'},
     {connectionRef: 'owner', credentialDirectory: 'relative'},
     {connectionRef: 'owner', credentialDirectory: '/run/private', refreshToken: 'forbidden'},
-  ])
+  ]) {
     assert.throws(() => parseConfig({bindings: [b], localMcp}));
+  }
 });

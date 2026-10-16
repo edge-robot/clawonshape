@@ -68,36 +68,60 @@ function provider(options = {}) {
       const body = JSON.parse(init.body);
       assert.deepEqual(Object.keys(body).sort(), ['microversionId', 'name']);
       assert.equal(body.microversionId, M);
-      if (options.onPost) await options.onPost();
-      if (options.mode === 'timeout') throw new Error('socket-DO-NOT-LOG');
-      if (options.mode === 'malformed') return json({});
-      if (options.mode === 'json')
+      if (options.onPost) {
+        await options.onPost();
+      }
+      if (options.mode === 'timeout') {
+        throw new Error('socket-DO-NOT-LOG');
+      }
+      if (options.mode === 'malformed') {
+        return json({});
+      }
+      if (options.mode === 'json') {
         return new Response('provider-DO-NOT-LOG', {headers: {'Content-Type': 'application/json'}});
-      if (options.mode === 'content-type')
+      }
+      if (options.mode === 'content-type') {
         return new Response('provider-DO-NOT-LOG', {headers: {'Content-Type': 'text/plain'}});
-      if (options.mode === 'foreign') return json({id: C, documentId: '9'.repeat(24)});
-      if (options.mode === 'missing-document') return json({id: C});
-      if (typeof options.mode === 'number') return json({error: 'provider-DO-NOT-LOG'}, options.mode);
+      }
+      if (options.mode === 'foreign') {
+        return json({id: C, documentId: '9'.repeat(24)});
+      }
+      if (options.mode === 'missing-document') {
+        return json({id: C});
+      }
+      if (typeof options.mode === 'number') {
+        return json({error: 'provider-DO-NOT-LOG'}, options.mode);
+      }
       return json({id: C, documentId: D});
     }
-    if (p === `/api/v10/documents/${D}`) return json({id: D});
+    if (p === `/api/v10/documents/${D}`) {
+      return json({id: D});
+    }
     if (p === `/api/v10/documents/d/${D}/workspaces`) {
-      if (posts && options.verificationFailure) throw new Error('verification-DO-NOT-LOG');
+      if (posts && options.verificationFailure) {
+        throw new Error('verification-DO-NOT-LOG');
+      }
       return json([
         {id: W, documentId: D},
         {id: P, documentId: D},
         options.missingCandidateDocument ? {id: C} : {id: C, documentId: D},
       ]);
     }
-    if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`)
+    if (p === `/api/v10/partstudios/d/${D}/w/${W}/e/${E}/features`) {
       return json({
         sourceMicroversion: M,
         features: Array.from({length: options.featureCount ?? 1}, () => ({featureId: 'feature-DO-NOT-RETURN'})),
       });
-    if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) return json([{id: E, elementType: 'PARTSTUDIO'}]);
-    if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) return json({microversion: M});
-    if (p === `/api/v10/documents/d/${D}/w/${C}/currentmicroversion`)
+    }
+    if (p === `/api/v10/documents/d/${D}/m/${M}/elements`) {
+      return json([{id: E, elementType: 'PARTSTUDIO'}]);
+    }
+    if (p === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) {
+      return json({microversion: M});
+    }
+    if (p === `/api/v10/documents/d/${D}/w/${C}/currentmicroversion`) {
       return json({microversion: options.candidateRevision ?? M});
+    }
     throw new Error('Unexpected provider route');
   };
   return {
@@ -346,8 +370,9 @@ test('strict sync failure after a successful POST preserves a known candidate wi
   await probe.close();
   let syncs = 0;
   const mock = t.mock.method(prototype, 'sync', async function () {
-    if ((await this.stat()).isFile() && ++syncs > 1)
+    if ((await this.stat()).isFile() && ++syncs > 1) {
       throw Object.assign(new Error('sync-error-DO-NOT-LOG'), {code: 'EPERM'});
+    }
     return original.call(this);
   });
   const p = provider(),

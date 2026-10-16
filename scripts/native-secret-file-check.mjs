@@ -61,7 +61,7 @@ try {
   // Only fixed diagnostic codes; paths and exception text are not emitted.
   process.exitCode = 1;
 } finally {
-  if (root)
+  if (root) {
     try {
       await rm(root, {recursive: true, force: true});
     } catch {
@@ -69,5 +69,6 @@ try {
       report.reason = 'fixture_cleanup_failed';
       process.exitCode = 1;
     }
+  }
 }
 console.log(JSON.stringify(report));

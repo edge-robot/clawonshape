@@ -80,7 +80,9 @@ function candidateAuthority(
     let config: Config;
     try {
       context?.assertInvocationCurrent?.();
-      if (operatorBinding) assertConsent();
+      if (operatorBinding) {
+        assertConsent();
+      }
       config = current();
     } catch {
       return denied('authorization_changed');
@@ -93,15 +95,19 @@ function candidateAuthority(
       !selected ||
       selected.agentId !== engineer ||
       (!operatorBinding && (!context || context.agentId !== engineer || context.messageChannel === 'a2a'))
-    )
+    ) {
       return denied('agent_policy_denied');
+    }
     if (
       !matchesAuthorizationSnapshot(config, snapshot) ||
       !sameBinding(selected, initialBinding) ||
       !sameBinding(binding, selected)
-    )
+    ) {
       return denied('authorization_changed');
-    if (!config.liveReads) return denied('live_reads_disabled');
+    }
+    if (!config.liveReads) {
+      return denied('live_reads_disabled');
+    }
     if (write) {
       try {
         assertConsent();
@@ -109,27 +115,45 @@ function candidateAuthority(
         return denied('agent_policy_denied');
       }
     }
-    if (!store) return;
+    if (!store) {
+      return;
+    }
     let grant;
     try {
       grant = store.read(token === undefined);
     } catch {
       return denied('reconnect_required');
     }
-    if (token !== undefined && grant.accessToken !== token) return denied('authorization_changed');
-    if (!grant.scopes.includes(OAUTH_SCOPE_READ)) return denied('oauth_read_scope_missing');
-    if (config.oauth?.applicationPermissions.canReadDocuments === false) return denied('app_permission_read_disabled');
+    if (token !== undefined && grant.accessToken !== token) {
+      return denied('authorization_changed');
+    }
+    if (!grant.scopes.includes(OAUTH_SCOPE_READ)) {
+      return denied('oauth_read_scope_missing');
+    }
+    if (config.oauth?.applicationPermissions.canReadDocuments === false) {
+      return denied('app_permission_read_disabled');
+    }
     if (write) {
-      if (!grant.scopes.includes(OAUTH_SCOPE_WRITE)) return denied('oauth_write_scope_missing');
+      if (!grant.scopes.includes(OAUTH_SCOPE_WRITE)) {
+        return denied('oauth_write_scope_missing');
+      }
       const permission = config.oauth?.applicationPermissions.canWriteDocuments;
-      if (permission === false) return denied('app_permission_write_disabled');
-      if (permission !== true) return denied('app_permission_write_unknown', 'UNKNOWN');
+      if (permission === false) {
+        return denied('app_permission_write_disabled');
+      }
+      if (permission !== true) {
+        return denied('app_permission_write_unknown', 'UNKNOWN');
+      }
     }
     // No await between the final authority check and returning the decision.
     try {
       context?.assertInvocationCurrent?.();
-      if (!matchesAuthorizationSnapshot(current(), snapshot)) return denied('authorization_changed');
-      if (write || operatorBinding) assertConsent();
+      if (!matchesAuthorizationSnapshot(current(), snapshot)) {
+        return denied('authorization_changed');
+      }
+      if (write || operatorBinding) {
+        assertConsent();
+      }
     } catch {
       return denied('authorization_changed');
     }
@@ -138,7 +162,9 @@ function candidateAuthority(
   authorities.set(value, {
     check: async (binding, write, token) => {
       const result = validate(binding, write, token);
-      if (result) return result;
+      if (result) {
+        return result;
+      }
       try {
         store = await credentials(
           stateDir,

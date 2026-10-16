@@ -35,12 +35,16 @@ export function connectionLifecycle(
   const selected = (name: string) => {
     const c = current(),
       bs = c.bindings.filter((b) => b.connectionRef === name);
-    if (!bs.length) throw new Error('not_configured');
+    if (!bs.length) {
+      throw new Error('not_configured');
+    }
     return {config: c, binding: bs[0]};
   };
   const unchanged = (b: Binding, c: Config) => {
     const n = selected(b.connectionRef);
-    if (!sameBinding(n.binding, b) || !sameOAuth(n.config.oauth, c.oauth)) throw new Error('authorization_changed');
+    if (!sameBinding(n.binding, b) || !sameOAuth(n.config.oauth, c.oauth)) {
+      throw new Error('authorization_changed');
+    }
   };
   const status = async (name?: string) => {
     const c = current(),
@@ -49,15 +53,23 @@ export function connectionLifecycle(
       ...state(code),
       capabilities: capabilitySummary({config: c, binding: b, connected, grantedScopes}),
     });
-    if (!c.bindings.length) return report('not_configured');
-    if (!c.oauth) return report('oauth_configuration_required');
+    if (!c.bindings.length) {
+      return report('not_configured');
+    }
+    if (!c.oauth) {
+      return report('oauth_configuration_required');
+    }
     try {
       assertPrivateFile(c.oauth.clientSecretFile);
     } catch {
       return report('oauth_configuration_required');
     }
-    if (!b || !name) return report('disconnected');
-    if (pending.has(name)) return report('authorization_in_progress');
+    if (!b || !name) {
+      return report('disconnected');
+    }
+    if (pending.has(name)) {
+      return report('authorization_in_progress');
+    }
     const s = await credentials(
         stateDir(),
         name,
@@ -69,30 +81,46 @@ export function connectionLifecycle(
     try {
       scopes = s.read(true).scopes;
     } catch {}
-    if (code === 'unavailable') return report('credential_store_unavailable', false, scopes);
-    if (code === 'expired') return report('reconnect_required', false, scopes);
-    if (code === 'disconnected')
+    if (code === 'unavailable') {
+      return report('credential_store_unavailable', false, scopes);
+    }
+    if (code === 'expired') {
+      return report('reconnect_required', false, scopes);
+    }
+    if (code === 'disconnected') {
       return {
         ...(outcomes.get(name) ?? state('disconnected')),
         capabilities: capabilitySummary({config: c, binding: b, connected: false}),
       };
-    if (!b.elementId) return report('target_missing', true, scopes);
-    if (!c.liveReads) return report('live_reads_disabled', true, scopes);
+    }
+    if (!b.elementId) {
+      return report('target_missing', true, scopes);
+    }
+    if (!c.liveReads) {
+      return report('live_reads_disabled', true, scopes);
+    }
     // Status performs no provider probes and does not retain historical read evidence.
     return report('connected', true, scopes);
   };
   const start = async (name: string, options?: {requestRestWriteAccess?: boolean}) => {
     const {config: c, binding: b} = selected(name);
-    if (!c.oauth) throw new Error('oauth_configuration_required');
-    if (options?.requestRestWriteAccess && c.oauth.applicationPermissions.canWriteDocuments !== true)
+    if (!c.oauth) {
+      throw new Error('oauth_configuration_required');
+    }
+    if (options?.requestRestWriteAccess && c.oauth.applicationPermissions.canWriteDocuments !== true) {
       throw new Error(
         c.oauth.applicationPermissions.canWriteDocuments === false
           ? 'app_permission_write_disabled'
           : 'app_permission_write_unknown',
       );
+    }
     const redirect = c.oauth.dashboardRedirectUri;
-    if (!redirect || !origins().includes(new URL(redirect).origin)) throw new Error('dashboard_callback_required');
-    if (pending.size) throw new Error('connection_busy_or_state_unavailable');
+    if (!redirect || !origins().includes(new URL(redirect).origin)) {
+      throw new Error('dashboard_callback_required');
+    }
+    if (pending.size) {
+      throw new Error('connection_busy_or_state_unavailable');
+    }
     let clientSecret: string;
     try {
       clientSecret = await privateSecret(c.oauth.clientSecretFile);
@@ -105,7 +133,9 @@ export function connectionLifecycle(
       connectionOwner(b),
       current().localMcp?.connectionRef === name ? current().localMcp?.credentialDirectory : undefined,
     );
-    if (pending.size) throw new Error('connection_busy_or_state_unavailable');
+    if (pending.size) {
+      throw new Error('connection_busy_or_state_unavailable');
+    }
     let publish!: (v: {authorizationUrl: string; code: string; message: string}) => void, fail!: (e: Error) => void;
     const started = new Promise<{authorizationUrl: string; code: string; message: string}>((r, j) => {
       publish = r;
@@ -113,7 +143,9 @@ export function connectionLifecycle(
     });
     // Set a reservation before awaiting lock acquisition; no secret goes in status.
     const requestedScopes: OAuthScope[] = [OAUTH_SCOPE_READ];
-    if (options?.requestRestWriteAccess) requestedScopes.push(OAUTH_SCOPE_WRITE);
+    if (options?.requestRestWriteAccess) {
+      requestedScopes.push(OAUTH_SCOPE_WRITE);
+    }
     const consent = new Consent(c.oauth.clientId, clientSecret, fetcher, Date.now, redirect, requestedScopes);
     let attempt: Attempt;
     let terminalError: Error | undefined;
@@ -161,7 +193,9 @@ export function connectionLifecycle(
         fail(new Error(userError(e).code));
       })
       .finally(() => {
-        if (pending.get(name) === attempt) pending.delete(name);
+        if (pending.get(name) === attempt) {
+          pending.delete(name);
+        }
         works.delete(name);
       });
     works.set(name, work);
@@ -194,8 +228,12 @@ export function connectionLifecycle(
       const tokens = await a.consent.complete(raw, req.headers.host ?? '');
       a.assertCurrent();
       // Complete may settle after timeout; the expired consent must not save tokens.
-      if (a.closing) throw new Error('oauth_connect_expired');
-      if (!a.save) throw new Error('oauth_connect_expired');
+      if (a.closing) {
+        throw new Error('oauth_connect_expired');
+      }
+      if (!a.save) {
+        throw new Error('oauth_connect_expired');
+      }
       await a.save(tokens);
       a.finish();
       res.end(
@@ -209,13 +247,17 @@ export function connectionLifecycle(
     } finally {
       if (a) {
         a.callbacks--;
-        if (a.closing) a.finish();
+        if (a.closing) {
+          a.finish();
+        }
         await works.get(a.ref);
       }
     }
   };
   const disconnect = async (name: string) => {
-    if (pending.has(name)) throw new Error('connection_busy_or_state_unavailable');
+    if (pending.has(name)) {
+      throw new Error('connection_busy_or_state_unavailable');
+    }
     const {binding: b} = selected(name);
     const store = await credentials(
       stateDir(),
@@ -233,7 +275,9 @@ export function connectionLifecycle(
     callback,
     disconnect,
     cancel: async () => {
-      for (const a of pending.values()) a.finish(new Error('oauth_connect_expired'));
+      for (const a of pending.values()) {
+        a.finish(new Error('oauth_connect_expired'));
+      }
       await Promise.all(works.values());
     },
   };

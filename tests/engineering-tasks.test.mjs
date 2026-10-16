@@ -38,8 +38,9 @@ test('free inspect/edit/verify requests are hash/signature bound without rewriti
       {requestHash: '0'.repeat(64)},
       {target: {...envelope.target, workspaceId: D}},
       {requestId: '2'.repeat(36)},
-    ])
+    ]) {
       assert.throws(() => verifyTaskEnvelope({...envelope, ...patch}, binding, context, key));
+    }
     assert.throws(() => verifyTaskEnvelope(envelope, binding, 'other-context', key));
   }
 });
@@ -98,12 +99,18 @@ test('A2A sends a signed free request and rejects a signed result for another re
           fetcher,
           async () => {},
         );
-        if (mismatch) await assert.rejects(action, /delegation_result_invalid/);
-        else assert.equal((await action).a2aTaskId, 'task-id');
+        if (mismatch) {
+          await assert.rejects(action, /delegation_result_invalid/);
+        } else {
+          assert.equal((await action).a2aTaskId, 'task-id');
+        }
       }
     } finally {
-      if (before === undefined) delete process.env.A2A_LEAD_TO_MECHANICAL;
-      else process.env.A2A_LEAD_TO_MECHANICAL = before;
+      if (before === undefined) {
+        delete process.env.A2A_LEAD_TO_MECHANICAL;
+      } else {
+        process.env.A2A_LEAD_TO_MECHANICAL = before;
+      }
     }
   } finally {
     await rm(dir, {recursive: true, force: true});

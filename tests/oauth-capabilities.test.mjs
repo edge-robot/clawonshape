@@ -65,24 +65,34 @@ async function fixture(options = {}) {
   );
   const fetcher = async (url, init) => {
     calls.push({path: new URL(url).pathname, method: init.method});
-    if (options.onFetch)
+    if (options.onFetch) {
       await options.onFetch(calls.at(-1), {
         store,
         setConfig: (v) => {
           config = v;
         },
       });
-    if (init.method === 'POST') return json({id: C, documentId: D});
+    }
+    if (init.method === 'POST') {
+      return json({id: C, documentId: D});
+    }
     const p = new URL(url).pathname;
-    if (p.endsWith('/currentmicroversion')) return json({microversion: M});
-    if (p.endsWith('/features')) return json({sourceMicroversion: M, features: []});
-    if (p.endsWith('/elements')) return json([{id: E, elementType: 'PARTSTUDIO'}]);
-    if (p.endsWith('/workspaces'))
+    if (p.endsWith('/currentmicroversion')) {
+      return json({microversion: M});
+    }
+    if (p.endsWith('/features')) {
+      return json({sourceMicroversion: M, features: []});
+    }
+    if (p.endsWith('/elements')) {
+      return json([{id: E, elementType: 'PARTSTUDIO'}]);
+    }
+    if (p.endsWith('/workspaces')) {
       return json([
         {id: W, documentId: D},
         {id: P, documentId: D},
         {id: C, documentId: D},
       ]);
+    }
     return json({id: D});
   };
   const client = new RestClient(options.token ?? (async () => grant.accessToken), fetcher, {
@@ -229,8 +239,11 @@ test('revoked configuration, scopes, invocation authority and changed tokens pre
     const f = await fixture({
       onFetch: async (call, {store, setConfig}) => {
         if (call.path === `/api/v10/documents/d/${D}/w/${W}/currentmicroversion`) {
-          if (change === 'config') setConfig(parseConfig({...base, liveReads: false}));
-          else await store.save(change === 'scope' ? {...grant, scopes: [R]} : null);
+          if (change === 'config') {
+            setConfig(parseConfig({...base, liveReads: false}));
+          } else {
+            await store.save(change === 'scope' ? {...grant, scopes: [R]} : null);
+          }
         }
       },
     });
@@ -245,13 +258,17 @@ test('revoked configuration, scopes, invocation authority and changed tokens pre
   const identity = {
     ...B,
     assertInvocationCurrent: () => {
-      if (revoked) throw new Error('untrusted');
+      if (revoked) {
+        throw new Error('untrusted');
+      }
     },
   };
   const invocation = await fixture({
     identity,
     onFetch: async (call) => {
-      if (call.path.endsWith('/features')) revoked = true;
+      if (call.path.endsWith('/features')) {
+        revoked = true;
+      }
     },
   });
   await assert.rejects(prepare(invocation), /authorization_changed/);
@@ -344,8 +361,8 @@ test('capability checks preserve unknown settings, operation-specific evidence a
   const summary = capabilitySummary(input);
   assert(Buffer.byteLength(JSON.stringify(summary)) <= 2048);
   assert(!JSON.stringify(summary).includes('checks'));
-  for (const flag of [undefined, false, true])
-    for (const connected of [false, true])
+  for (const flag of [undefined, false, true]) {
+    for (const connected of [false, true]) {
       for (const grantedScopes of [undefined, [], [R], all]) {
         const permissions = Object.fromEntries(
           [
@@ -364,6 +381,8 @@ test('capability checks preserve unknown settings, operation-specific evidence a
           Buffer.byteLength(JSON.stringify(capabilitySummary({...input, config: c, connected, grantedScopes}))) <= 2048,
         );
       }
+    }
+  }
   const manifest = JSON.parse(manifestText);
   assert.deepEqual(
     Object.keys(manifest.configSchema.properties.oauth.properties.applicationPermissions.properties).sort(),
@@ -438,8 +457,9 @@ test('token scopes cannot be fabricated by standalone parsing, refreshed upward 
   assert.throws(() => parseTokens({...response, scope: RW.join(' ')}), /oauth_response_invalid/);
   assert.deepEqual(parseTokens(response, Date.now(), RW, 'consent').scopes, RW);
   assert.deepEqual(parseTokens(response, Date.now(), [R], 'refresh').scopes, [R]);
-  for (const scope of ['', null, {}, 'OAuth2Unknown', 'OAuth2Read OAuth2Share'])
+  for (const scope of ['', null, {}, 'OAuth2Unknown', 'OAuth2Read OAuth2Share']) {
     assert.throws(() => parseTokens({...response, scope}), /oauth_response_invalid/);
+  }
   const consent = new Consent('fixture', 'fixture-secret', async () => json(response), Date.now, undefined, RW);
   const u = new URL(consent.authorizationUrl());
   const tokens = await consent.complete(

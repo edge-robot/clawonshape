@@ -135,8 +135,9 @@ test('provider PNG accepts observed flat/documented nested shapes and rejects co
     {images: ['YQ==', 'Yg==']},
     {images: [corrupt.toString('base64')]},
     {images: [Buffer.concat([bytes, Buffer.from('tail')]).toString('base64')]},
-  ])
+  ]) {
     assert.throws(() => decodePng(v), /provider_image_invalid/);
+  }
   const h = Buffer.alloc(13);
   h.writeUInt32BE(800);
   h.writeUInt32BE(800, 4);
@@ -182,8 +183,9 @@ test('signed A2A context restores exact authorized binding, not peer identity or
     {...ctx, agentId: 'lead-agent'},
     {...ctx, sessionKey: ctx.sessionKey.slice(0, -1) + (ctx.sessionKey.endsWith('0') ? '1' : '0')},
     {...ctx, messageChannel: 'discord'},
-  ])
+  ]) {
     assert.equal(verifyContext(c, bad, key, now), undefined);
+  }
   assert.equal(verifyContext(c, ctx, key, now + 301000), undefined);
   assert.equal(
     verifyContext(parseConfig({bindings: [{...B, elementId: D}], delegation: DC}), ctx, key, now),
@@ -275,7 +277,9 @@ test('A2A signing rejects non-JSON fields, cycles, accessors and excessive nesti
   const cycle = {};
   cycle.self = cycle;
   let deep = {};
-  for (let i = 0; i < 34; i++) deep = {nested: deep};
+  for (let i = 0; i < 34; i++) {
+    deep = {nested: deep};
+  }
   let getterCalls = 0;
   const getter = Object.defineProperty({}, 'field', {
     enumerable: true,
@@ -411,9 +415,15 @@ test('rejected A2A results emit correlated warning audit records without sensiti
         capabilities: {create_candidate_workspace: {availability: 'UNAVAILABLE', reason: 'agent_policy_denied'}},
       };
       const report = {...details, delegationProof: signResult(details, contextId, key)};
-      if (mode === 'tampered') report.capabilities.create_candidate_workspace.availability = 'AVAILABLE';
-      if (mode === 'missing') delete report.delegationProof;
-      if (mode === 'format') report.delegationProof = 'proof-DO-NOT-LOG';
+      if (mode === 'tampered') {
+        report.capabilities.create_candidate_workspace.availability = 'AVAILABLE';
+      }
+      if (mode === 'missing') {
+        delete report.delegationProof;
+      }
+      if (mode === 'format') {
+        report.delegationProof = 'proof-DO-NOT-LOG';
+      }
       received = mode === 'json' ? 'invalid-json-DO-NOT-LOG' : mode === 'object' ? '[]' : JSON.stringify(report);
       return json({
         result: {
@@ -462,8 +472,9 @@ test('rejected A2A results emit correlated warning audit records without sensiti
         assert.equal(event.taskSha256, hash('task-DO-NOT-LOG'));
         assert.equal(event.receivedResultSha256, hash(received));
       }
-      for (const secret of [key, token, contextId, 'DO-NOT-LOG', 'FORGED WARNING', 'delegationProof'])
+      for (const secret of [key, token, contextId, 'DO-NOT-LOG', 'FORGED WARNING', 'delegationProof']) {
         assert(!logs[0].includes(secret));
+      }
       assert(!logs[0].includes('\n'));
     }
     logs.length = 0;

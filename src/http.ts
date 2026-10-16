@@ -25,17 +25,25 @@ export async function jsonRequest(
 ): Promise<unknown> {
   try {
     const r = await fetcher(url, {...init, redirect: 'error', signal: AbortSignal.timeout(10000)});
-    if (!r.ok) throw new ProviderHttpError(r.status);
-    if (!r.headers.get('content-type')?.includes('application/json')) throw new Error('provider_protocol_error');
+    if (!r.ok) {
+      throw new ProviderHttpError(r.status);
+    }
+    if (!r.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('provider_protocol_error');
+    }
     // Bound streaming reads; do not buffer an arbitrary provider body.
     const reader = r.body?.getReader();
-    if (!reader) throw new Error('provider_protocol_error');
+    if (!reader) {
+      throw new Error('provider_protocol_error');
+    }
     const chunks: Uint8Array[] = [];
     let size = 0;
     try {
       for (;;) {
         const {value, done} = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
         size += value.length;
         if (size > maxBytes) {
           await reader.cancel();
@@ -48,7 +56,9 @@ export async function jsonRequest(
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch (e) {
-    if (e instanceof ProviderHttpError) throw e;
+    if (e instanceof ProviderHttpError) {
+      throw e;
+    }
     const allowed = [
       'reconnect_required',
       'provider_forbidden',

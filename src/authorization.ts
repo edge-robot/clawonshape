@@ -16,18 +16,28 @@ export async function accessToken(
   fetcher: typeof fetch = fetch,
 ): Promise<string> {
   guard();
-  if (oauth?.applicationPermissions?.canReadDocuments === false) throw new Error('app_permission_read_disabled');
+  if (oauth?.applicationPermissions?.canReadDocuments === false) {
+    throw new Error('app_permission_read_disabled');
+  }
   const readToken = (tokens: Tokens) => {
-    if (!tokens.scopes.includes(OAUTH_SCOPE_READ)) throw new Error('oauth_read_scope_missing');
+    if (!tokens.scopes.includes(OAUTH_SCOPE_READ)) {
+      throw new Error('oauth_read_scope_missing');
+    }
     return tokens.accessToken;
   };
-  if (store.status() === 'connected') return readToken(store.read());
+  if (store.status() === 'connected') {
+    return readToken(store.read());
+  }
   return store.exclusive(async () => {
     guard();
-    if (store.status() === 'connected') return readToken(store.read());
+    if (store.status() === 'connected') {
+      return readToken(store.read());
+    }
     const previous = store.read(true);
     readToken(previous);
-    if (!oauth) throw new Error('oauth_configuration_required');
+    if (!oauth) {
+      throw new Error('oauth_configuration_required');
+    }
     const clientSecret = await privateSecret(oauth.clientSecretFile);
     guard();
     await store.save(null);
@@ -53,9 +63,12 @@ export async function accessToken(
       await store.save(tokens);
       return readToken(tokens);
     } catch (e) {
-      if (e instanceof Error && ['authorization_changed', 'oauth_refresh_response_invalid'].includes(e.message))
+      if (e instanceof Error && ['authorization_changed', 'oauth_refresh_response_invalid'].includes(e.message)) {
         throw e;
-      if (e instanceof Error && e.message === 'reconnect_required') throw new Error('oauth_refresh_rejected');
+      }
+      if (e instanceof Error && e.message === 'reconnect_required') {
+        throw new Error('oauth_refresh_rejected');
+      }
       throw new Error('reconnect_required');
     }
   });

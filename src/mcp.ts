@@ -17,8 +17,9 @@ export function filterCatalog(value: unknown): Capability[] {
     v.diagnostics.length ||
     v.tools.some((n) => typeof n !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(n)) ||
     new Set(v.tools).size !== v.tools.length
-  )
+  ) {
     throw new Error('mcp_discovery_failed');
+  }
   return v.tools.map((name) => ({name, enabled: false, reason: 'mcp_execution_disabled'}));
 }
 export function rejectMcpCall(_name: string, _args: unknown): never {
@@ -29,7 +30,9 @@ export async function discover(
   serverName: string,
   run: (args: string[]) => Promise<string> = nativeProbe,
 ): Promise<Capability[]> {
-  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(serverName)) throw new Error('invalid_mcp_server');
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(serverName)) {
+    throw new Error('invalid_mcp_server');
+  }
   try {
     return filterCatalog(JSON.parse(await run(['mcp', 'probe', serverName, '--json'])));
   } catch {
@@ -39,8 +42,11 @@ export async function discover(
 async function nativeProbe(args: string[]): Promise<string> {
   return new Promise((resolve, reject) =>
     execFile('openclaw', args, {timeout: 20000, maxBuffer: 1024 * 1024}, (error, stdout) => {
-      if (error) reject(new Error('mcp_discovery_failed'));
-      else resolve(stdout);
+      if (error) {
+        reject(new Error('mcp_discovery_failed'));
+      } else {
+        resolve(stdout);
+      }
     }),
   );
 }
@@ -57,8 +63,9 @@ export function projectMcpStatus(value: unknown, now = Date.now()): McpReadiness
     value.servers.length > 256 ||
     value.servers.some((s) => !record(s) || typeof s.name !== 'string') ||
     new Set(value.servers.map((s) => s.name)).size !== value.servers.length
-  )
+  ) {
     return result;
+  }
   const server = value.servers.find((s) => s.name === 'onshape');
   if (!server) {
     result.configured = false;
@@ -67,13 +74,18 @@ export function projectMcpStatus(value: unknown, now = Date.now()): McpReadiness
   // Native 2026.9.9 computes ok = enabled && transportResolved. A disabled
   // connector therefore has ok:false even when its saved configuration is valid.
   // Neither value proves a current connection; project the independent metadata.
-  if (typeof server.configured !== 'boolean' || typeof server.enabled !== 'boolean' || typeof server.ok !== 'boolean')
+  if (typeof server.configured !== 'boolean' || typeof server.enabled !== 'boolean' || typeof server.ok !== 'boolean') {
     return result;
+  }
   result.configured = server.configured;
   result.enabled = server.enabled;
-  if (!server.configured || server.auth !== 'oauth' || !record(server.authStatus)) return result;
+  if (!server.configured || server.auth !== 'oauth' || !record(server.authStatus)) {
+    return result;
+  }
   const auth = server.authStatus;
-  if (typeof auth.hasTokens !== 'boolean' || typeof auth.requiresAuthorization !== 'boolean') return result;
+  if (typeof auth.hasTokens !== 'boolean' || typeof auth.requiresAuthorization !== 'boolean') {
+    return result;
+  }
   result.oauth.storedGrant = auth.hasTokens;
   result.oauth.requiresOperatorAction = auth.requiresAuthorization;
   // Native "authorized" means saved tokens, not verified provider access.
@@ -104,7 +116,9 @@ export function projectMcpStatus(value: unknown, now = Date.now()): McpReadiness
 export async function mcpReadiness(run: (args: string[]) => Promise<string> = nativeStatus): Promise<McpReadiness> {
   try {
     const raw = await run(['mcp', 'status', '--json']);
-    if (Buffer.byteLength(raw) > 1024 * 1024) return unknownMcpReadiness();
+    if (Buffer.byteLength(raw) > 1024 * 1024) {
+      return unknownMcpReadiness();
+    }
     return projectMcpStatus(JSON.parse(raw));
   } catch {
     return unknownMcpReadiness();
@@ -114,8 +128,11 @@ async function nativeStatus(args: string[]): Promise<string> {
   // Native status exceeded five seconds on the pinned host during acceptance.
   return new Promise((resolve, reject) =>
     execFile('openclaw', args, {timeout: 15000, maxBuffer: 1024 * 1024}, (error, stdout) => {
-      if (error) reject(new Error('native_mcp_status_unavailable'));
-      else resolve(stdout);
+      if (error) {
+        reject(new Error('native_mcp_status_unavailable'));
+      } else {
+        resolve(stdout);
+      }
     }),
   );
 }
@@ -138,10 +155,13 @@ export async function localMcpReadiness(
   try {
     assertPrivateFile(file);
     const raw = await readFile(file, 'utf8');
-    if (Buffer.byteLength(raw) > 16384) throw new Error();
+    if (Buffer.byteLength(raw) > 16384) {
+      throw new Error();
+    }
     const c = JSON.parse(raw);
-    if (c === null) local.credential = 'MISSING';
-    else if (
+    if (c === null) {
+      local.credential = 'MISSING';
+    } else if (
       record(c) &&
       Object.keys(c).every((k) => ['accessToken', 'expiresAt', 'scopes'].includes(k)) &&
       typeof c.accessToken === 'string' &&
@@ -152,12 +172,16 @@ export async function localMcpReadiness(
       c.scopes.includes('OAuth2Read')
     ) {
       const expiry = c.expiresAt as number;
-      if (expiry <= 0 || expiry > 8640000000000000) throw new Error();
+      if (expiry <= 0 || expiry > 8640000000000000) {
+        throw new Error();
+      }
       local.expiry = new Date(expiry).toISOString();
       local.credential = expiry <= now + 30000 ? 'EXPIRED' : 'AVAILABLE';
     }
   } catch (e) {
-    if ((e as {code?: string}).code === 'ENOENT') local.credential = 'MISSING';
+    if ((e as {code?: string}).code === 'ENOENT') {
+      local.credential = 'MISSING';
+    }
   }
   try {
     const response = await fetcher(new URL('/health', MCP_URL), {signal: AbortSignal.timeout(2000), redirect: 'error'});

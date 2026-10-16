@@ -38,14 +38,16 @@ export function registerDashboard(
       async handler(action) {
         try {
           // Dashboard authority is operator scope, NOT a claim of Discord identity.
-          if (!action.client?.scopes.includes(actionId === 'status' ? 'operator.read' : 'operator.admin'))
+          if (!action.client?.scopes.includes(actionId === 'status' ? 'operator.read' : 'operator.admin')) {
             throw new Error('authorization_changed');
+          }
           const input = action.payload as {connectionRef?: string} | undefined;
           if (
             input?.connectionRef !== undefined &&
             !current().bindings.some((b) => b.connectionRef === input.connectionRef)
-          )
+          ) {
             throw new Error('not_configured');
+          }
           const connections = [...new Set(current().bindings.map((b) => b.connectionRef))];
           const name = input?.connectionRef ?? (connections.length === 1 ? connections[0] : undefined);
           if (actionId === 'status') {
@@ -60,7 +62,9 @@ export function registerDashboard(
             }
             return {ok: true, result: {...rest, connections, mcp}};
           }
-          if (!name) throw new Error('not_configured');
+          if (!name) {
+            throw new Error('not_configured');
+          }
           return {
             ok: true,
             result:
@@ -106,8 +110,9 @@ export function registerDashboard(
           const initial = current(),
             snapshot = authorizationSnapshot(initial);
           const assertOperator = () => {
-            if (!action.client?.scopes.includes(required) || !matchesAuthorizationSnapshot(current(), snapshot))
+            if (!action.client?.scopes.includes(required) || !matchesAuthorizationSnapshot(current(), snapshot)) {
               throw new Error('authorization_changed');
+            }
           };
           assertOperator();
           const input = action.payload as {
@@ -120,7 +125,9 @@ export function registerDashboard(
           const bindings = initial.bindings.filter(
             (b) => !input?.connectionRef || b.connectionRef === input.connectionRef,
           );
-          if (bindings.length !== 1) throw new Error('not_configured');
+          if (bindings.length !== 1) {
+            throw new Error('not_configured');
+          }
           const binding = bindings[0];
           const store = await credentials(
             api.runtime.state.resolveStateDir(),
@@ -129,7 +136,7 @@ export function registerDashboard(
             initial.localMcp?.credentialDirectory,
           );
           const proposals = await mutationStore(api.runtime.state.resolveStateDir(), binding);
-          if (actionId === 'mutation-status')
+          if (actionId === 'mutation-status') {
             return response({
               status: 'ok',
               target: {
@@ -141,6 +148,7 @@ export function registerDashboard(
               oauthWrite: store.read(true).scopes.includes('OAuth2Write'),
               proposals: await proposals.list(),
             });
+          }
           const client = new RestClient(() => accessToken(store, initial.oauth, assertOperator), fetch, {
             stateDir: api.runtime.state.resolveStateDir(),
             authorization: operatorCandidateAuthorization(
@@ -151,13 +159,15 @@ export function registerDashboard(
             ),
           });
           if (actionId === 'candidate-prepare' || actionId === 'candidate-check') {
-            if (actionId === 'candidate-prepare' && binding.workspaceId !== binding.primaryWorkspaceId)
+            if (actionId === 'candidate-prepare' && binding.workspaceId !== binding.primaryWorkspaceId) {
               throw new Error('candidate_already_assigned');
+            }
             if (
               actionId === 'candidate-check' &&
               (!input?.candidateWorkspaceId || input.candidateWorkspaceId === binding.primaryWorkspaceId)
-            )
+            ) {
               throw new Error('protected_primary_workspace');
+            }
             const sourceMicroversionId = await client.sourceRevision(binding);
             const result = await client.prepareCandidateWorkspace(binding, {
               sourceMicroversionId,
@@ -168,7 +178,9 @@ export function registerDashboard(
             assertOperator();
             return response(result);
           }
-          if (!input?.proposalId || !initial.localMcp) throw new Error('invalid_arguments');
+          if (!input?.proposalId || !initial.localMcp) {
+            throw new Error('invalid_arguments');
+          }
           const approvalDirectory = path.join(initial.localMcp.credentialDirectory, 'mutation-approvals');
           if (actionId === 'mutation-approve') {
             const token = await accessToken(store, initial.oauth, assertOperator);
@@ -176,8 +188,9 @@ export function registerDashboard(
             if (
               !store.read().scopes.includes('OAuth2Write') ||
               initial.oauth?.applicationPermissions.canWriteDocuments !== true
-            )
+            ) {
               throw new Error('oauth_write_scope_missing');
+            }
             const record = await proposals.approve(
               input.proposalId,
               input.expectedPayloadHash ?? '',

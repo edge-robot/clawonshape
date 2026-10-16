@@ -56,8 +56,9 @@ export function parseConfig(value: unknown): Config {
     !Array.isArray(value.bindings) ||
     value.bindings.length > 64 ||
     (value.liveReads !== undefined && typeof value.liveReads !== 'boolean')
-  )
+  ) {
     throw new Error('invalid_configuration');
+  }
   const bindings: Binding[] = [];
   for (const b of value.bindings) {
     if (
@@ -90,8 +91,9 @@ export function parseConfig(value: unknown): Config {
         (typeof b.discordChannelId !== 'string' ||
           !/^\d{16,22}$/.test(b.discordChannelId) ||
           b.messageChannel !== 'discord'))
-    )
+    ) {
       throw new Error('invalid_binding');
+    }
     bindings.push(
       Object.freeze({
         agentId: b.agentId,
@@ -110,19 +112,24 @@ export function parseConfig(value: unknown): Config {
   const keys = bindings.map((b) =>
     JSON.stringify([b.agentId, b.requesterSenderId, b.messageChannel, b.agentAccountId]),
   );
-  if (new Set(keys).size !== keys.length) throw new Error('duplicate_binding');
+  if (new Set(keys).size !== keys.length) {
+    throw new Error('duplicate_binding');
+  }
   // A connection is owned by one authenticated requester/channel/account, even across agents.
   const owners = new Map<string, string>();
   for (const b of bindings) {
     const owner = JSON.stringify([b.requesterSenderId, b.messageChannel, b.agentAccountId]);
-    if (owners.has(b.connectionRef) && owners.get(b.connectionRef) !== owner)
+    if (owners.has(b.connectionRef) && owners.get(b.connectionRef) !== owner) {
       throw new Error('connection_owner_conflict');
+    }
     owners.set(b.connectionRef, owner);
   }
   let oauth: Config['oauth'];
   if (value.oauth !== undefined) {
     const o = value.oauth;
-    if (!object(o)) throw new Error('invalid_oauth_configuration');
+    if (!object(o)) {
+      throw new Error('invalid_oauth_configuration');
+    }
     const permissions = o.applicationPermissions;
     if (
       Object.keys(o).some(
@@ -154,8 +161,9 @@ export function parseConfig(value: unknown): Config {
             typeof permissions.canShareAndUnshareDocuments !== 'boolean') ||
           (permissions.canReadProfileInformation !== undefined &&
             typeof permissions.canReadProfileInformation !== 'boolean')))
-    )
+    ) {
       throw new Error('invalid_oauth_configuration');
+    }
     oauth = Object.freeze({
       clientId: o.clientId,
       clientSecretFile: o.clientSecretFile,
@@ -165,7 +173,9 @@ export function parseConfig(value: unknown): Config {
       ...(o.dashboardRedirectUri ? {dashboardRedirectUri: o.dashboardRedirectUri as string} : {}),
     });
   }
-  if (value.engineerAgentId !== undefined && !ref(value.engineerAgentId)) throw new Error('invalid_configuration');
+  if (value.engineerAgentId !== undefined && !ref(value.engineerAgentId)) {
+    throw new Error('invalid_configuration');
+  }
   let delegation: Delegation | undefined;
   if (value.delegation !== undefined) {
     const d = value.delegation;
@@ -184,8 +194,9 @@ export function parseConfig(value: unknown): Config {
       !d.keyFile.startsWith('/') ||
       (d.transportTokenFile !== undefined && (!text(d.transportTokenFile) || !d.transportTokenFile.startsWith('/'))) ||
       bindings.some((b) => b.agentId !== d.engineerAgentId)
-    )
+    ) {
       throw new Error('invalid_delegation');
+    }
     delegation = Object.freeze({
       leadAgentId: d.leadAgentId,
       engineerAgentId: d.engineerAgentId,
@@ -205,8 +216,9 @@ export function parseConfig(value: unknown): Config {
       !text(m.credentialDirectory) ||
       !m.credentialDirectory.startsWith('/') ||
       !bindings.some((b) => b.connectionRef === m.connectionRef)
-    )
+    ) {
       throw new Error('invalid_configuration');
+    }
     localMcp = Object.freeze({connectionRef: m.connectionRef, credentialDirectory: m.credentialDirectory});
   }
   return Object.freeze({
@@ -269,8 +281,16 @@ export function bindingFor(config: Config, ctx: Identity): Binding | undefined {
   );
 }
 export function validateTarget(b: Binding, did: unknown, wid: unknown, write = false): void {
-  if (!id(did) || !id(wid) || did !== b.documentId) throw new Error('target_denied');
-  if (write && wid === b.primaryWorkspaceId) throw new Error('protected_primary_workspace');
-  if (wid !== b.workspaceId) throw new Error('target_denied');
-  if (write) throw new Error('writes_disabled');
+  if (!id(did) || !id(wid) || did !== b.documentId) {
+    throw new Error('target_denied');
+  }
+  if (write && wid === b.primaryWorkspaceId) {
+    throw new Error('protected_primary_workspace');
+  }
+  if (wid !== b.workspaceId) {
+    throw new Error('target_denied');
+  }
+  if (write) {
+    throw new Error('writes_disabled');
+  }
 }

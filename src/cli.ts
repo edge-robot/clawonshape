@@ -18,7 +18,9 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
       const root = program.command('onshape').description('Operator Onshape connection management');
       const selected = (name: string) => {
         const b = config.bindings.find((b) => b.connectionRef === name);
-        if (!b) throw new Error('unknown_connection');
+        if (!b) {
+          throw new Error('unknown_connection');
+        }
         return credentials(
           api.runtime.state.resolveStateDir(),
           name,
@@ -56,25 +58,36 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
         .option('--live', 'Authorize browser consent and token exchange', false)
         .option('--rest-write', 'Request explicit REST write scope (OAuth2Write) in addition to read', false)
         .action(async (name: string, opts: {live?: boolean; restWrite?: boolean}) => {
-          if (!opts.live) throw new Error('explicit_live_authorization_required');
-          if (!config.oauth) throw new Error('oauth_configuration_required');
-          if (opts.restWrite && config.oauth.applicationPermissions.canWriteDocuments !== true)
+          if (!opts.live) {
+            throw new Error('explicit_live_authorization_required');
+          }
+          if (!config.oauth) {
+            throw new Error('oauth_configuration_required');
+          }
+          if (opts.restWrite && config.oauth.applicationPermissions.canWriteDocuments !== true) {
             throw new Error(
               config.oauth.applicationPermissions.canWriteDocuments === false
                 ? 'app_permission_write_disabled'
                 : 'app_permission_write_unknown',
             );
+          }
           const store = await selected(name);
           const clientSecret = await privateSecret(config.oauth.clientSecretFile);
           // Invalidate old access before starting consent. Failed reconnect leaves no usable connection.
           const guard = () => {
             const entry = api.runtime.config.current().plugins?.entries?.['claw-onshape'];
-            if (entry?.enabled !== true) throw new Error('authorization_changed');
+            if (entry?.enabled !== true) {
+              throw new Error('authorization_changed');
+            }
             const c = parseConfig(entry.config);
-            if (!sameAuthorizationConfig(c, config)) throw new Error('authorization_changed');
+            if (!sameAuthorizationConfig(c, config)) {
+              throw new Error('authorization_changed');
+            }
           };
           const requestedScopes: OAuthScope[] = [OAUTH_SCOPE_READ];
-          if (opts.restWrite) requestedScopes.push(OAUTH_SCOPE_WRITE);
+          if (opts.restWrite) {
+            requestedScopes.push(OAUTH_SCOPE_WRITE);
+          }
           await authorizeConnection(store, guard, (save) =>
             connect(
               new Consent(config.oauth!.clientId, clientSecret, fetch, Date.now, undefined, requestedScopes),
@@ -86,11 +99,14 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
         .command('mcp-discover <server>')
         .option('--live', 'Authorize native MCP metadata requests', false)
         .action(async (name: string, opts: {live?: boolean}) => {
-          if (!opts.live) throw new Error('explicit_live_authorization_required');
+          if (!opts.live) {
+            throw new Error('explicit_live_authorization_required');
+          }
           const cfg = api.runtime.config.current();
           const server = cfg.mcp?.servers?.[name];
-          if (server?.url !== MCP_URL || server.auth === 'oauth' || server.enabled === false)
+          if (server?.url !== MCP_URL || server.auth === 'oauth' || server.enabled === false) {
             throw new Error('mcp_configuration_required');
+          }
           process.stdout.write(JSON.stringify(await discover(name)) + '\n');
         });
     },

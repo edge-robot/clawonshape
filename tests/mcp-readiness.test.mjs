@@ -78,11 +78,12 @@ test('native expiry metadata is bounded; expired or unexpired stored grants neve
     assert.equal(result.oauth.status, 'UNKNOWN');
     assert.equal(result.oauth.requiresOperatorAction, expiry === 1000);
   }
-  for (const expiry of ['secret', NaN, -1, Infinity, 8640000000000001])
+  for (const expiry of ['secret', NaN, -1, Infinity, 8640000000000001]) {
     assert.equal(
       projectMcpStatus(native({hasTokens: true, requiresAuthorization: false, expiresAt: expiry})).oauth.storedGrant,
       null,
     );
+  }
 });
 test('historical discovery and mutation gates are independent of all native OAuth/config states', () => {
   for (const input of [
@@ -184,8 +185,9 @@ test('operator scope is checked before native reads; no native metadata enters s
       ['mutation-reconcile', ['operator.admin']],
     ],
   );
-  for (const scopes of [[], ['operator.write'], ['agent']])
+  for (const scopes of [[], ['operator.write'], ['agent']]) {
     assert.equal((await d.status(scopes)).result.code, 'authorization_changed');
+  }
   assert.equal(calls, 0);
   const status = await d.status(['operator.read']);
   assert.equal(status.result.code, 'not_configured');
@@ -253,8 +255,9 @@ test('dashboard preserves successful REST status and offers native read/write co
     attrs = {};
     append(...items) {
       this.children.push(...items);
-      if (this.attrs['aria-label'] === 'Configured Onshape connection' && !this.value && items.length)
+      if (this.attrs['aria-label'] === 'Configured Onshape connection' && !this.value && items.length) {
         this.value = items[0].value;
+      }
     }
     replaceChildren(...items) {
       this.children = items;
@@ -301,8 +304,9 @@ test('dashboard preserves successful REST status and offers native read/write co
       'Disabled',
       'HISTORICAL',
       'UNKNOWN',
-    ])
+    ]) {
       assert(text.includes(label));
+    }
     assert(!text.includes('Connect MCP'));
     assert(!text.includes('Disconnect MCP'));
     assert(text.includes('Connect Onshape'));

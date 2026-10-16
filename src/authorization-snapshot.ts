@@ -24,30 +24,45 @@ function dataRecord(value: unknown): asserts value is Record<string, unknown> {
     typeof value !== 'object' ||
     Array.isArray(value) ||
     ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
+  ) {
     throw new Error('invalid_configuration');
+  }
   for (const key of Reflect.ownKeys(value)) {
     const field = Object.getOwnPropertyDescriptor(value, key);
-    if (typeof key !== 'string' || !field?.enumerable || !('value' in field)) throw new Error('invalid_configuration');
+    if (typeof key !== 'string' || !field?.enumerable || !('value' in field)) {
+      throw new Error('invalid_configuration');
+    }
   }
 }
 
 function validatedConfig(value: Config): Config {
   dataRecord(value);
-  if (!Array.isArray(value.bindings) || value.bindings.length > 64) throw new Error('invalid_configuration');
+  if (!Array.isArray(value.bindings) || value.bindings.length > 64) {
+    throw new Error('invalid_configuration');
+  }
   const keys = Reflect.ownKeys(value.bindings);
-  if (keys.length !== value.bindings.length + 1) throw new Error('invalid_configuration');
+  if (keys.length !== value.bindings.length + 1) {
+    throw new Error('invalid_configuration');
+  }
   for (let index = 0; index < value.bindings.length; index++) {
     const field = Object.getOwnPropertyDescriptor(value.bindings, String(index));
-    if (!field?.enumerable || !('value' in field)) throw new Error('invalid_configuration');
+    if (!field?.enumerable || !('value' in field)) {
+      throw new Error('invalid_configuration');
+    }
     dataRecord(field.value);
   }
   if (value.oauth !== undefined) {
     dataRecord(value.oauth);
-    if (value.oauth.applicationPermissions !== undefined) dataRecord(value.oauth.applicationPermissions);
+    if (value.oauth.applicationPermissions !== undefined) {
+      dataRecord(value.oauth.applicationPermissions);
+    }
   }
-  if (value.delegation !== undefined) dataRecord(value.delegation);
-  if (value.localMcp !== undefined) dataRecord(value.localMcp);
+  if (value.delegation !== undefined) {
+    dataRecord(value.delegation);
+  }
+  if (value.localMcp !== undefined) {
+    dataRecord(value.localMcp);
+  }
   return parseConfig(value);
 }
 
@@ -55,7 +70,9 @@ function bindingValues(binding: Binding) {
   return Object.freeze(bindingFields.map((field) => binding[field] ?? null));
 }
 function oauthValues(oauth: Config['oauth']) {
-  if (!oauth) return null;
+  if (!oauth) {
+    return null;
+  }
   const p = oauth.applicationPermissions;
   return Object.freeze([
     oauth.clientId,
@@ -85,9 +102,15 @@ function compareBindingValues(left: ReturnType<typeof bindingValues>, right: Ret
   for (let index = 0; index < left.length; index++) {
     const a = left[index],
       b = right[index];
-    if (a === b) continue;
-    if (a === null) return -1;
-    if (b === null) return 1;
+    if (a === b) {
+      continue;
+    }
+    if (a === null) {
+      return -1;
+    }
+    if (b === null) {
+      return 1;
+    }
     return a < b ? -1 : 1;
   }
   return 0;
@@ -121,7 +144,9 @@ export function sameAuthorizationConfig(left: Config, right: Config): boolean {
   }
 }
 export function sameBinding(left: Binding | undefined, right: Binding | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
+  if (left === undefined || right === undefined) {
+    return left === right;
+  }
   try {
     dataRecord(left);
     dataRecord(right);
@@ -155,6 +180,8 @@ export function sameAuthorizedBinding(
   left: AuthorizedBinding | undefined,
   right: AuthorizedBinding | undefined,
 ): boolean {
-  if (left === undefined || right === undefined) return left === right;
+  if (left === undefined || right === undefined) {
+    return left === right;
+  }
   return sameBinding(left.binding, right.binding) && left.contextId === right.contextId;
 }

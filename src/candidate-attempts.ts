@@ -94,8 +94,9 @@ function validate(value: unknown, ownerHash: string, documentId: string): Candid
     (v.candidateWorkspaceId !== undefined && !id(v.candidateWorkspaceId)) ||
     (v.code !== undefined && !codes.includes(v.code)) ||
     (['CREATED_UNVERIFIED', 'VERIFIED'].includes(v.status) && !v.candidateWorkspaceId)
-  )
+  ) {
     throw new Error('candidate_store_unavailable');
+  }
   return Object.freeze(v);
 }
 async function privateDirectory(dir: string): Promise<void> {
@@ -106,14 +107,17 @@ async function privateDirectory(dir: string): Promise<void> {
     info.uid !== process.getuid?.() ||
     info.mode & 0o077 ||
     (await realpath(dir)) !== dir
-  )
+  ) {
     throw new Error('candidate_store_unavailable');
+  }
 }
 
 // Fixed, bounded private receipts. A global non-waiting lock also serializes the
 // capacity check across processes. It is independent of the OAuth refresh lock.
 export async function candidateAttempts(stateDir: string, binding: Binding) {
-  if (!path.isAbsolute(stateDir) || !id(binding.documentId)) throw new Error('candidate_store_unavailable');
+  if (!path.isAbsolute(stateDir) || !id(binding.documentId)) {
+    throw new Error('candidate_store_unavailable');
+  }
   const ownerHash = connectionOwner(binding),
     documentId = binding.documentId;
   const slot = createHash('sha256')
@@ -125,7 +129,9 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
     await privateDirectory(stateDir);
     await mkdir(dir, {mode: 0o700});
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw new Error('candidate_store_unavailable');
+    if ((e as NodeJS.ErrnoException).code !== 'EEXIST') {
+      throw new Error('candidate_store_unavailable');
+    }
   }
   await privateDirectory(dir);
   const parent = await open(stateDir, constants.O_RDONLY | constants.O_DIRECTORY);
@@ -159,16 +165,21 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
         // Stop at the hard cap rather than buffering an arbitrarily large listing.
         let count = 0;
         for await (const entry of await opendir(dir)) {
-          if (entry.name === '.lock') continue;
-          if (!entry.isFile() || !/^[a-f0-9]{64}\.json$/.test(entry.name) || ++count > CANDIDATE_MAX_RECORDS)
+          if (entry.name === '.lock') {
+            continue;
+          }
+          if (!entry.isFile() || !/^[a-f0-9]{64}\.json$/.test(entry.name) || ++count > CANDIDATE_MAX_RECORDS) {
             throw new Error('candidate_store_unavailable');
+          }
         }
         const read = async (): Promise<CandidateAttempt | undefined> => {
           let file;
           try {
             file = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
           } catch (e) {
-            if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+              return undefined;
+            }
             throw new Error('candidate_store_unavailable');
           }
           try {
@@ -179,11 +190,14 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
               info.uid !== process.getuid?.() ||
               info.mode & 0o077 ||
               info.size > CANDIDATE_MAX_BYTES
-            )
+            ) {
               throw new Error('candidate_store_unavailable');
+            }
             const buffer = Buffer.alloc(CANDIDATE_MAX_BYTES + 1),
               {bytesRead} = await file.read(buffer, 0, buffer.length, 0);
-            if (bytesRead > CANDIDATE_MAX_BYTES) throw new Error('candidate_store_unavailable');
+            if (bytesRead > CANDIDATE_MAX_BYTES) {
+              throw new Error('candidate_store_unavailable');
+            }
             return validate(JSON.parse(buffer.subarray(0, bytesRead).toString('utf8')), ownerHash, documentId);
           } catch {
             throw new Error('candidate_store_unavailable');
@@ -193,9 +207,13 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
         };
         const save = async (record: CandidateAttempt): Promise<void> => {
           const content = JSON.stringify(validate(record, ownerHash, documentId));
-          if (Buffer.byteLength(content) > CANDIDATE_MAX_BYTES) throw new Error('candidate_store_unavailable');
+          if (Buffer.byteLength(content) > CANDIDATE_MAX_BYTES) {
+            throw new Error('candidate_store_unavailable');
+          }
           const previous = await read();
-          if (!previous && count >= CANDIDATE_MAX_RECORDS) throw new Error('candidate_store_full');
+          if (!previous && count >= CANDIDATE_MAX_RECORDS) {
+            throw new Error('candidate_store_full');
+          }
           try {
             const native = await import('openclaw/plugin-sdk/secret-file-runtime');
             await native.writePrivateSecretFileAtomic({rootDir: stateDir, filePath, content, durable: 'file'});
@@ -211,12 +229,14 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
                 info.uid !== process.getuid?.() ||
                 info.mode & 0o077 ||
                 info.size !== Buffer.byteLength(content)
-              )
+              ) {
                 throw new Error('candidate_store_unavailable');
+              }
               const buffer = Buffer.alloc(CANDIDATE_MAX_BYTES + 1),
                 {bytesRead} = await file.read(buffer, 0, buffer.length, 0);
-              if (bytesRead !== info.size || !buffer.subarray(0, bytesRead).equals(Buffer.from(content)))
+              if (bytesRead !== info.size || !buffer.subarray(0, bytesRead).equals(Buffer.from(content))) {
                 throw new Error('candidate_store_unavailable');
+              }
               await file.sync();
               const published = await lstat(filePath);
               if (
@@ -227,8 +247,9 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
                 published.uid !== info.uid ||
                 published.mode & 0o077 ||
                 published.size !== info.size
-              )
+              ) {
                 throw new Error('candidate_store_unavailable');
+              }
             } finally {
               await file.close();
             }
@@ -239,7 +260,9 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
             } finally {
               await directory.close();
             }
-            if (!previous) count++;
+            if (!previous) {
+              count++;
+            }
           } catch {
             throw new Error('candidate_store_unavailable');
           }

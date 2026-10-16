@@ -173,8 +173,9 @@ test('snapshot is independent of mutable inputs and rejects malformed/accessor/s
     {...config(), liveReads: 'true'},
     {...config(), oauth: null},
     {...config(), unexpected: true},
-  ])
+  ]) {
     assert(!sameAuthorizationConfig(config(), invalid));
+  }
   assert.equal(accesses, 0);
   assert(!sameBinding(binding, {...binding, elementId: null}));
   assert(!sameOAuth(config().oauth, {...config().oauth, applicationPermissions: {canWriteDocuments: 1}}));

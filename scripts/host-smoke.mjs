@@ -7,7 +7,9 @@ try {
     maxBuffer: 1024 * 1024,
   });
   const info = JSON.parse(raw);
-  if (info.plugin?.status !== 'loaded') throw Error('plugin_not_loaded');
+  if (info.plugin?.status !== 'loaded') {
+    throw Error('plugin_not_loaded');
+  }
   process.stdout.write('Native plugin info reports loaded. This does not test an agent turn or provider access.\n');
 } catch {
   process.stderr.write(

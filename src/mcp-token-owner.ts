@@ -9,17 +9,27 @@ export function mcpTokenOwner(current: () => Config, stateDir: () => string) {
   let stopped = false,
     active: Promise<void> | undefined;
   const sync = (): Promise<void> => {
-    if (stopped) return Promise.resolve();
-    if (active) return active;
+    if (stopped) {
+      return Promise.resolve();
+    }
+    if (active) {
+      return active;
+    }
     active = (async () => {
       const config = current(),
         snapshot = authorizationSnapshot(config),
         m = config.localMcp;
-      if (!m) return;
+      if (!m) {
+        return;
+      }
       const b = config.bindings.find((b) => b.connectionRef === m.connectionRef);
-      if (!b) throw new Error('invalid_configuration');
+      if (!b) {
+        throw new Error('invalid_configuration');
+      }
       const guard = () => {
-        if (stopped || !matchesAuthorizationSnapshot(current(), snapshot)) throw new Error('authorization_changed');
+        if (stopped || !matchesAuthorizationSnapshot(current(), snapshot)) {
+          throw new Error('authorization_changed');
+        }
       };
       const store = await credentials(stateDir(), b.connectionRef, connectionOwner(b), m.credentialDirectory);
       try {
@@ -49,7 +59,9 @@ export function mcpTokenOwner(current: () => Config, stateDir: () => string) {
       clearInterval(timer);
       await active?.catch(() => {});
       const m = current().localMcp;
-      if (m) await publishMcpCredential(m.credentialDirectory, null);
+      if (m) {
+        await publishMcpCredential(m.credentialDirectory, null);
+      }
     },
   };
 }

@@ -9,16 +9,22 @@ const args = process.argv.slice(2),
 const execute = args.includes('--execute'),
   candidate = option('--candidate'),
   proposalId = option('--proposal');
-if (!/^[a-f0-9]{24}$/.test(candidate ?? '')) throw Error('Use --candidate ID [--proposal ID] [--execute]');
+if (!/^[a-f0-9]{24}$/.test(candidate ?? '')) {
+  throw Error('Use --candidate ID [--proposal ID] [--execute]');
+}
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..'),
   parent = dirname(repo),
   inventoryPath = join(repo, 'deploy/team.json');
 const inventory = JSON.parse(readFileSync(inventoryPath, 'utf8'));
 const engineer = inventory.instances.find((i) => i.role === 'developer'),
   config = engineer.plugins.find((p) => p.id === 'claw-onshape').config;
-if (config.bindings.length !== 1) throw Error('Select one configured target before provisioning');
+if (config.bindings.length !== 1) {
+  throw Error('Select one configured target before provisioning');
+}
 const binding = config.bindings[0];
-if (candidate === binding.primaryWorkspaceId) throw Error('Protected Primary is never a mutation target');
+if (candidate === binding.primaryWorkspaceId) {
+  throw Error('Protected Primary is never a mutation target');
+}
 const native = (actionId, payload) =>
   JSON.parse(
     execFileSync(
@@ -45,12 +51,15 @@ const native = (actionId, payload) =>
   );
 if (candidate !== binding.workspaceId) {
   const wire = native('candidate-check', {candidateWorkspaceId: candidate});
-  if (wire.result?.status !== 'ok' || wire.result.references?.candidateWorkspaceId !== candidate)
+  if (wire.result?.status !== 'ok' || wire.result.references?.candidateWorkspaceId !== candidate) {
     throw Error('Native control-plane Candidate membership/baseline check failed');
+  }
 }
 let proposal;
 if (proposalId) {
-  if (!/^[a-f0-9-]{36}$/.test(proposalId)) throw Error('Invalid proposal ID');
+  if (!/^[a-f0-9-]{36}$/.test(proposalId)) {
+    throw Error('Invalid proposal ID');
+  }
   proposal = JSON.parse(
     readFileSync(join(engineer.state_path, 'claw-onshape/mutations', proposalId + '.json'), 'utf8'),
   );
@@ -60,16 +69,19 @@ if (proposalId) {
     proposal.primaryWorkspaceId !== binding.primaryWorkspaceId ||
     proposal.documentId !== binding.documentId ||
     proposal.elementId !== binding.elementId
-  )
+  ) {
     throw Error('Proposal/target mismatch or unresolved attempt');
+  }
 }
 for (const instance of inventory.instances) {
   const plugin = instance.plugins.find((p) => p.id === 'claw-onshape');
-  if (plugin)
+  if (plugin) {
     for (const b of plugin.config.bindings) {
-      if (b.documentId === binding.documentId && b.primaryWorkspaceId === binding.primaryWorkspaceId)
+      if (b.documentId === binding.documentId && b.primaryWorkspaceId === binding.primaryWorkspaceId) {
         b.workspaceId = candidate;
+      }
     }
+  }
 }
 const tomlString = (s) => JSON.stringify(s);
 let configToml = `[external_token]\nfile = "/run/onshape-credentials/access-token.json"\ndocument_id = ${tomlString(binding.documentId)}\nworkspace_id = ${tomlString(candidate)}\nelement_id = ${tomlString(binding.elementId)}\nread_api_version = "v16"\n`;
@@ -102,7 +114,9 @@ const lifecycle = (args) => execFileSync(clawake, args, {cwd: parent, stdio: 'in
 lifecycle(['validate', '-c', plannedInventory]);
 lifecycle(['setup', '-c', plannedInventory]);
 lifecycle(['sync-plugins', '-c', plannedInventory]);
-if (!execute) process.exit(0);
+if (!execute) {
+  process.exit(0);
+}
 const backup = join(repo, 'state/backups/candidate-provision-' + Date.now());
 mkdirSync(backup, {recursive: true, mode: 0o700});
 copyFileSync(inventoryPath, join(backup, 'team.json'));
@@ -126,7 +140,9 @@ for (const instance of inventory.instances) {
     } catch {}
     await new Promise((r) => setTimeout(r, 2000));
   }
-  if (!ready) throw Error('Gateway not ready; private provisioning backup retained');
+  if (!ready) {
+    throw Error('Gateway not ready; private provisioning backup retained');
+  }
 }
 lifecycle(['sync-plugins', '-c', inventoryPath, '--execute']);
 lifecycle(['onshape-mcp', '-c', servicePath, '--action', 'restart']);

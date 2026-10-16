@@ -13,8 +13,9 @@ export async function publishMcpCredential(directory: string, tokens: Tokens | n
       dir.uid !== process.getuid?.() ||
       dir.mode & 0o077 ||
       (await realpath(directory)) !== directory
-    )
+    ) {
       throw new Error();
+    }
     const native = await import('openclaw/plugin-sdk/secret-file-runtime');
     const filePath = path.join(directory, 'access-token.json');
     const content =

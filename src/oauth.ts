@@ -23,11 +23,16 @@ const secret = (x: unknown): x is string => typeof x === 'string' && x.length > 
 export const scopeToken = (x: unknown): x is OAuthScope =>
   typeof x === 'string' && /^(OAuth2(Read|Write|Delete|Purchase|Share|ReadPII))$/.test(x);
 export function parseScopeList(value: unknown): readonly OAuthScope[] | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.length > 4096) throw new Error('oauth_response_invalid');
-  const scopes = value.trim() ? value.trim().split(/\s+/) : [];
-  if (!scopes.length || scopes.length > 32 || scopes.some((s) => !scopeToken(s)))
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string' || value.length > 4096) {
     throw new Error('oauth_response_invalid');
+  }
+  const scopes = value.trim() ? value.trim().split(/\s+/) : [];
+  if (!scopes.length || scopes.length > 32 || scopes.some((s) => !scopeToken(s))) {
+    throw new Error('oauth_response_invalid');
+  }
   return Object.freeze([...new Set(scopes)]) as readonly OAuthScope[];
 }
 export function parseTokens(
@@ -36,14 +41,17 @@ export function parseTokens(
   requiredScopes: readonly OAuthScope[] = [OAUTH_SCOPE_READ],
   context?: 'consent' | 'refresh',
 ): Tokens {
-  if (!requiredScopes.length || requiredScopes.length > 32 || !requiredScopes.every(scopeToken))
+  if (!requiredScopes.length || requiredScopes.length > 32 || !requiredScopes.every(scopeToken)) {
     throw new Error('oauth_response_invalid');
+  }
   const v = value as Record<string, unknown> | null;
   const expiry = typeof v?.expires_in === 'string' && /^\d+$/.test(v.expires_in) ? Number(v.expires_in) : v?.expires_in;
   const parsedScopes = parseScopeList(v?.scope);
   // RFC 6749 permits omission only when the grant is unchanged. Inheritance
   // requires a completed consent exchange or the previous private refresh grant.
-  if (!parsedScopes && !context) throw new Error('oauth_response_invalid');
+  if (!parsedScopes && !context) {
+    throw new Error('oauth_response_invalid');
+  }
   const grantedScopes = parsedScopes ?? Object.freeze([...new Set(requiredScopes)]);
   if (
     !v ||
@@ -56,8 +64,9 @@ export function parseTokens(
     String(v.token_type).toLowerCase() !== 'bearer' ||
     !requiredScopes.every((scope) => grantedScopes.includes(scope)) ||
     grantedScopes.some((scope) => !requiredScopes.includes(scope))
-  )
+  ) {
     throw new Error('oauth_response_invalid');
+  }
   return {
     accessToken: v.access_token,
     refreshToken: v.refresh_token,
@@ -87,8 +96,9 @@ export class Consent {
     if (
       !requestedScopes.includes(OAUTH_SCOPE_READ) ||
       requestedScopes.some((s) => s !== OAUTH_SCOPE_READ && s !== OAUTH_SCOPE_WRITE)
-    )
+    ) {
       throw new Error('oauth_scope_configuration_invalid');
+    }
     this.clientId = clientId;
     this.clientSecret = clientSecret;
     this.fetcher = fetcher;
@@ -119,8 +129,9 @@ export class Consent {
       host !== redirect.host ||
       path.length > 8192 ||
       !path.startsWith(redirect.pathname + '?')
-    )
+    ) {
       throw new Error('oauth_callback_invalid');
+    }
     const u = new URL(path, this.redirectUri);
     const p = u.searchParams;
     const received = Buffer.from(p.get('state') ?? '');
@@ -134,11 +145,16 @@ export class Consent {
       ) ||
       received.length !== expected.length ||
       !timingSafeEqual(received, expected)
-    )
+    ) {
       throw new Error('oauth_callback_invalid');
+    }
     this.used = true;
-    if (p.has('error')) throw new Error('oauth_consent_denied');
-    if (!secret(p.get('code'))) throw new Error('oauth_callback_invalid');
+    if (p.has('error')) {
+      throw new Error('oauth_consent_denied');
+    }
+    if (!secret(p.get('code'))) {
+      throw new Error('oauth_callback_invalid');
+    }
     try {
       const response = await jsonRequest(this.fetcher, TOKEN_URL, {
         method: 'POST',

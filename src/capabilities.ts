@@ -104,22 +104,33 @@ function resolve(rule: Rule, input: Input): CapabilityResult {
     providerAvailability: observed ? 'PASS' : 'UNKNOWN',
   };
   let reason: string;
-  if (setting === false) reason = `app_permission_${rule.label}_disabled`;
-  else if (!input.connected) reason = 'connection_not_ready';
-  else if (
+  if (setting === false) {
+    reason = `app_permission_${rule.label}_disabled`;
+  } else if (!input.connected) {
+    reason = 'connection_not_ready';
+  } else if (
     !rule.read &&
     rule.operation !== 'create_candidate_workspace' &&
     rule.operation !== 'create_immutable_version'
-  )
+  ) {
     reason = 'agent_policy_denied';
-  else if (scope === 'FAIL') reason = `oauth_${rule.label}_scope_missing`;
-  else if (rule.read && !target) reason = 'target_not_authorized';
-  else if (rule.read && !elementReady) reason = 'target_missing';
-  else if (rule.read && !config.liveReads) reason = 'live_reads_disabled';
-  else if (checks.internalAuthorization === 'FAIL') reason = 'agent_policy_denied';
-  else if (scope === 'UNKNOWN') reason = 'oauth_grant_unknown';
-  else if (!observed) reason = 'provider_read_unverified';
-  else reason = 'all_checks_passed';
+  } else if (scope === 'FAIL') {
+    reason = `oauth_${rule.label}_scope_missing`;
+  } else if (rule.read && !target) {
+    reason = 'target_not_authorized';
+  } else if (rule.read && !elementReady) {
+    reason = 'target_missing';
+  } else if (rule.read && !config.liveReads) {
+    reason = 'live_reads_disabled';
+  } else if (checks.internalAuthorization === 'FAIL') {
+    reason = 'agent_policy_denied';
+  } else if (scope === 'UNKNOWN') {
+    reason = 'oauth_grant_unknown';
+  } else if (!observed) {
+    reason = 'provider_read_unverified';
+  } else {
+    reason = 'all_checks_passed';
+  }
   const availability: CapabilityAvailability =
     Object.values(checks).includes('FAIL') || !input.connected
       ? 'UNAVAILABLE'
@@ -165,6 +176,8 @@ export function capabilitySummary(input: Input) {
       {availability, reason, ...(requiredAction ? {requiredAction} : {})},
     ]),
   );
-  if (Buffer.byteLength(JSON.stringify(summary)) > 2048) throw new Error('capability_result_too_large');
+  if (Buffer.byteLength(JSON.stringify(summary)) > 2048) {
+    throw new Error('capability_result_too_large');
+  }
   return summary;
 }

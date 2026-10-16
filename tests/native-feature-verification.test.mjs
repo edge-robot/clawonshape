@@ -73,8 +73,9 @@ test('verification denies stale revisions, wrong width/state/feature and missing
     {...observation, microversionId: 'bad'},
     {...observation, featureId: '../bad'},
     {...observation, plateWidth: 50},
-  ])
+  ]) {
     assert.throws(() => validateFeatureObservation(bad), /invalid_arguments/);
+  }
 });
 test('inspection tools require the same trusted Engineer or Lead identity as existing tools', () => {
   const config = {

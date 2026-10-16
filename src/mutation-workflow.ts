@@ -39,8 +39,9 @@ export function validateUpdateBody(
   featureId: string,
   baseline: string,
 ): asserts body is Record<string, unknown> {
-  if (!body || typeof body !== 'object' || Array.isArray(body) || canonicalResult(body).length > 900000)
+  if (!body || typeof body !== 'object' || Array.isArray(body) || canonicalResult(body).length > 900000) {
     throw new Error('invalid_arguments');
+  }
   const b = body as Record<string, unknown>,
     feature = b.feature as {featureId?: unknown} | undefined;
   if (
@@ -49,15 +50,18 @@ export function validateUpdateBody(
     b.sourceMicroversion !== baseline ||
     b.rejectMicroversionSkew !== true ||
     !id(baseline)
-  )
+  ) {
     throw new Error('revision_policy_denied');
+  }
 }
 export async function mutationStore(stateDir: string, binding: Binding) {
   const root = path.join(stateDir, 'claw-onshape', 'mutations');
   await mkdir(root, {recursive: true, mode: 0o700});
   const native = await import('openclaw/plugin-sdk/secret-file-runtime');
   const file = (value: string) => {
-    if (!proposalId(value)) throw new Error('invalid_arguments');
+    if (!proposalId(value)) {
+      throw new Error('invalid_arguments');
+    }
     return path.join(root, value + '.json');
   };
   const read = async (value: string): Promise<MutationProposal> => {
@@ -73,8 +77,9 @@ export async function mutationStore(stateDir: string, binding: Binding) {
       record.elementId !== binding.elementId ||
       record.primaryWorkspaceId !== binding.primaryWorkspaceId ||
       record.payloadHash !== payloadDigest(record.body)
-    )
+    ) {
       throw new Error('authorization_changed');
+    }
     return record;
   };
   const save = async (record: MutationProposal) => {
@@ -111,7 +116,9 @@ export async function mutationStore(stateDir: string, binding: Binding) {
   const list = async () => {
     const entries = [];
     for (const f of await readdir(root)) {
-      if (f.endsWith('.json')) entries.push(await read(f.slice(0, -5)));
+      if (f.endsWith('.json')) {
+        entries.push(await read(f.slice(0, -5)));
+      }
     }
     return entries;
   };
@@ -121,7 +128,9 @@ export async function mutationStore(stateDir: string, binding: Binding) {
     list,
     exclusive,
     async propose(request: TaskEnvelope, body: unknown, summary: string, client: RestClient) {
-      if (binding.workspaceId === binding.primaryWorkspaceId) throw new Error('protected_primary_workspace');
+      if (binding.workspaceId === binding.primaryWorkspaceId) {
+        throw new Error('protected_primary_workspace');
+      }
       const featureId = (body as {feature?: {featureId?: unknown}})?.feature?.featureId;
       if (
         typeof featureId !== 'string' ||
@@ -129,15 +138,17 @@ export async function mutationStore(stateDir: string, binding: Binding) {
         typeof summary !== 'string' ||
         !summary.trim() ||
         summary.length > 6000
-      )
+      ) {
         throw new Error('invalid_arguments');
+      }
       const baseline = await client.featureUpdateBaseline(binding, featureId);
       validateUpdateBody(body, featureId, baseline.sourceMicroversion);
       if (
         body.serializationVersion !== baseline.body.serializationVersion ||
         body.libraryVersion !== baseline.body.libraryVersion
-      )
+      ) {
         throw new Error('provider_protocol_error');
+      }
       // A complete native v16 feature/payload is prepared by Engineer, reviewed by operator.
       const record: MutationProposal = {
         version: 1,
@@ -160,7 +171,9 @@ export async function mutationStore(stateDir: string, binding: Binding) {
         createdAt: new Date().toISOString(),
       };
       await exclusive(async () => {
-        if ((await list()).some((r) => r.status === 'UNKNOWN')) throw new Error('mutation_reconciliation_required');
+        if ((await list()).some((r) => r.status === 'UNKNOWN')) {
+          throw new Error('mutation_reconciliation_required');
+        }
         await save(record);
       });
       return record;
@@ -175,15 +188,19 @@ export async function mutationStore(stateDir: string, binding: Binding) {
       return exclusive(async () => {
         assertOperator();
         const record = await read(value);
-        if (record.status !== 'PROPOSED' || record.payloadHash !== expectedHash)
+        if (record.status !== 'PROPOSED' || record.payloadHash !== expectedHash) {
           throw new Error('authorization_changed');
-        if ((await list()).some((r) => r.status === 'UNKNOWN')) throw new Error('mutation_reconciliation_required');
+        }
+        if ((await list()).some((r) => r.status === 'UNKNOWN')) {
+          throw new Error('mutation_reconciliation_required');
+        }
         const current = await client.featureUpdateBaseline(binding, record.featureId);
         if (
           current.sourceMicroversion !== record.sourceMicroversion ||
           current.primaryMicroversionId !== record.primaryMicroversionId
-        )
+        ) {
           throw new Error('source_revision_conflict');
+        }
         assertOperator();
         const approved = {
           ...record,
@@ -212,8 +229,9 @@ export async function mutationStore(stateDir: string, binding: Binding) {
     },
     async executionContext(value: string) {
       const record = await read(value);
-      if (record.status !== 'UNKNOWN' || !record.expiresAt || record.expiresAt <= Date.now())
+      if (record.status !== 'UNKNOWN' || !record.expiresAt || record.expiresAt <= Date.now()) {
         throw new Error('mutation_approval_unavailable');
+      }
       return {
         proposalId: record.id,
         approvedRequestHash: record.requestHash,
@@ -227,10 +245,16 @@ export async function mutationStore(stateDir: string, binding: Binding) {
     async reconcile(value: string, client: RestClient, approvalDirectory: string) {
       return exclusive(async () => {
         const record = await read(value);
-        if (record.status !== 'UNKNOWN') throw new Error('invalid_arguments');
+        if (record.status !== 'UNKNOWN') {
+          throw new Error('invalid_arguments');
+        }
         const current = await client.featureUpdateBaseline(binding, record.featureId);
-        if (current.primaryMicroversionId !== record.primaryMicroversionId) throw new Error('primary_revision_changed');
-        if (current.sourceMicroversion === record.sourceMicroversion) throw new Error('mutation_outcome_unknown');
+        if (current.primaryMicroversionId !== record.primaryMicroversionId) {
+          throw new Error('primary_revision_changed');
+        }
+        if (current.sourceMicroversion === record.sourceMicroversion) {
+          throw new Error('mutation_outcome_unknown');
+        }
         // Verify feature identity/state and approved expressions, not full geometry.
         const approved = record.body.feature as {
           featureId?: unknown;
@@ -244,13 +268,15 @@ export async function mutationStore(stateDir: string, binding: Binding) {
           observed.featureType !== approved.featureType ||
           observed.suppressed !== approved.suppressed ||
           current.featureStatus !== 'OK'
-        )
+        ) {
           throw new Error('mutation_verification_mismatch');
+        }
         for (const parameter of approved.parameters ?? []) {
           if (parameter.expression !== undefined) {
             const matches = observed.parameters?.filter((p) => p.parameterId === parameter.parameterId);
-            if (matches?.length !== 1 || matches[0].expression !== parameter.expression)
+            if (matches?.length !== 1 || matches[0].expression !== parameter.expression) {
               throw new Error('mutation_verification_mismatch');
+            }
           }
         }
         const verified = {...record, status: 'VERIFIED' as const, resultMicroversion: current.sourceMicroversion};

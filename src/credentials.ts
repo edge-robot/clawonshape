@@ -21,15 +21,18 @@ export function assertPrivateFile(filePath: string): void {
     dir.uid !== process.getuid?.() ||
     dir.mode & 0o077 ||
     realpathSync(filePath) !== filePath
-  )
+  ) {
     throw new Error('private_file_required');
+  }
 }
 export async function privateSecret(filePath: string): Promise<string> {
   try {
     assertPrivateFile(filePath);
     const native = await import('openclaw/plugin-sdk/secret-file-runtime');
     const value = native.readSecretFileSync(filePath, 'Claw-Onshape private secret', {rejectSymlink: true}).trim();
-    if (!value || value.length > 8192 || /\s/.test(value)) throw new Error();
+    if (!value || value.length > 8192 || /\s/.test(value)) {
+      throw new Error();
+    }
     return value;
   } catch {
     throw new Error('private_secret_unavailable');
@@ -37,8 +40,9 @@ export async function privateSecret(filePath: string): Promise<string> {
 }
 // Native host helpers own permission, symlink and atomic-file handling.
 export async function credentials(stateDir: string, connectionRef: string, owner: string, handoffDirectory?: string) {
-  if (!ref(connectionRef) || !path.isAbsolute(stateDir) || !/^[a-f0-9]{64}$/.test(owner))
+  if (!ref(connectionRef) || !path.isAbsolute(stateDir) || !/^[a-f0-9]{64}$/.test(owner)) {
     throw new Error('invalid_connection');
+  }
   const filePath = path.join(stateDir, 'claw-onshape', 'credentials', `${connectionRef}.json`);
   const native = await import('openclaw/plugin-sdk/secret-file-runtime');
   const exclusive = async <T>(action: () => Promise<T>): Promise<T> => {
@@ -54,8 +58,9 @@ export async function credentials(stateDir: string, connectionRef: string, owner
         root.mode & 0o077 ||
         root.uid !== process.getuid?.() ||
         (await realpath(stateDir)) !== stateDir
-      )
+      ) {
         throw new Error();
+      }
       lock = await open(lockPath, 'wx', 0o600);
     } catch {
       throw new Error('connection_busy_or_state_unavailable');
@@ -75,8 +80,9 @@ export async function credentials(stateDir: string, connectionRef: string, owner
     if (
       scopes !== undefined &&
       (!Array.isArray(scopes) || !scopes.length || scopes.length > 32 || !scopes.every(scopeToken))
-    )
+    ) {
       throw new Error('reconnect_required');
+    }
     const validScopes: readonly OAuthScope[] =
       scopes === undefined ? Object.freeze([OAUTH_SCOPE_READ]) : Object.freeze([...new Set(scopes)]);
     return {...t, scopes: Object.freeze(validScopes)} as Tokens;
@@ -84,7 +90,9 @@ export async function credentials(stateDir: string, connectionRef: string, owner
   return {
     exclusive,
     async save(tokens: Tokens | null): Promise<void> {
-      if (handoffDirectory) await publishMcpCredential(handoffDirectory, null);
+      if (handoffDirectory) {
+        await publishMcpCredential(handoffDirectory, null);
+      }
       try {
         await native.writePrivateSecretFileAtomic({
           rootDir: stateDir,
@@ -95,14 +103,20 @@ export async function credentials(stateDir: string, connectionRef: string, owner
       } catch {
         throw new Error('credential_store_unavailable');
       }
-      if (handoffDirectory && tokens) await publishMcpCredential(handoffDirectory, tokens);
+      if (handoffDirectory && tokens) {
+        await publishMcpCredential(handoffDirectory, tokens);
+      }
     },
     status(): 'disconnected' | 'expired' | 'connected' | 'unavailable' {
       try {
         assertPrivateFile(filePath);
         const r = JSON.parse(native.readSecretFileSync(filePath, 'Onshape connection', {rejectSymlink: true}));
-        if (r.owner !== owner) return 'unavailable';
-        if (r.tokens === null) return 'disconnected';
+        if (r.owner !== owner) {
+          return 'unavailable';
+        }
+        if (r.tokens === null) {
+          return 'disconnected';
+        }
         const t = normalized(r.tokens);
         if (
           t?.resource !== 'https://cad.onshape.com/api/' ||
@@ -111,8 +125,9 @@ export async function credentials(stateDir: string, connectionRef: string, owner
           /\s/.test(t.accessToken) ||
           !Number.isFinite(t.expiresAt) ||
           !t.scopes.length
-        )
+        ) {
           return 'unavailable';
+        }
         return r.tokens.expiresAt <= Date.now() + 30000 ? 'expired' : 'connected';
       } catch (e) {
         try {
@@ -130,7 +145,9 @@ export async function credentials(stateDir: string, connectionRef: string, owner
           owner: string;
           tokens: Tokens;
         };
-        if (record.owner !== owner) throw new Error();
+        if (record.owner !== owner) {
+          throw new Error();
+        }
         const t = normalized(record.tokens);
         if (
           !t ||
@@ -144,8 +161,9 @@ export async function credentials(stateDir: string, connectionRef: string, owner
           !Number.isFinite(t.expiresAt) ||
           !t.scopes.length ||
           (!allowExpired && t.expiresAt <= Date.now() + 30000)
-        )
+        ) {
           throw new Error();
+        }
         return t;
       } catch {
         throw new Error('reconnect_required');

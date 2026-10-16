@@ -100,8 +100,12 @@ export default {
                 ? {connectionRef: select.value, ...(requestWrite ? {requestRestWriteAccess: true} : {})}
                 : {},
             });
-            if (disposed || context.signal.aborted || g !== generation) return;
-            if (!wire?.ok || !wire.result) throw new Error();
+            if (disposed || context.signal.aborted || g !== generation) {
+              return;
+            }
+            if (!wire?.ok || !wire.result) {
+              throw new Error();
+            }
             const result = wire.result;
             output.textContent = result.message;
             diagnostic.textContent = `Status: ${result.code}`;
@@ -121,11 +125,15 @@ export default {
                 option.value = option.textContent = ref;
                 select.append(option);
               }
-              if (result.connections.includes(value)) select.value = value;
+              if (result.connections.includes(value)) {
+                select.value = value;
+              }
             }
             if (result.authorizationUrl) {
               const u = new URL(result.authorizationUrl);
-              if (u.origin !== 'https://oauth.onshape.com' || u.pathname !== '/oauth/authorize') throw new Error();
+              if (u.origin !== 'https://oauth.onshape.com' || u.pathname !== '/oauth/authorize') {
+                throw new Error();
+              }
               link.href = u.href;
               link.hidden = false;
             }
@@ -134,7 +142,9 @@ export default {
               link.removeAttribute('href');
             }
             clearTimeout(timer);
-            if (result.code === 'authorization_in_progress') timer = setTimeout(() => invoke('status'), 2000);
+            if (result.code === 'authorization_in_progress') {
+              timer = setTimeout(() => invoke('status'), 2000);
+            }
             connectWrite.disabled = connect.disabled =
               !select.value ||
               [
@@ -157,7 +167,9 @@ export default {
             }
           } finally {
             busy = false;
-            if (!disposed) refresh.disabled = false;
+            if (!disposed) {
+              refresh.disabled = false;
+            }
           }
         };
         connect.onclick = () => invoke('connect');
@@ -165,7 +177,9 @@ export default {
         disconnect.onclick = () => invoke('disconnect');
         refresh.onclick = () => invoke('status');
         select.onchange = () => {
-          if (!busy) invoke('status');
+          if (!busy) {
+            invoke('status');
+          }
         };
         const mutationSection = document.createElement('section'),
           mutationHeading = document.createElement('h2'),
@@ -184,7 +198,9 @@ export default {
             actionId,
             payload: {connectionRef: select.value, ...extra},
           });
-          if (!wire?.ok || !wire.result) throw new Error('Action unavailable');
+          if (!wire?.ok || !wire.result) {
+            throw new Error('Action unavailable');
+          }
           return wire.result;
         };
         const loadMutations = async () => {

@@ -4,8 +4,9 @@ import {fileURLToPath} from 'node:url';
 
 // Operator-only terminal adapter. No command-line secret, env variable or echo.
 export async function provisionSecret(secret, file) {
-  if (typeof secret !== 'string' || !secret || secret.length > 8192 || /\s/.test(secret))
+  if (typeof secret !== 'string' || !secret || secret.length > 8192 || /\s/.test(secret)) {
     throw new Error('Invalid secret. Nothing was saved.');
+  }
   const directory = path.dirname(file);
   await mkdir(directory, {recursive: true, mode: 0o700});
   const s = await lstat(directory);
@@ -15,8 +16,9 @@ export async function provisionSecret(secret, file) {
     s.uid !== process.getuid?.() ||
     s.mode & 0o077 ||
     (await realpath(directory)) !== directory
-  )
+  ) {
     throw new Error('Secret directory must be private, owned and canonical.');
+  }
   const f = await open(file, 'wx', 0o600);
   try {
     await f.writeFile(secret + '\n');
@@ -26,8 +28,9 @@ export async function provisionSecret(secret, file) {
   }
 }
 async function main() {
-  if (!process.stdin.isTTY || !process.stdin.setRawMode)
+  if (!process.stdin.isTTY || !process.stdin.setRawMode) {
     throw new Error('Use your own interactive terminal; piped input is rejected.');
+  }
   const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const file = path.join(repository, 'state', 'deployment', 'oauth', 'client-secret');
   process.stdout.write('Paste the Onshape application client secret, then press Enter (input is hidden): ');
@@ -74,13 +77,16 @@ async function main() {
     );
   } finally {
     secret = '';
-    if (process.stdin.isRaw) process.stdin.setRawMode(false);
+    if (process.stdin.isRaw) {
+      process.stdin.setRawMode(false);
+    }
   }
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(() => {
     process.stderr.write(
       '\nProvisioning failed or canceled. No secret value was logged. Existing files are never overwritten; ask the operator to inspect the private directory if needed.\n',
     );
     process.exitCode = 1;
   });
+}

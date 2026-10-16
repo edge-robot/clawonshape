@@ -17,8 +17,9 @@ export function validateFeatureObservation(value: unknown): asserts value is Fea
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).sort().join(',') !== 'featureId,featureStatus,microversionId,plateWidth'
-  )
+  ) {
     throw new Error('invalid_arguments');
+  }
   const v = value as FeatureObservation;
   if (
     !id(v.microversionId) ||
@@ -29,8 +30,9 @@ export function validateFeatureObservation(value: unknown): asserts value is Fea
     v.plateWidth.length > 120 ||
     typeof v.featureStatus !== 'string' ||
     !/^[A-Z_]{1,40}$/.test(v.featureStatus)
-  )
+  ) {
     throw new Error('invalid_arguments');
+  }
 }
 
 type WorkspaceInfo = {id?: unknown; documentId?: unknown; microversion?: unknown};
@@ -115,9 +117,15 @@ export class RestClient {
     atDispatch?: (token: string) => void,
   ): Promise<unknown> {
     const token = await this.accessToken();
-    if (!token || /\s/.test(token)) throw new Error('reconnect_required');
-    if (beforeDispatch) await beforeDispatch(token);
-    if (atDispatch) atDispatch(token);
+    if (!token || /\s/.test(token)) {
+      throw new Error('reconnect_required');
+    }
+    if (beforeDispatch) {
+      await beforeDispatch(token);
+    }
+    if (atDispatch) {
+      atDispatch(token);
+    }
     return jsonRequest(
       this.fetcher,
       REST_BASE + path,
@@ -148,8 +156,9 @@ export class RestClient {
   }
 
   private sanitizeFeatureMetadata(features: SourceFeatures): CandidateFeatureMetadata {
-    if (!Array.isArray(features.features) || features.features.length > 1000)
+    if (!Array.isArray(features.features) || features.features.length > 1000) {
       throw new Error('source_revision_missing');
+    }
     return Object.freeze({featureCount: features.features.length});
   }
 
@@ -158,21 +167,29 @@ export class RestClient {
       binding,
       `documents/d/${binding.documentId}/w/${workspaceId}/currentmicroversion`,
     )) as {microversion?: unknown};
-    if (!id(response?.microversion)) throw new Error('provider_protocol_error');
+    if (!id(response?.microversion)) {
+      throw new Error('provider_protocol_error');
+    }
     return response.microversion;
   }
 
   private assertCandidateIsolation(binding: Binding, workspaceId: string): void {
-    if (workspaceId === binding.primaryWorkspaceId) throw new Error('protected_primary_workspace');
-    if (workspaceId === binding.workspaceId) throw new Error('candidate_not_isolated');
+    if (workspaceId === binding.primaryWorkspaceId) {
+      throw new Error('protected_primary_workspace');
+    }
+    if (workspaceId === binding.workspaceId) {
+      throw new Error('candidate_not_isolated');
+    }
   }
 
   private async verifySourcePartStudio(binding: Binding, microversionId: string): Promise<void> {
     const elements = await this.candidateGet(binding, `documents/d/${binding.documentId}/m/${microversionId}/elements`);
-    if (!Array.isArray(elements) || elements.length > 1000 || elements.some((e) => !id(e?.id)))
+    if (!Array.isArray(elements) || elements.length > 1000 || elements.some((e) => !id(e?.id))) {
       throw new Error('provider_protocol_error');
-    if (!elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO'))
+    }
+    if (!elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO')) {
       throw new Error('target_not_part_studio');
+    }
   }
 
   private async verifyCandidateBaseline(
@@ -183,9 +200,13 @@ export class RestClient {
   ): Promise<string> {
     this.assertCandidateIsolation(binding, workspaceId);
     const candidate = workspaces.find((w) => w?.id === workspaceId);
-    if (!candidate || candidate.documentId !== binding.documentId) throw new Error('workspace_not_in_document');
+    if (!candidate || candidate.documentId !== binding.documentId) {
+      throw new Error('workspace_not_in_document');
+    }
     const baseline = await this.currentMicroversion(binding, workspaceId);
-    if (baseline !== sourceMicroversionId) throw new Error('candidate_revision_conflict');
+    if (baseline !== sourceMicroversionId) {
+      throw new Error('candidate_revision_conflict');
+    }
     // The source Part Studio was checked at this exact document microversion.
     // Equal immutable baselines establish the same element membership/type.
     return baseline;
@@ -204,11 +225,14 @@ export class RestClient {
   private async inspectSnapshot(binding: Binding) {
     validateTarget(binding, binding.documentId, binding.workspaceId);
     const doc = (await this.get(`documents/${binding.documentId}`)) as {id?: unknown};
-    if (!doc || doc.id !== binding.documentId) throw new Error('provider_protocol_error');
+    if (!doc || doc.id !== binding.documentId) {
+      throw new Error('provider_protocol_error');
+    }
     const workspaces = this.assertWorkspaces(await this.get(`documents/d/${binding.documentId}/workspaces`), binding);
     const elements = await this.get(`documents/d/${binding.documentId}/w/${binding.workspaceId}/elements`);
-    if (!Array.isArray(elements) || elements.length > 1000 || elements.some((e) => !id(e?.id)))
+    if (!Array.isArray(elements) || elements.length > 1000 || elements.some((e) => !id(e?.id))) {
       throw new Error('provider_protocol_error');
+    }
     return {
       summary: {
         documentId: binding.documentId,
@@ -229,8 +253,9 @@ export class RestClient {
   async verifyFeatureRead(binding: Binding, observation: FeatureObservation) {
     validateFeatureObservation(observation);
     const {elements} = await this.inspectSnapshot(binding);
-    if (!binding.elementId || !elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO'))
+    if (!binding.elementId || !elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO')) {
       throw new Error('target_not_part_studio');
+    }
     const response = (await this.get(
       `partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`,
     )) as {
@@ -238,17 +263,21 @@ export class RestClient {
       features?: {featureId?: unknown; parameters?: {parameterId?: unknown; expression?: unknown}[]}[];
       featureStates?: Record<string, {featureStatus?: unknown}>;
     };
-    if (response.sourceMicroversion !== observation.microversionId) throw new Error('source_revision_conflict');
-    if (!Array.isArray(response.features) || response.features.length > 1000)
+    if (response.sourceMicroversion !== observation.microversionId) {
+      throw new Error('source_revision_conflict');
+    }
+    if (!Array.isArray(response.features) || response.features.length > 1000) {
       throw new Error('provider_protocol_error');
+    }
     const feature = response.features.find((f) => f.featureId === observation.featureId);
     const widths = feature?.parameters?.filter((p) => p.parameterId === 'plateWidth');
     if (
       widths?.length !== 1 ||
       widths[0].expression !== observation.plateWidth ||
       response.featureStates?.[observation.featureId]?.featureStatus !== observation.featureStatus
-    )
+    ) {
       throw new Error('feature_observation_mismatch');
+    }
     return {
       status: 'ok',
       code: 'ready',
@@ -265,8 +294,9 @@ export class RestClient {
   async verifyFeatureEvidence(binding: Binding, evidence: FeatureReadEvidence) {
     validateFeatureReadEvidence(evidence);
     const {elements} = await this.inspectSnapshot(binding);
-    if (!binding.elementId || !elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO'))
+    if (!binding.elementId || !elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO')) {
       throw new Error('target_not_part_studio');
+    }
     const response = (await this.get(
       `partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`,
     )) as {
@@ -274,34 +304,42 @@ export class RestClient {
       features?: {featureId?: unknown; parameters?: {parameterId?: unknown; expression?: unknown}[]}[];
       featureStates?: Record<string, {featureStatus?: unknown}>;
     };
-    if (response.sourceMicroversion !== evidence.microversionId) throw new Error('source_revision_conflict');
-    if (!Array.isArray(response.features) || response.features.length > 1000)
+    if (response.sourceMicroversion !== evidence.microversionId) {
+      throw new Error('source_revision_conflict');
+    }
+    if (!Array.isArray(response.features) || response.features.length > 1000) {
       throw new Error('provider_protocol_error');
+    }
     for (const observed of evidence.observations) {
       const features = response.features.filter((f) => f.featureId === observed.featureId);
       if (
         features.length !== 1 ||
         response.featureStates?.[observed.featureId]?.featureStatus !== observed.featureStatus
-      )
+      ) {
         throw new Error('feature_observation_mismatch');
+      }
       if (observed.parameterId !== undefined) {
         const parameters = features[0].parameters?.filter((p) => p.parameterId === observed.parameterId);
-        if (parameters?.length !== 1 || parameters[0].expression !== observed.expression)
+        if (parameters?.length !== 1 || parameters[0].expression !== observed.expression) {
           throw new Error('feature_observation_mismatch');
+        }
       }
     }
     return {...evidence, verification: 'independent_rest_match' as const, observedAt: new Date().toISOString()};
   }
 
   async featureUpdateBaseline(binding: Binding, featureId: string) {
-    if (binding.workspaceId === binding.primaryWorkspaceId) throw new Error('protected_primary_workspace');
+    if (binding.workspaceId === binding.primaryWorkspaceId) {
+      throw new Error('protected_primary_workspace');
+    }
     const {elements, workspaces} = await this.inspectSnapshot(binding);
     if (
       !binding.elementId ||
       !elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO') ||
       !workspaces.some((w) => w.id === binding.primaryWorkspaceId)
-    )
+    ) {
       throw new Error('target_not_part_studio');
+    }
     const token = await this.accessToken();
     const response = (await jsonRequest(
       this.fetcher,
@@ -314,14 +352,19 @@ export class RestClient {
       libraryVersion?: unknown;
       featureStates?: Record<string, {featureStatus?: unknown}>;
     };
-    if (!id(response.sourceMicroversion) || !Array.isArray(response.features))
+    if (!id(response.sourceMicroversion) || !Array.isArray(response.features)) {
       throw new Error('provider_protocol_error');
+    }
     const matches = response.features.filter((f) => f.featureId === featureId);
-    if (matches.length !== 1) throw new Error('feature_observation_mismatch');
+    if (matches.length !== 1) {
+      throw new Error('feature_observation_mismatch');
+    }
     const primary = (await this.get(
       `documents/d/${binding.documentId}/w/${binding.primaryWorkspaceId}/currentmicroversion`,
     )) as {microversion?: unknown};
-    if (!id(primary.microversion)) throw new Error('provider_protocol_error');
+    if (!id(primary.microversion)) {
+      throw new Error('provider_protocol_error');
+    }
     return {
       sourceMicroversion: response.sourceMicroversion,
       primaryMicroversionId: primary.microversion,
@@ -342,25 +385,34 @@ export class RestClient {
     const response = (await this.get(
       `partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`,
     )) as {sourceMicroversion?: unknown};
-    if (!id(response.sourceMicroversion)) throw new Error('source_revision_missing');
+    if (!id(response.sourceMicroversion)) {
+      throw new Error('source_revision_missing');
+    }
     return response.sourceMicroversion;
   }
 
   async render(binding: Binding) {
-    if (!binding.elementId) throw new Error('target_missing');
+    if (!binding.elementId) {
+      throw new Error('target_missing');
+    }
     const {summary: inspected, elements} = await this.inspectSnapshot(binding);
-    if (!inspected.elementIds.includes(binding.elementId)) throw new Error('target_not_part_studio');
-    if (!elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO'))
+    if (!inspected.elementIds.includes(binding.elementId)) {
       throw new Error('target_not_part_studio');
+    }
+    if (!elements.some((e) => e.id === binding.elementId && e.elementType === 'PARTSTUDIO')) {
+      throw new Error('target_not_part_studio');
+    }
     const features = (await this.get(
       `partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`,
     )) as SourceFeatures;
-    if (!id(features?.sourceMicroversion) || !Array.isArray(features.features) || features.features.length > 1000)
+    if (!id(features?.sourceMicroversion) || !Array.isArray(features.features) || features.features.length > 1000) {
       throw new Error('source_revision_missing');
+    }
     const microversionId = features.sourceMicroversion;
     const pinned = await this.get(`documents/d/${binding.documentId}/m/${microversionId}/elements`);
-    if (!Array.isArray(pinned) || !pinned.some((e) => e?.id === binding.elementId && e.elementType === 'PARTSTUDIO'))
+    if (!Array.isArray(pinned) || !pinned.some((e) => e?.id === binding.elementId && e.elementType === 'PARTSTUDIO')) {
       throw new Error('target_not_part_studio');
+    }
     const query = new URLSearchParams({
       viewMatrix: VIEW_MATRIX,
       outputWidth: String(IMAGE_SIZE),
@@ -399,7 +451,9 @@ export class RestClient {
     input: PrepareCandidateWorkspaceInput,
   ): Promise<PrepareCandidateWorkspaceResult> {
     validateTarget(binding, binding.documentId, binding.workspaceId);
-    if (!binding.elementId) throw new Error('target_missing');
+    if (!binding.elementId) {
+      throw new Error('target_missing');
+    }
     if (
       !input ||
       typeof input !== 'object' ||
@@ -422,11 +476,18 @@ export class RestClient {
       binding,
       input.candidateWorkspaceId === undefined,
     );
-    if (permission.availability !== 'AVAILABLE') return this.deniedCandidate(binding, permission);
-    if (!id(input.sourceMicroversionId)) throw new Error('invalid_arguments');
-    if (input.candidateWorkspaceId !== undefined && !id(input.candidateWorkspaceId))
+    if (permission.availability !== 'AVAILABLE') {
+      return this.deniedCandidate(binding, permission);
+    }
+    if (!id(input.sourceMicroversionId)) {
       throw new Error('invalid_arguments');
-    if (input.candidateWorkspaceId !== undefined) this.assertCandidateIsolation(binding, input.candidateWorkspaceId);
+    }
+    if (input.candidateWorkspaceId !== undefined && !id(input.candidateWorkspaceId)) {
+      throw new Error('invalid_arguments');
+    }
+    if (input.candidateWorkspaceId !== undefined) {
+      this.assertCandidateIsolation(binding, input.candidateWorkspaceId);
+    }
     if (
       input.candidateWorkspaceName !== undefined &&
       (typeof input.candidateWorkspaceName !== 'string' ||
@@ -435,12 +496,18 @@ export class RestClient {
     ) {
       throw new Error('invalid_arguments');
     }
-    if (![binding.primaryWorkspaceId, binding.elementId].every(id)) throw new Error('invalid_arguments');
+    if (![binding.primaryWorkspaceId, binding.elementId].every(id)) {
+      throw new Error('invalid_arguments');
+    }
     if (input.candidateWorkspaceId !== undefined) {
-      if (input.replaceCompletedAttemptId !== undefined) throw new Error('invalid_arguments');
+      if (input.replaceCompletedAttemptId !== undefined) {
+        throw new Error('invalid_arguments');
+      }
       return this.boundedCandidateResult(await this.prepareCandidateChecked(binding, input));
     }
-    if (!this.preparation) throw new Error('candidate_store_required');
+    if (!this.preparation) {
+      throw new Error('candidate_store_required');
+    }
     const store = await candidateAttempts(this.preparation.stateDir, binding);
     const result = await store.exclusive(async (receipt) => {
       const previous = await receipt.read();
@@ -467,8 +534,9 @@ export class RestClient {
           requiredAction: 'Acknowledge the completed attempt ID explicitly before starting a new preparation.',
         } as const;
       }
-      if (input.replaceCompletedAttemptId !== undefined && input.replaceCompletedAttemptId !== previous?.attemptId)
+      if (input.replaceCompletedAttemptId !== undefined && input.replaceCompletedAttemptId !== previous?.attemptId) {
         throw new Error('candidate_attempt_mismatch');
+      }
       return this.prepareCandidateChecked(binding, input, receipt);
     });
     return this.boundedCandidateResult(result);
@@ -507,7 +575,9 @@ export class RestClient {
         'Application write permission is disabled. Ask the operator to review the requirement.',
       reconnect_required: 'Reconnect Onshape through the configured dashboard.',
     };
-    if (check.reason === 'authorized') throw new Error('agent_policy_denied');
+    if (check.reason === 'authorized') {
+      throw new Error('agent_policy_denied');
+    }
     return {
       status: 'unavailable',
       operation: 'create_candidate_workspace',
@@ -545,7 +615,9 @@ export class RestClient {
   }
 
   private boundedCandidateResult(result: PrepareCandidateWorkspaceResult): PrepareCandidateWorkspaceResult {
-    if (Buffer.byteLength(JSON.stringify(result)) > CANDIDATE_MAX_BYTES) throw new Error('candidate_result_too_large');
+    if (Buffer.byteLength(JSON.stringify(result)) > CANDIDATE_MAX_BYTES) {
+      throw new Error('candidate_result_too_large');
+    }
     return result;
   }
 
@@ -636,7 +708,9 @@ export class RestClient {
     existingAttemptId?: string,
   ): Promise<PrepareCandidateWorkspaceResult> {
     const doc = (await this.candidateGet(binding, `documents/${binding.documentId}`)) as {id?: unknown};
-    if (!doc || doc.id !== binding.documentId) throw new Error('provider_protocol_error');
+    if (!doc || doc.id !== binding.documentId) {
+      throw new Error('provider_protocol_error');
+    }
     const workspaces = this.assertWorkspaces(
       await this.candidateGet(binding, `documents/d/${binding.documentId}/workspaces`),
       binding,
@@ -645,14 +719,20 @@ export class RestClient {
       binding,
       `partstudios/d/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}/features`,
     )) as SourceFeatures;
-    if (!id(features?.sourceMicroversion)) throw new Error('source_revision_missing');
-    if (features.sourceMicroversion !== input.sourceMicroversionId) throw new Error('source_revision_conflict');
+    if (!id(features?.sourceMicroversion)) {
+      throw new Error('source_revision_missing');
+    }
+    if (features.sourceMicroversion !== input.sourceMicroversionId) {
+      throw new Error('source_revision_conflict');
+    }
     const featureMetadata = this.sanitizeFeatureMetadata(features);
 
     await this.verifySourcePartStudio(binding, input.sourceMicroversionId);
 
     const latestSourceRevision = await this.currentMicroversion(binding, binding.workspaceId);
-    if (latestSourceRevision !== input.sourceMicroversionId) throw new Error('source_revision_conflict');
+    if (latestSourceRevision !== input.sourceMicroversionId) {
+      throw new Error('source_revision_conflict');
+    }
 
     if (input.candidateWorkspaceId !== undefined) {
       const candidateBaselineMicroversionId = await this.verifyCandidateBaseline(
@@ -672,7 +752,9 @@ export class RestClient {
       );
     }
 
-    if (!receipt) throw new Error('candidate_store_required');
+    if (!receipt) {
+      throw new Error('candidate_store_required');
+    }
     const attemptId = randomUUID(),
       now = new Date().toISOString();
     const body = {
@@ -722,8 +804,9 @@ export class RestClient {
         };
         await receipt.save(record);
       }
-      if (!id(createdWorkspace?.id) || createdWorkspace.documentId !== binding.documentId)
+      if (!id(createdWorkspace?.id) || createdWorkspace.documentId !== binding.documentId) {
         throw new Error('provider_protocol_error');
+      }
       this.assertCandidateIsolation(binding, createdWorkspace.id);
       const updatedWorkspaces = this.assertWorkspaces(
         await this.candidateGet(binding, `documents/d/${binding.documentId}/workspaces`),
@@ -747,8 +830,12 @@ export class RestClient {
         attemptId,
       );
     } catch (error) {
-      if (!dispatched) throw error;
-      if (record.status === 'VERIFIED') record = {...record, status: 'CREATED_UNVERIFIED'};
+      if (!dispatched) {
+        throw error;
+      }
+      if (record.status === 'VERIFIED') {
+        record = {...record, status: 'CREATED_UNVERIFIED'};
+      }
       // A received HTTP rejection is distinct from a lost response, timeout or
       // server error. In particular 408 is still an uncertain dispatch outcome.
       const rejected =
@@ -768,7 +855,9 @@ export class RestClient {
       } catch {
         record = {...record, code: 'candidate_store_unavailable'};
       }
-      if (rejected) throw error;
+      if (rejected) {
+        throw error;
+      }
       warnCandidate(this.candidateWarning(), 'outcome_unresolved', record);
       return this.unresolvedCandidate(record);
     }
@@ -779,8 +868,12 @@ export class RestClient {
   async reconcileCandidateWorkspace(binding: Binding, attemptId: string): Promise<PrepareCandidateWorkspaceResult> {
     validateTarget(binding, binding.documentId, binding.workspaceId);
     const permission = await checkCandidateAuthorization(this.preparation?.authorization, binding, false);
-    if (permission.availability !== 'AVAILABLE') return this.deniedCandidate(binding, permission);
-    if (!this.preparation) throw new Error('candidate_store_required');
+    if (permission.availability !== 'AVAILABLE') {
+      return this.deniedCandidate(binding, permission);
+    }
+    if (!this.preparation) {
+      throw new Error('candidate_store_required');
+    }
     const store = await candidateAttempts(this.preparation.stateDir, binding);
     const result = await store.exclusive(async (receipt) => {
       let record = await receipt.read();
@@ -788,16 +881,21 @@ export class RestClient {
         !record ||
         record.attemptId !== attemptId ||
         !this.sameCandidateSource(record, binding, record.sourceMicroversionId)
-      )
+      ) {
         throw new Error('candidate_attempt_mismatch');
-      if (record.status === 'REJECTED') throw new Error('candidate_attempt_mismatch');
+      }
+      if (record.status === 'REJECTED') {
+        throw new Error('candidate_attempt_mismatch');
+      }
       if (record.status === 'UNKNOWN' || !record.candidateWorkspaceId) {
         warnCandidate(this.candidateWarning(), 'repeat_blocked', record);
         return this.unresolvedCandidate(record);
       }
       try {
         const doc = (await this.candidateGet(binding, `documents/${binding.documentId}`)) as {id?: unknown};
-        if (doc?.id !== binding.documentId) throw new Error('provider_protocol_error');
+        if (doc?.id !== binding.documentId) {
+          throw new Error('provider_protocol_error');
+        }
         const workspaces = this.assertWorkspaces(
           await this.candidateGet(binding, `documents/d/${binding.documentId}/workspaces`),
           binding,
@@ -851,11 +949,13 @@ export function validateFeatureReadEvidence(value: unknown): asserts value is Fe
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).sort().join(',') !== 'microversionId,observations'
-  )
+  ) {
     throw new Error('invalid_arguments');
+  }
   const v = value as FeatureReadEvidence;
-  if (!id(v.microversionId) || !Array.isArray(v.observations) || !v.observations.length || v.observations.length > 50)
+  if (!id(v.microversionId) || !Array.isArray(v.observations) || !v.observations.length || v.observations.length > 50) {
     throw new Error('invalid_arguments');
+  }
   const seen = new Set<string>();
   for (const o of v.observations) {
     if (
@@ -874,10 +974,13 @@ export function validateFeatureReadEvidence(value: unknown): asserts value is Fe
           typeof o.expression !== 'string' ||
           !o.expression.length ||
           o.expression.length > 256))
-    )
+    ) {
       throw new Error('invalid_arguments');
+    }
     const key = o.featureId + '\n' + (o.parameterId ?? '');
-    if (seen.has(key)) throw new Error('invalid_arguments');
+    if (seen.has(key)) {
+      throw new Error('invalid_arguments');
+    }
     seen.add(key);
   }
 }

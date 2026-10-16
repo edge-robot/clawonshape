@@ -29,7 +29,9 @@ export default {
     const config = parseConfig(api.pluginConfig);
     const current = () => {
       const entry = api.runtime.config.current().plugins?.entries?.['claw-onshape'];
-      if (entry?.enabled !== true) throw new Error('authorization_changed');
+      if (entry?.enabled !== true) {
+        throw new Error('authorization_changed');
+      }
       return parseConfig(entry.config);
     };
     registerCli(api, config);
@@ -48,7 +50,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const initial = authorizedBinding(config, ctx)?.binding;
-          if (!initial) return null;
+          if (!initial) {
+            return null;
+          }
           return {
             name: 'onshape_inspect',
             label: 'Inspect active Onshape workspace',
@@ -62,13 +66,18 @@ export default {
                 ctx.assertInvocationCurrent?.();
                 const c = current();
                 const b = authorizedBinding(c, ctx)?.binding;
-                if (!b || !sameBinding(b, initial)) throw new Error('authorization_changed');
-                if (!c.liveReads) throw new Error('live_reads_disabled');
+                if (!b || !sameBinding(b, initial)) {
+                  throw new Error('authorization_changed');
+                }
+                if (!c.liveReads) {
+                  throw new Error('live_reads_disabled');
+                }
                 return b;
               };
               try {
-                if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length)
+                if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length) {
                   throw new Error('invalid_arguments');
+                }
                 const b = guard();
                 const store = await credentials(
                   api.runtime.state.resolveStateDir(),
@@ -82,7 +91,9 @@ export default {
                 const oauth = current().oauth;
                 const tokenGuard = () => {
                   guard();
-                  if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                  if (!sameOAuth(current().oauth, oauth)) {
+                    throw new Error('authorization_changed');
+                  }
                 };
                 const client = new RestClient(async () => {
                   usedToken = await accessToken(store, oauth, tokenGuard);
@@ -95,14 +106,18 @@ export default {
                   if (e instanceof Error && e.message === 'reconnect_required' && usedToken) {
                     try {
                       await store.exclusive(async () => {
-                        if (store.read().accessToken === usedToken) await store.save(null);
+                        if (store.read().accessToken === usedToken) {
+                          await store.save(null);
+                        }
                       });
                     } catch {}
                   }
                   throw e;
                 }
                 guard();
-                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                if (store.read().accessToken !== usedToken) {
+                  throw new Error('authorization_changed');
+                }
                 return {content: [{type: 'text' as const, text: JSON.stringify(result)}], details: result};
               } catch (e) {
                 const result = userError(e);
@@ -120,8 +135,9 @@ export default {
     );
     const emptySchema = {type: 'object', properties: {}, additionalProperties: false} as AnyAgentTool['parameters'];
     const noArgs = (params: unknown) => {
-      if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length)
+      if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length) {
         throw new Error('invalid_arguments');
+      }
     };
     const signedDetails = (ctx: OpenClawPluginToolContext, details: Record<string, unknown>) => {
       const c = current(),
@@ -135,7 +151,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const b = leadBinding(config, ctx);
-          if (!b) return null;
+          if (!b) {
+            return null;
+          }
           return {
             name: 'onshape_delegate_task',
             label: 'Delegate engineering task',
@@ -160,8 +178,9 @@ export default {
                 if (
                   !sameBinding(leadBinding(current(), ctx), b) ||
                   !sameDelegation(current().delegation, config.delegation)
-                )
+                ) {
                   throw new Error('authorization_changed');
+                }
               };
               try {
                 validateEngineeringTask(params);
@@ -191,7 +210,9 @@ export default {
           contextVersion: 2,
           create: (ctx: OpenClawPluginToolContext<2>) => {
             const initial = authorizedBinding(config, ctx);
-            if (!initial?.contextId) return null;
+            if (!initial?.contextId) {
+              return null;
+            }
             const name = {
               propose: 'onshape_propose_update',
               context: 'onshape_mutation_context',
@@ -224,19 +245,28 @@ export default {
                 const guard = () => {
                   ctx.assertInvocationCurrent?.();
                   const auth = authorizedBinding(current(), ctx);
-                  if (!auth || !sameAuthorizedBinding(auth, initial)) throw new Error('authorization_changed');
+                  if (!auth || !sameAuthorizedBinding(auth, initial)) {
+                    throw new Error('authorization_changed');
+                  }
                   return auth.binding;
                 };
                 try {
-                  if (!params || typeof params !== 'object' || Array.isArray(params))
+                  if (!params || typeof params !== 'object' || Array.isArray(params)) {
                     throw new Error('invalid_arguments');
+                  }
                   const p = params as {request: unknown; body: unknown; summary: string; proposalId: string};
                   const b = guard(),
                     c = current();
                   verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
-                  if (p.request.workflow !== 'edit' && operation !== 'reconcile') throw new Error('invalid_arguments');
-                  if (b.workspaceId === b.primaryWorkspaceId) throw new Error('protected_primary_workspace');
-                  if (!c.liveReads || !c.localMcp) throw new Error('live_reads_disabled');
+                  if (p.request.workflow !== 'edit' && operation !== 'reconcile') {
+                    throw new Error('invalid_arguments');
+                  }
+                  if (b.workspaceId === b.primaryWorkspaceId) {
+                    throw new Error('protected_primary_workspace');
+                  }
+                  if (!c.liveReads || !c.localMcp) {
+                    throw new Error('live_reads_disabled');
+                  }
                   const store = await credentials(
                     api.runtime.state.resolveStateDir(),
                     b.connectionRef,
@@ -245,15 +275,19 @@ export default {
                   );
                   const tokenGuard = () => {
                     guard();
-                    if (!sameOAuth(current().oauth, c.oauth)) throw new Error('authorization_changed');
+                    if (!sameOAuth(current().oauth, c.oauth)) {
+                      throw new Error('authorization_changed');
+                    }
                   };
                   const client = new RestClient(() => accessToken(store, c.oauth, tokenGuard));
                   const proposals = await mutationStore(api.runtime.state.resolveStateDir(), b);
                   let result: object;
-                  if (operation === 'propose') result = await proposals.propose(p.request, p.body, p.summary, client);
-                  else {
-                    if (operation === 'context' && p.request.approvalId !== p.proposalId)
+                  if (operation === 'propose') {
+                    result = await proposals.propose(p.request, p.body, p.summary, client);
+                  } else {
+                    if (operation === 'context' && p.request.approvalId !== p.proposalId) {
                       throw new Error('mutation_approval_unavailable');
+                    }
                     result =
                       operation === 'context'
                         ? await proposals.executionContext(p.proposalId)
@@ -282,7 +316,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const initial = authorizedBinding(config, ctx);
-          if (!initial?.contextId) return null;
+          if (!initial?.contextId) {
+            return null;
+          }
           return {
             name: 'onshape_complete_task',
             label: 'Complete signed engineering task',
@@ -327,7 +363,9 @@ export default {
               const guard = () => {
                 ctx.assertInvocationCurrent?.();
                 const a = authorizedBinding(current(), ctx);
-                if (!a || !sameAuthorizedBinding(a, initial)) throw new Error('authorization_changed');
+                if (!a || !sameAuthorizedBinding(a, initial)) {
+                  throw new Error('authorization_changed');
+                }
                 return a.binding;
               };
               try {
@@ -338,8 +376,9 @@ export default {
                   Object.keys(params).some(
                     (k) => !['request', 'status', 'summary', 'evidence', 'proposalId'].includes(k),
                   )
-                )
+                ) {
                   throw new Error('invalid_arguments');
+                }
                 const p = params as {
                   request: unknown;
                   status: string;
@@ -352,8 +391,9 @@ export default {
                   typeof p.summary !== 'string' ||
                   !p.summary.trim() ||
                   p.summary.length > 6000
-                )
+                ) {
                   throw new Error('invalid_arguments');
+                }
                 const b = guard(),
                   c = current();
                 verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
@@ -365,7 +405,9 @@ export default {
                 let verified: object | undefined;
                 if (p.evidence) {
                   validateFeatureReadEvidence(p.evidence);
-                  if (!c.liveReads) throw new Error('live_reads_disabled');
+                  if (!c.liveReads) {
+                    throw new Error('live_reads_disabled');
+                  }
                   const store = await credentials(
                     api.runtime.state.resolveStateDir(),
                     b.connectionRef,
@@ -376,7 +418,9 @@ export default {
                   let usedToken: string | undefined;
                   const tokenGuard = () => {
                     guard();
-                    if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                    if (!sameOAuth(current().oauth, oauth)) {
+                      throw new Error('authorization_changed');
+                    }
                   };
                   const client = new RestClient(async () => {
                     usedToken = await accessToken(store, oauth, tokenGuard);
@@ -384,7 +428,9 @@ export default {
                   });
                   verified = await client.verifyFeatureEvidence(b, p.evidence);
                   guard();
-                  if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                  if (store.read().accessToken !== usedToken) {
+                    throw new Error('authorization_changed');
+                  }
                 }
                 const details = signedDetails(ctx, {
                   status: p.status,
@@ -417,7 +463,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const initial = authorizedBinding(config, ctx);
-          if (!initial) return null;
+          if (!initial) {
+            return null;
+          }
           return {
             name: 'onshape_verify_feature_read',
             label: 'Verify native Onshape feature observation',
@@ -439,8 +487,12 @@ export default {
                 ctx.assertInvocationCurrent?.();
                 const c = current(),
                   a = authorizedBinding(c, ctx);
-                if (!a || !sameAuthorizedBinding(a, initial)) throw new Error('authorization_changed');
-                if (!c.liveReads) throw new Error('live_reads_disabled');
+                if (!a || !sameAuthorizedBinding(a, initial)) {
+                  throw new Error('authorization_changed');
+                }
+                if (!c.liveReads) {
+                  throw new Error('live_reads_disabled');
+                }
                 return a.binding;
               };
               try {
@@ -456,7 +508,9 @@ export default {
                 const oauth = c.oauth;
                 const tokenGuard = () => {
                   guard();
-                  if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                  if (!sameOAuth(current().oauth, oauth)) {
+                    throw new Error('authorization_changed');
+                  }
                 };
                 let usedToken: string | undefined;
                 const client = new RestClient(async () => {
@@ -465,7 +519,9 @@ export default {
                 });
                 const verified = await client.verifyFeatureRead(b, params);
                 guard();
-                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                if (store.read().accessToken !== usedToken) {
+                  throw new Error('authorization_changed');
+                }
                 const details = signedDetails(ctx, verified);
                 return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
               } catch (e) {
@@ -486,7 +542,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const b = leadBinding(config, ctx);
-          if (!b) return null;
+          if (!b) {
+            return null;
+          }
           return {
             name: 'onshape_delegate_inspect',
             label: 'Ask Mechanical Engineer for live plate inspection',
@@ -497,8 +555,9 @@ export default {
               const guard = () => {
                 ctx.assertInvocationCurrent?.();
                 const c = current();
-                if (!sameBinding(leadBinding(c, ctx), b) || !sameDelegation(c.delegation, config.delegation))
+                if (!sameBinding(leadBinding(c, ctx), b) || !sameDelegation(c.delegation, config.delegation)) {
                   throw new Error('authorization_changed');
+                }
               };
               try {
                 noArgs(params);
@@ -519,8 +578,9 @@ export default {
                     details.workspaceId !== b.workspaceId ||
                     details.elementId !== b.elementId ||
                     details.verification !== 'independent_rest_match'
-                  )
+                  ) {
                     throw new Error('delegation_denied');
+                  }
                   validateFeatureObservation({
                     microversionId: details.microversionId,
                     featureId: details.featureId,
@@ -550,7 +610,9 @@ export default {
           const auth = authorizedBinding(config, ctx);
           const engineer =
             config.engineerAgentId ?? config.delegation?.engineerAgentId ?? 'clawcad-mechanical-engineer';
-          if (!auth && (ctx.agentId !== engineer || config.bindings.length)) return null;
+          if (!auth && (ctx.agentId !== engineer || config.bindings.length)) {
+            return null;
+          }
           return {
             name: 'onshape_status',
             label: 'Claw-Onshape readiness',
@@ -563,8 +625,9 @@ export default {
                 ctx.assertInvocationCurrent?.();
                 const c = current();
                 const selected = authorizedBinding(c, ctx);
-                if (auth && (!selected || !sameAuthorizedBinding(auth, selected)))
+                if (auth && (!selected || !sameAuthorizedBinding(auth, selected))) {
                   throw new Error('authorization_changed');
+                }
                 const details = signedDetails(ctx, await lifecycle.status(selected?.binding.connectionRef));
                 return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
               } catch (e) {
@@ -582,7 +645,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const initial = authorizedBinding(config, ctx);
-          if (!initial) return null;
+          if (!initial) {
+            return null;
+          }
           return {
             name: 'onshape_render',
             label: 'Show Camera Mount Plate',
@@ -594,8 +659,12 @@ export default {
                 ctx.assertInvocationCurrent?.();
                 const c = current(),
                   a = authorizedBinding(c, ctx);
-                if (!a || !sameAuthorizedBinding(a, initial)) throw new Error('authorization_changed');
-                if (!c.liveReads) throw new Error('live_reads_disabled');
+                if (!a || !sameAuthorizedBinding(a, initial)) {
+                  throw new Error('authorization_changed');
+                }
+                if (!c.liveReads) {
+                  throw new Error('live_reads_disabled');
+                }
                 return a.binding;
               };
               try {
@@ -612,7 +681,9 @@ export default {
                 const oauth = current().oauth;
                 const tokenGuard = () => {
                   guard();
-                  if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                  if (!sameOAuth(current().oauth, oauth)) {
+                    throw new Error('authorization_changed');
+                  }
                 };
                 let usedToken: string | undefined;
                 const client = new RestClient(async () => {
@@ -621,11 +692,17 @@ export default {
                 });
                 const {bytes, metadata} = await client.render(b);
                 guard();
-                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
-                if (!ctx.workspaceDir) throw new Error('credential_store_unavailable');
+                if (store.read().accessToken !== usedToken) {
+                  throw new Error('authorization_changed');
+                }
+                if (!ctx.workspaceDir) {
+                  throw new Error('credential_store_unavailable');
+                }
                 const filePath = await saveRender(ctx.workspaceDir, bytes);
                 guard();
-                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                if (store.read().accessToken !== usedToken) {
+                  throw new Error('authorization_changed');
+                }
                 const details = signedDetails(ctx, {
                   ...metadata,
                   filePath,
@@ -658,7 +735,9 @@ export default {
         contextVersion: 2,
         create: (ctx: OpenClawPluginToolContext<2>) => {
           const b = leadBinding(config, ctx);
-          if (!b) return null;
+          if (!b) {
+            return null;
+          }
           return {
             name: 'onshape_delegate_render',
             label: 'Ask Mechanical Engineer for Camera Mount Plate',
@@ -669,8 +748,9 @@ export default {
               const guard = () => {
                 ctx.assertInvocationCurrent?.();
                 const c = current();
-                if (!sameBinding(leadBinding(c, ctx), b) || !sameDelegation(c.delegation, config.delegation))
+                if (!sameBinding(leadBinding(c, ctx), b) || !sameDelegation(c.delegation, config.delegation)) {
                   throw new Error('authorization_changed');
+                }
               };
               try {
                 noArgs(params);
@@ -679,7 +759,7 @@ export default {
                   api.logger.warn(message),
                 );
                 guard();
-                if (details.status !== 'ok')
+                if (details.status !== 'ok') {
                   return {
                     content: [
                       {
@@ -693,6 +773,7 @@ export default {
                     details,
                     isError: true,
                   };
+                }
                 if (
                   details.documentId !== b.documentId ||
                   details.workspaceId !== b.workspaceId ||
@@ -701,8 +782,9 @@ export default {
                   typeof details.filePath !== 'string' ||
                   typeof details.sha256 !== 'string' ||
                   !ctx.workspaceDir
-                )
+                ) {
                   throw new Error('delegation_denied');
+                }
                 const bytes = await readRender(ctx.workspaceDir, details.filePath, details.sha256);
                 guard();
                 if (ctx.delivery) {

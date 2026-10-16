@@ -2,7 +2,9 @@
 import {spawnSync} from 'node:child_process';
 
 const container = process.argv[2] ?? 'clawcad-mechanical-engineer';
-if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(container)) throw Error('invalid_container_name');
+if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(container)) {
+  throw Error('invalid_container_name');
+}
 function command(args, input) {
   const r = spawnSync('podman', args, {input, encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024});
   return {ok: !r.error && r.status === 0, output: r.stdout?.trim() ?? ''};

@@ -22,10 +22,15 @@ export async function connect(
       }
       // Keep the lifecycle lock until every admitted callback finishes. A timeout
       // must not release it while an atomic credential save can still complete.
-      if (pending || settled) return;
+      if (pending || settled) {
+        return;
+      }
       settled = true;
-      if (failure) reject(failure);
-      else resolve();
+      if (failure) {
+        reject(failure);
+      } else {
+        resolve();
+      }
     };
     const server = serverFactory(async (req, res) => {
       res.setHeader('Cache-Control', 'no-store');
@@ -41,7 +46,9 @@ export async function connect(
       pending++;
       try {
         const tokens = await consent.complete(req.url ?? '', req.headers.host ?? '');
-        if (finishing) throw new Error('oauth_connect_expired');
+        if (finishing) {
+          throw new Error('oauth_connect_expired');
+        }
         await save(tokens);
         res.end('Connected. Close this tab.');
         finish();
@@ -50,7 +57,9 @@ export async function connect(
         finish(new Error('oauth_reconnect_required'));
       } finally {
         pending--;
-        if (finishing) finish();
+        if (finishing) {
+          finish();
+        }
       }
     });
     server.on('error', () => finish(new Error('oauth_listener_unavailable')));
