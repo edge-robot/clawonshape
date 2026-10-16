@@ -78,7 +78,7 @@ Further contract gaps (G1, G4–G7, G11, G12) are tracked in §11 of the interfa
 
 ## ADR-2026-10-16: Proof-based mutation release, prepared for Verifiable Presentations
 
-Status: **Accepted** (2026-10-16, user decisions below; implementation pending a live spike for the plugin command; tracking [edge-robot/clawonshape#11](https://github.com/edge-robot/clawonshape/issues/11)).
+Status: **Accepted** (2026-10-16, user decisions below; plugin-command spike passed live 2026-10-16, [edge-robot/clawonshape#13](https://github.com/edge-robot/clawonshape/issues/13), evidence `docs/evidence/2026-10-16-plugin-command-spike.md`; tracking [edge-robot/clawonshape#11](https://github.com/edge-robot/clawonshape/issues/11)).
 Supersedes, once accepted, the dashboard approval and the per-proposal host reprovisioning of
 "ADR-review-2026-10-15". Resolves contract G3 in favour of **claims in the approval file**.
 
@@ -137,6 +137,14 @@ replace the interim proof without changing the plane boundaries.
   verification core is a pure function that a future VP verifier route reuses. Fallback if the spike
   fails: a Lead tool with the same core. Spike checks: command visible in Discord, `senderId` populated,
   asynchronous result posting to the channel.
+  **Spike result (2026-10-16, #13): all checks pass; the fallback is not needed.** Binding for P3:
+  (1) only the **native slash command** reaches the handler (text commands are mention-gated and go
+  to the LLM); (2) the immediate reply is ephemeral and must fit one Discord message (≤ 17 lines);
+  (3) the public result is posted via `api.runtime.channel.outbound.loadAdapter(ctx.channel)` →
+  `sendText` to the host-provided conversation target `ctx.from` — never `ctx.to` (`slash:<user>`,
+  rejected) and never a self-built target; (4) `senderIsOwner`/`assertOwnerCurrent` are absent for
+  this external plugin, so the approver check compares `senderId` with the configured approver set;
+  (5) pending results must be durable (an in-memory timer is lost on every gateway restart).
 
 ### Consequences
 
