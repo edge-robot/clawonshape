@@ -102,7 +102,8 @@ parameters**, only JSON response headers, and the path is one of:
 - `/partstudios/d/{d}/m/{mid}/e/{e}/features`
 
 `{d}`, `{w}` and `{e}` are the configured `[external_token]` target. `{mid}` is any
-24-hex id. **1.0.0:** while a valid v2 approval (§4) is active (`now < expiresAt`, consumed or
+24-hex id. **1.0.0:** while a valid v2 approval (§4) whose claims lie within the static bounds (§2.5
+step 5, §8.9; requires `[external_token.mutation]`) is active (`now < expiresAt`, consumed or
 not), `{w}` MAY also be the approval's claimed `target.workspaceId` for the paths
 `/documents/d/{d}/w/{w}/currentmicroversion` and `/partstudios/d/{d}/w/{w}/e/{e}/features`,
 so that the Engineer can verify the Candidate after the update. `{d}` and `{e}` stay the
@@ -119,16 +120,16 @@ MAY still be configured; if present, claims MUST equal them. A v1 approval (depr
 admitted only with these static pins and uses them in place of claims.
 
 Evaluated in this order. The first failure wins, and **no provider I/O** happens before
-step 8:
+step 10 (step 9 reads only the local token file):
 
 | # | Check | Error |
 |---|---|---|
 | 1 | `[external_token.mutation]` is present | `target_policy_denied` |
 | 2 | `write_mode = "modify"`; method `POST`; `allowed_operations` contains `updatePartStudioFeature`; no query parameters; JSON headers only | `target_policy_denied` |
 | 3 | The approval file is readable under the private-file rules (§4). It is **mandatory**: a server with `[external_token.mutation]` and without `mutation_approval_file` does not start (`target_configuration_invalid`) | `mutation_approval_unavailable` |
-| 4 | The approval is structurally valid for its `version` (§4), `expiresAt > now`, and for v2 `0 < expiresAt − issuedAt ≤ 900 000` | `mutation_approval_mismatch` |
-| 5 | Target: path = `/partstudios/d/{d}/w/{w}/e/{e}/features/featureid/{fid}`; `{d}` = `document_id` = claim `target.documentId`; `{e}` = `element_id` = claim `target.elementId`; `{w}` = claim `target.workspaceId` and not in `excluded_workspace_ids`; `{fid}` = claim `featureId` = `body.feature.featureId`; claim `operation` ∈ `allowed_operations`; every configured static pin equals its claim | `target_policy_denied` |
-| 6 | Revision: `body.sourceMicroversion` = claim `expectedMicroversion` and `body.rejectMicroversionSkew == true` | `revision_policy_denied` |
+| 4 | The approval is structurally valid for its `version` (§4), `expiresAt > now`, for v2 `0 < expiresAt − issuedAt ≤ 900 000`, and a v1 approval only if the pins `workspace_id` and `expected_microversion` are configured | `mutation_approval_mismatch` |
+| 5 | Target: path = `/partstudios/d/{d}/w/{w}/e/{e}/features/featureid/{fid}`; `{d}` = `document_id` = claim `target.documentId`; `{e}` = `element_id` = claim `target.elementId`; `{w}` = claim `target.workspaceId` and not in `excluded_workspace_ids`; `{fid}` = claim `featureId` = `body.feature.featureId`; claim `operation` ∈ `allowed_operations`; the configured `workspace_id` and `feature_id` pins equal their claims | `target_policy_denied` |
+| 6 | Revision: `body.sourceMicroversion` = claim `expectedMicroversion`, a configured `expected_microversion` pin equals that claim, and `body.rejectMicroversionSkew == true` | `revision_policy_denied` |
 | 7 | `approval.body` equals the request body exactly | `mutation_approval_mismatch` |
 | 8 | The `proposalId` has not been admitted before by this server process | `mutation_approval_consumed` |
 | 9 | Token valid (§3) **and** scopes contain `OAuth2Write` | `external_token_*` / `external_token_write_scope_missing` |
@@ -212,8 +213,8 @@ text; they MUST NOT collapse a listed code into a generic one (0.4.0).
 |---|---|---|---|---|
 | `external_token_tool_denied` | A | tool not available in external-token mode | no | none; fix the tool choice |
 | `external_token_read_policy_denied` | A | GET outside the fixed read set (§2.4) | no | correct the request shape; OAuth consent cannot fix it |
-| `target_policy_denied` | A | mutation outside the policy (§2.5 steps 1–3) | no | escalate to the operator |
-| `revision_policy_denied` | A | baseline or skew flag wrong (§2.5 step 4) | no | re-read the baseline, new proposal |
+| `target_policy_denied` | A | mutation outside the policy (§2.5 steps 1, 2, 5) | no | escalate to the operator |
+| `revision_policy_denied` | A | baseline, microversion pin or skew flag wrong (§2.5 step 6) | no | re-read the baseline, new proposal |
 | `target_configuration_invalid` / `external_token_configuration_invalid` | A | server config invalid | no | Clawake or operator fixes the config |
 | `mutation_approval_unavailable` | A, C | approval file missing, insecure or unreadable | no | issue an approval through the plugin |
 | `mutation_approval_mismatch` | A, C | approval expired, `null`, structurally invalid (incl. v2 lifetime > 15 min), or body differs | no | new proposal and approval |
@@ -242,7 +243,7 @@ Machine-readable list: `fixtures/error-codes.json`.
 | Native client `connectionTimeoutMs` | 5 000 ms | Clawake |
 | Token expiry margin | 30 000 ms | both sides |
 | Token re-sync interval | 15 000 ms | plugin |
-| Approval lifetime | 300 000 ms | plugin |
+| Approval lifetime | v1: 300 000 ms; v2: `expiresAt − issuedAt` ≤ 900 000 ms (§4), checked by the server | plugin (issues), server (v2 bound) |
 | Plugin `/health` timeout | 2 000 ms | plugin |
 | `mcp status` / `mcp probe` timeout | 15 000 / 20 000 ms | plugin |
 | Token file / approval file size | 16 384 B / 1 048 576 B | server |
@@ -329,6 +330,7 @@ Consumers MUST check line 1 against the version their prompt names.
 
 ## Changelog
 
+- `1.0.0-draft` amended (2026-10-16, wording only, fixtures unchanged): rust-mcp-dev expand report CR-1 (microversion pin checked at step 6 → `revision_policy_denied`), CR-2 (v1 without pins → step 4 `mutation_approval_mismatch`), CR-3 (claimed reads only for claims within the static bounds); §6 step references, §2.5 "no provider I/O before step 10", §7 v2 lifetime.
 - `1.0.0-draft` (2026-10-16): **major**. §4 approval file v2 with target claims (`issuedAt`, `target`, `featureId`, `expectedMicroversion`, `operation`; lifetime ≤ 15 min); v1 deprecated. §2.5 rewritten: static bounds only, claims within bounds, approval file mandatory and enforced at startup, new step 8 replay protection `mutation_approval_consumed`. §2.4 reads of the claimed Candidate while an approval is active. §6, §8.8–8.9, §10. Fixtures: `approved-update/valid/update-feature-v2.json`, nine `invalid/v2-*.json`, `invalid/version-2.json` → `version-3.json`; `expectations.json` `boundsV2`, `replay`, `missingApprovalFile`, `readsV2`. Resolves G2, G3. Migration in four steps (§9): server expand → plugin migrate (P3) → live E2E → contract (remove v1 and static pins). clawonshape#14, ADR-2026-10-16.
 - `0.4.0-draft` (2026-10-16): §6 plugin codes `invalid_arguments`, `authorization_changed`, `provider_protocol_error`, `proposal_body_invalid`; plugin tools pass codes through unchanged (CR-1, M20, clawonshape#12). Minor, additive. The proposal no longer pins `serializationVersion`/`libraryVersion` to the plugin's REST read (M21; plugin-internal).
 - `0.3.0-draft` (2026-10-16): §4 receipt lifecycle and reconcile rules; terminal `REJECTED` with `approval_expired_not_dispatched` after `expiresAt + 60 s` (resolves G5, clawonshape#5). New §4.1 execution context with `apiCall` and fixture `mutation-context/valid/update-feature.json` (G13, clawonshape#10). Error code list: plugin `approval_expired_not_dispatched`. Minor: plugin-side, additive for the server; onshape-mcp keeps implementing 0.2.0-draft until its next contract-version bump.
