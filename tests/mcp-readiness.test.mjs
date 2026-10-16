@@ -329,3 +329,91 @@ test('dashboard preserves successful REST status and offers native read/write co
     globalThis.document = originalDocument;
   }
 });
+
+test('dashboard proposal cards show REJECTED with its reason and keep terminal actions disabled', async () => {
+  const originalDocument = globalThis.document;
+  class Element {
+    children = [];
+    value = '';
+    textContent = '';
+    attrs = {};
+    append(...items) {
+      this.children.push(...items);
+    }
+    replaceChildren(...items) {
+      this.children = items;
+    }
+    setAttribute(k, v) {
+      this.attrs[k] = v;
+    }
+    removeAttribute(k) {
+      delete this.attrs[k];
+    }
+    remove() {}
+  }
+  globalThis.document = {createElement: () => new Element()};
+  const proposal = (id, status, extra = {}) => ({
+    id,
+    status,
+    summary: `${status} summary`,
+    documentId: 'a'.repeat(24),
+    workspaceId: 'c'.repeat(24),
+    elementId: 'd'.repeat(24),
+    featureId: 'plate',
+    sourceMicroversion: 'e'.repeat(24),
+    payloadHash: '0'.repeat(64),
+    body: {},
+    ...extra,
+  });
+  try {
+    let page;
+    ui.activate({ui: {registerNavigation: () => {}, registerPage: (p) => (page = p)}});
+    const container = new Element();
+    const view = page.mount(container, {
+      signal: {aborted: false},
+      host: {
+        request: async (_method, args) => ({
+          ok: true,
+          result:
+            args.actionId === 'mutation-status'
+              ? {
+                  status: 'ok',
+                  oauthWrite: true,
+                  target: {workspaceId: 'c'.repeat(24), primaryWorkspaceId: 'b'.repeat(24)},
+                  proposals: [
+                    proposal('rejected-id', 'REJECTED', {
+                      reason: 'approval_expired_not_dispatched',
+                      rejectedAt: '2026-10-16T10:00:00.000Z',
+                    }),
+                    proposal('verified-id', 'VERIFIED'),
+                    proposal('unknown-id', 'UNKNOWN'),
+                  ],
+                }
+              : {code: 'connected', message: 'REST fixture', connections: ['owner-rest']},
+        }),
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    const nodes = (e) => [e, ...e.children.flatMap(nodes)];
+    await nodes(container)
+      .find((e) => e.textContent === 'Load change proposals')
+      .onclick();
+    const all = nodes(container);
+    const card = (id) => all.find((e) => e.children[0]?.textContent?.startsWith(`${id} — `));
+    const buttons = (id) => card(id).children.filter((e) => 'onclick' in e);
+    assert.equal(
+      card('rejected-id').children[0].textContent,
+      'rejected-id — REJECTED (approval_expired_not_dispatched)',
+    );
+    assert.equal(card('verified-id').children[0].textContent, 'verified-id — VERIFIED');
+    for (const id of ['rejected-id', 'verified-id']) {
+      assert(buttons(id).length === 2 && buttons(id).every((b) => b.disabled === true), `${id} actions disabled`);
+    }
+    const [approveUnknown, reconcileUnknown] = buttons('unknown-id');
+    assert.equal(approveUnknown.disabled, true);
+    assert.equal(reconcileUnknown.disabled, false);
+    view.dispose();
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});

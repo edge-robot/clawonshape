@@ -221,7 +221,8 @@ export default {
                 payload = document.createElement('pre'),
                 approve = document.createElement('button'),
                 reconcile = document.createElement('button');
-              title.textContent = `${proposal.id} — ${proposal.status}`;
+              const reason = proposal.status === 'REJECTED' && proposal.reason ? ` (${proposal.reason})` : '';
+              title.textContent = `${proposal.id} — ${proposal.status}${reason}`;
               summary.textContent = proposal.summary;
               payload.textContent = JSON.stringify(
                 {

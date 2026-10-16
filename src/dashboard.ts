@@ -9,7 +9,7 @@ import {accessToken} from './authorization.ts';
 import {authorizationSnapshot, matchesAuthorizationSnapshot} from './authorization-snapshot.ts';
 import {mutationStore} from './mutation-workflow.ts';
 import path from 'node:path';
-import {userError} from './readiness.ts';
+import {state, userError} from './readiness.ts';
 import {mcpReadiness, localMcpReadiness} from './mcp.ts';
 export function registerDashboard(
   api: OpenClawPluginApi,
@@ -202,6 +202,13 @@ export function registerDashboard(
           }
           const record = await proposals.reconcile(input.proposalId, client, approvalDirectory);
           assertOperator();
+          if (record.status === 'REJECTED') {
+            return response({
+              status: 'rejected',
+              proposal: record,
+              message: state(record.reason ?? 'onshape_unavailable').message,
+            });
+          }
           return response({status: 'verified', proposal: record});
         } catch (e) {
           return {ok: true, result: userError(e)};
