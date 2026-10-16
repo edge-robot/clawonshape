@@ -6,7 +6,7 @@
     {
       "name": "onshape-edit-feature-parameters",
       "description": "Plan bounded Onshape Candidate parameter changes through native MCP; execute only with technical approval and verify before/after evidence.",
-      "sha256": "94edffd52118aa6c9d4025f94eebc46326cd50c8990f3b2c8ee7bf1cb963074a",
+      "sha256": "30c7875871c2616c701ef213f21dbebf41971033f30609f3839414cbecaab4a7",
       "resources": []
     },
     {

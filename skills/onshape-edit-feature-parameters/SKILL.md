@@ -65,7 +65,10 @@ For the implemented approval workflow:
    onshape_propose_update. Preserve its proposal ID and payload hash. Finish with
    a planned report through onshape_complete_task; ask the operator to review
    the actual payload in the plugin dashboard and provision its MCP policy
-   through Clawake. Do not approve your own proposal.
+   through Clawake. Do not approve your own proposal. On proposal_body_invalid
+   re-read the feature natively and resubmit the complete feature with its
+   serializationVersion, libraryVersion, sourceMicroversion and
+   rejectMicroversionSkew: true; do not strip target fields.
 3. For a subsequent edit request containing approvalId, call
    onshape_mutation_context with that request and proposal ID. If its result
    arrives as text, parse it as JSON. Call native
