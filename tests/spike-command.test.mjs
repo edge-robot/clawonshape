@@ -366,8 +366,13 @@ test('reply 2 fails closed with one logged reason per missing piece or failure',
 const LIVE_FROM = `discord:channel:${DISCORD_CHANNEL}`;
 const LIVE_TO = `slash:${SENDER}`;
 // Runs one invocation through the 120 s timer. `behaviour(target, call)` decides per sendText call.
+// Mock timers are enabled once per test context; helpers may run several invocations in one test.
+const timersEnabled = new WeakSet();
 async function runFollowUp(t, extra, behaviour) {
-  t.mock.timers.enable({apis: ['setTimeout']});
+  if (!timersEnabled.has(t)) {
+    t.mock.timers.enable({apis: ['setTimeout']});
+    timersEnabled.add(t);
+  }
   const calls = [];
   const outbound = {
     sendText: async (params) => {

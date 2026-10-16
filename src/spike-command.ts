@@ -1,4 +1,4 @@
-// SPIKE ONLY (docs/prompts/2026-10-16-plugin-command-spike.md and -spike-2.md, edge-robot/clawonshape#13); not for release.
+// SPIKE ONLY (docs/prompts/2026-10-16-plugin-command-spike.md, -spike-2.md and -spike-3.md, edge-robot/clawonshape#13); not for release.
 // Observes what a plugin command sees in Discord. No approval semantics, no mutation, delegation, MCP, REST,
 // credential or token access. P3 of edge-robot/clawonshape#11 re-implements on the result.
 import {randomUUID} from 'node:crypto';
@@ -14,6 +14,7 @@ const MAX_FIELDS = 64;
 const MAX_FIELDS_LINE = 700;
 const PROVIDER_ID = /^[a-z0-9_-]{1,32}$/;
 const TARGET_PREFIX = /^[a-z_]{1,16}$/;
+const ERROR_CLASS = /^[A-Za-z]{1,40}$/;
 
 // Lead role at registration time: the plugin config names a Lead, and this gateway hosts that agent.
 // engineerAgentId/delegation alone cannot decide it, because both gateways carry the same plugin config.
@@ -122,44 +123,94 @@ function log(warn: Warn, event: string, fields: Record<string, unknown>) {
   }
 }
 
-// Reply 2: one message to the same conversation through the channel's outbound adapter. Never retried.
+type Source = 'from' | 'to';
+type Attempt =
+  | {source: Source; outcome: 'sent'}
+  | {source: Source; outcome: 'send_failed'; errorClass: string | null}
+  | {source: Source; outcome: 'skipped'; reason: 'not_qualified' | 'conversation_target_unavailable'};
+
+// Only the class name of a provider error is logged; message and stack may carry request details.
+function errorClass(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+  try {
+    const name: unknown = Reflect.get(error, 'name');
+    return typeof name === 'string' && ERROR_CLASS.test(name) ? name : null;
+  } catch {
+    // A throwing name getter yields no class; the attempt is still logged as send_failed.
+    return null;
+  }
+}
+
+// ctx.from names the conversation for native slash invocations (spike 2 live evidence, row 3b). It is used as is,
+// and only if it is a Discord target for exactly this channel.
+function qualifyingFrom(ctx: PluginCommandContext, provider: string): string | null {
+  const from = boundedString(ctx.from);
+  const channelId = boundedString(ctx.channelId);
+  const shape = targetShape(from, channelId, null);
+  return from !== null && provider === 'discord' && shape?.prefix === 'discord' && shape.endsWithChannelId
+    ? from
+    : null;
+}
+
+// Reply 2: one message to the same conversation through the channel's outbound adapter. Host-provided targets only
+// (ctx.from, then ctx.to), each tried at most once; never rewritten, never retried.
 async function followUp(api: OpenClawPluginApi, ctx: PluginCommandContext, invocationId: string, warn: Warn) {
-  const result = (outcome: 'sent' | 'not_sent', reason?: string) =>
-    log(warn, 'claw_onshape.spike_follow_up', {invocationId, outcome, ...(reason ? {reason} : {})});
+  const attempts: Attempt[] = [];
+  const result = (outcome: 'sent' | 'not_sent', source: Source | null, reason?: string) =>
+    log(warn, 'claw_onshape.spike_follow_up', {
+      invocationId,
+      outcome,
+      source,
+      ...(reason ? {reason} : {}),
+      attempts,
+    });
   const provider = providerId(ctx.channel);
   if (!provider) {
-    return result('not_sent', 'provider_unavailable');
+    return result('not_sent', null, 'provider_unavailable');
   }
   let adapter: Awaited<ReturnType<OpenClawPluginApi['runtime']['channel']['outbound']['loadAdapter']>>;
   try {
     adapter = await api.runtime.channel.outbound.loadAdapter(provider);
   } catch {
     // Only the outcome is logged; the lookup error text is not needed for the spike answer.
-    return result('not_sent', 'adapter_lookup_failed');
+    return result('not_sent', null, 'adapter_lookup_failed');
   }
-  try {
-    if (!adapter) {
-      return result('not_sent', 'outbound_adapter_unavailable');
-    }
-    if (typeof adapter.sendText !== 'function') {
-      return result('not_sent', 'send_text_unavailable');
-    }
-    const to = boundedString(ctx.to);
-    if (!to) {
-      return result('not_sent', 'conversation_target_unavailable');
-    }
-    await adapter.sendText({
-      cfg: ctx.config,
-      to,
-      text: `${SPIKE_COMMAND} follow-up ${invocationId}`,
-      accountId: ctx.accountId ?? null,
-      threadId: ctx.messageThreadId ?? null,
-    });
-    return result('sent');
-  } catch {
-    // The provider error text may carry request details; only the outcome is logged.
-    return result('not_sent', 'send_failed');
+  if (!adapter) {
+    return result('not_sent', null, 'outbound_adapter_unavailable');
   }
+  const sendText = adapter.sendText;
+  if (typeof sendText !== 'function') {
+    return result('not_sent', null, 'send_text_unavailable');
+  }
+  const candidates: Array<[Source, string | null, 'not_qualified' | 'conversation_target_unavailable']> = [
+    ['from', qualifyingFrom(ctx, provider), 'not_qualified'],
+    ['to', boundedString(ctx.to), 'conversation_target_unavailable'],
+  ];
+  let tried = false;
+  for (const [source, target, skipReason] of candidates) {
+    if (target === null) {
+      attempts.push({source, outcome: 'skipped', reason: skipReason});
+      continue;
+    }
+    tried = true;
+    try {
+      await sendText.call(adapter, {
+        cfg: ctx.config,
+        to: target,
+        text: `${SPIKE_COMMAND} follow-up ${invocationId}`,
+        accountId: ctx.accountId ?? null,
+        threadId: ctx.messageThreadId ?? null,
+      });
+    } catch (error) {
+      attempts.push({source, outcome: 'send_failed', errorClass: errorClass(error)});
+      continue;
+    }
+    attempts.push({source, outcome: 'sent'});
+    return result('sent', source);
+  }
+  return result('not_sent', null, tried ? 'send_failed' : 'conversation_target_unavailable');
 }
 
 // Reply 1: header, then one fenced block with a single-line JSON, the field list and the echo (6 lines).
