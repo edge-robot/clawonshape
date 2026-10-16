@@ -47,7 +47,9 @@ if (!inspection.ok) {
   let capabilities = {probeAvailable: false};
   try {
     capabilities = JSON.parse(probe.output);
-  } catch {}
+  } catch {
+    // Unparseable probe output keeps the probeAvailable:false default.
+  }
   const plugin = command(['exec', container, 'openclaw', 'plugins', 'info', 'claw-onshape', '--runtime', '--json']);
   let pluginState = {inspectionAvailable: false};
   try {
@@ -59,7 +61,9 @@ if (!inspection.ok) {
       trustReason: report.plugin?.trust?.reason,
       diagnosticCount: Array.isArray(report.diagnostics) ? report.diagnostics.length : undefined,
     };
-  } catch {}
+  } catch {
+    // Unparseable plugin info keeps the inspectionAvailable:false default.
+  }
   const result = {
     container,
     runtimeAccessible: true,

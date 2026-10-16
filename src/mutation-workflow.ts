@@ -159,6 +159,7 @@ export async function mutationStore(stateDir: string, binding: Binding) {
         task: request.task,
         documentId: binding.documentId,
         workspaceId: binding.workspaceId,
+        // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
         elementId: binding.elementId!,
         primaryWorkspaceId: binding.primaryWorkspaceId,
         primaryMicroversionId: baseline.primaryMicroversionId,

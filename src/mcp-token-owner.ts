@@ -12,6 +12,7 @@ export function mcpTokenOwner(current: () => Config, stateDir: () => string) {
     if (stopped) {
       return Promise.resolve();
     }
+    // biome-ignore lint/nursery/noMisusedPromises: checks whether a sync is in flight, not the Promise result
     if (active) {
       return active;
     }
@@ -49,6 +50,7 @@ export function mcpTokenOwner(current: () => Config, stateDir: () => string) {
     return active;
   };
   const timer = setInterval(() => {
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: TODO(#9): periodic MCP credential sync failure is swallowed without log or status
     void sync().catch(() => {});
   }, 15000);
   timer.unref();
@@ -57,7 +59,9 @@ export function mcpTokenOwner(current: () => Config, stateDir: () => string) {
     dispose: async () => {
       stopped = true;
       clearInterval(timer);
-      await active?.catch(() => {});
+      await active?.catch(() => {
+        // The null publication below is the authoritative cleanup.
+      });
       const m = current().localMcp;
       if (m) {
         await publishMcpCredential(m.credentialDirectory, null);

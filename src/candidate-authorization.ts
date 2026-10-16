@@ -169,7 +169,9 @@ function candidateAuthority(
       try {
         store = await credentials(
           stateDir,
+          // biome-ignore lint/style/noNonNullAssertion: validate() above denies the request when initialBinding is missing
           initialBinding!.connectionRef,
+          // biome-ignore lint/style/noNonNullAssertion: validate() above denies the request when initialBinding is missing
           connectionOwner(initialBinding!),
           initial.localMcp?.credentialDirectory,
         );

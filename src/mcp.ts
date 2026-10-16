@@ -156,6 +156,7 @@ export async function localMcpReadiness(
     assertPrivateFile(file);
     const raw = await readFile(file, 'utf8');
     if (Buffer.byteLength(raw) > 16384) {
+      // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch only inspects `code`, never the message
       throw new Error();
     }
     const c = JSON.parse(raw);
@@ -173,6 +174,7 @@ export async function localMcpReadiness(
     ) {
       const expiry = c.expiresAt as number;
       if (expiry <= 0 || expiry > 8640000000000000) {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch only inspects `code`, never the message
         throw new Error();
       }
       local.expiry = new Date(expiry).toISOString();

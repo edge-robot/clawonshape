@@ -46,6 +46,7 @@ export const ref = (value: unknown): value is string =>
   typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(value);
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown): v is string =>
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally rejects control characters in identifiers
   typeof v === 'string' && v.length > 0 && v.length <= 256 && !/[\x00-\x1f]/.test(v);
 export function parseConfig(value: unknown): Config {
   if (

@@ -14,6 +14,7 @@ export async function publishMcpCredential(directory: string, tokens: Tokens | n
       dir.mode & 0o077 ||
       (await realpath(directory)) !== directory
     ) {
+      // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
       throw new Error();
     }
     const native = await import('openclaw/plugin-sdk/secret-file-runtime');

@@ -19,6 +19,7 @@ export function crc32(bytes: Uint8Array): number {
 export function validatePng(data: Buffer, size = IMAGE_SIZE): Buffer {
   try {
     if (data.length > 6_000_000 || !data.subarray(0, 8).equals(SIGNATURE)) {
+      // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
       throw new Error();
     }
     let offset = 8,
@@ -29,16 +30,19 @@ export function validatePng(data: Buffer, size = IMAGE_SIZE): Buffer {
     let channels = 0;
     while (offset < data.length) {
       if (offset + 12 > data.length) {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       const len = data.readUInt32BE(offset),
         end = offset + 12 + len;
       if (end > data.length) {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       const kind = data.toString('ascii', offset + 4, offset + 8),
         body = data.subarray(offset + 8, end - 4);
       if (crc32(data.subarray(offset + 4, end - 4)) !== data.readUInt32BE(end - 4)) {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       if (!header) {
@@ -53,15 +57,18 @@ export function validatePng(data: Buffer, size = IMAGE_SIZE): Buffer {
           body[11] ||
           body[12]
         ) {
+          // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
           throw new Error();
         }
         channels = ({0: 1, 2: 3, 4: 2, 6: 4} as Record<number, number>)[body[9]];
         header = true;
       } else if (kind === 'IHDR') {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       if (kind === 'IDAT') {
         if (endedData) {
+          // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
           throw new Error();
         }
         compressed.push(body);
@@ -71,25 +78,30 @@ export function validatePng(data: Buffer, size = IMAGE_SIZE): Buffer {
       }
       if (kind === 'IEND') {
         if (len || end !== data.length || !seenData) {
+          // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
           throw new Error();
         }
         const row = 1 + size * channels;
         const pixels = inflateSync(Buffer.concat(compressed), {maxOutputLength: row * size});
         if (pixels.length !== row * size) {
+          // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
           throw new Error();
         }
         for (let y = 0; y < size; y++) {
           if (pixels[y * row] > 4) {
+            // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
             throw new Error();
           }
         }
         return data;
       }
       if (!['IHDR', 'IDAT', 'IEND', 'PLTE'].includes(kind) && kind[0] === kind[0].toUpperCase()) {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       offset = end;
     }
+    // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
     throw new Error();
   } catch {
     throw new Error('provider_image_invalid');

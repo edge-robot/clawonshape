@@ -161,6 +161,7 @@ export class Consent {
         headers: {'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json'},
         body: new URLSearchParams({
           grant_type: 'authorization_code',
+          // biome-ignore lint/style/noNonNullAssertion: the secret(p.get('code')) check above rejects a missing code
           code: p.get('code')!,
           client_id: this.clientId,
           client_secret: this.clientSecret,

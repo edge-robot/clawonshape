@@ -676,7 +676,7 @@ test('revocation or lifecycle cancellation during OAuth never persists late toke
       r,
     );
     await delay();
-    lifecycle.cancel();
+    void lifecycle.cancel();
     await assert.rejects(lifecycle.disconnect('owner-rest'), /connection_busy/);
     exchangeResolve(
       json({

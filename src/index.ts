@@ -42,6 +42,7 @@ export default {
         dispose: owner.dispose,
         cleanup: owner.dispose,
       });
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: TODO(#9): initial MCP credential sync failure is swallowed without log or status
       void owner.sync().catch(() => {});
     }
     const lifecycle = registerDashboard(api, current);
@@ -110,6 +111,7 @@ export default {
                           await store.save(null);
                         }
                       });
+                      // biome-ignore lint/suspicious/noEmptyBlockStatements: TODO(#9): failure to clear the stale grant is swallowed; the original error is rethrown
                     } catch {}
                   }
                   throw e;
@@ -257,6 +259,7 @@ export default {
                   const p = params as {request: unknown; body: unknown; summary: string; proposalId: string};
                   const b = guard(),
                     c = current();
+                  // biome-ignore lint/style/noNonNullAssertion: narrowed by the initial?.contextId guard at factory creation; lost in this closure
                   verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
                   if (p.request.workflow !== 'edit' && operation !== 'reconcile') {
                     throw new Error('invalid_arguments');
@@ -396,6 +399,7 @@ export default {
                 }
                 const b = guard(),
                   c = current();
+                // biome-ignore lint/style/noNonNullAssertion: narrowed by the initial?.contextId guard at factory creation; lost in this closure
                 verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
                 let mutationOutcome: string | undefined;
                 if (p.proposalId) {
@@ -528,7 +532,9 @@ export default {
                 let details: Record<string, unknown> = {status: 'unavailable', ...userError(e)};
                 try {
                   details = signedDetails(ctx, details);
-                } catch {}
+                } catch {
+                  // Signing is best effort for error results; the result is isError either way.
+                }
                 return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details, isError: true};
               }
             },
@@ -721,7 +727,9 @@ export default {
                 let details: Record<string, unknown> = {status: 'unavailable', ...explanation};
                 try {
                   details = signedDetails(ctx, details);
-                } catch {}
+                } catch {
+                  // Signing is best effort for error results; the result is isError either way.
+                }
                 return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details, isError: true};
               }
             },

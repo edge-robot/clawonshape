@@ -104,6 +104,7 @@ export default {
               return;
             }
             if (!wire?.ok || !wire.result) {
+              // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
               throw new Error();
             }
             const result = wire.result;
@@ -132,6 +133,7 @@ export default {
             if (result.authorizationUrl) {
               const u = new URL(result.authorizationUrl);
               if (u.origin !== 'https://oauth.onshape.com' || u.pathname !== '/oauth/authorize') {
+                // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
                 throw new Error();
               }
               link.href = u.href;
@@ -178,7 +180,7 @@ export default {
         refresh.onclick = () => invoke('status');
         select.onchange = () => {
           if (!busy) {
-            invoke('status');
+            void invoke('status');
           }
         };
         const mutationSection = document.createElement('section'),
@@ -300,7 +302,7 @@ export default {
           mutationSection,
         );
         container.append(section);
-        invoke('status');
+        void invoke('status');
         return {
           dispose() {
             disposed = true;

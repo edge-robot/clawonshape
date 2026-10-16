@@ -32,6 +32,7 @@ export async function privateSecret(filePath: string): Promise<string> {
     const native = await import('openclaw/plugin-sdk/secret-file-runtime');
     const value = native.readSecretFileSync(filePath, 'Claw-Onshape private secret', {rejectSymlink: true}).trim();
     if (!value || value.length > 8192 || /\s/.test(value)) {
+      // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
       throw new Error();
     }
     return value;
@@ -60,6 +61,7 @@ export async function credentials(stateDir: string, connectionRef: string, owner
         root.uid !== process.getuid?.() ||
         (await realpath(stateDir)) !== stateDir
       ) {
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       lock = await open(lockPath, 'wx', 0o600);
@@ -147,10 +149,12 @@ export async function credentials(stateDir: string, connectionRef: string, owner
           tokens: Tokens;
         };
         if (record.owner !== owner) {
+          // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
           throw new Error();
         }
         const t = normalized(record.tokens);
         if (
+          // biome-ignore lint/complexity/useOptionalChain: explicit null guard keeps this fail-closed validation readable
           !t ||
           t.resource !== 'https://cad.onshape.com/api/' ||
           typeof t.accessToken !== 'string' ||
@@ -163,6 +167,7 @@ export async function credentials(stateDir: string, connectionRef: string, owner
           !t.scopes.length ||
           (!allowExpired && t.expiresAt <= Date.now() + 30000)
         ) {
+          // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
           throw new Error();
         }
         return t;

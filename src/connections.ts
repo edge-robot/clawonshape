@@ -80,7 +80,9 @@ export function connectionLifecycle(
     let scopes: readonly string[] | undefined;
     try {
       scopes = s.read(true).scopes;
-    } catch {}
+    } catch {
+      // Scopes are informational only; the status code below decides the outcome.
+    }
     if (code === 'unavailable') {
       return report('credential_store_unavailable', false, scopes);
     }
@@ -170,16 +172,22 @@ export function connectionLifecycle(
       };
     });
     // Attach a rejection consumer before any early cancellation can occur.
-    void done.catch(() => {});
+    void done.catch(() => {
+      // The rejection is observed by `await done` below.
+    });
+    // biome-ignore lint/style/noNonNullAssertion: assigned synchronously by the Promise executor above
     pending.set(name, attempt!);
     const work = authorizeConnection(
       store,
       () => unchanged(b, c),
       async (save) => {
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously by the Promise executor above
         attempt!.save = save;
         outcomes.delete(name);
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously by the Promise executor above
         const timer = setTimeout(() => attempt!.finish(new Error('oauth_connect_expired')), 300000);
         try {
+          // biome-ignore lint/style/noNonNullAssertion: assigned synchronously by the Promise executor above
           attempt!.accepting = true;
           publish({...state('authorization_in_progress'), authorizationUrl: consent.authorizationUrl()});
           await done;
@@ -218,8 +226,10 @@ export function connectionLifecycle(
       a = [...pending.values()].find(
         (x) => new URL(x.consent.authorizationUrl()).searchParams.get('state') === received && !!received,
       );
+      // biome-ignore lint/complexity/useOptionalChain: explicit null guard keeps this fail-closed validation readable
       if (!a || !a.accepting || a.closing) {
         a = undefined;
+        // biome-ignore lint/suspicious/useErrorMessage: local sentinel; the enclosing catch discards the message and maps it to a coded error
         throw new Error();
       }
       a.accepting = false;

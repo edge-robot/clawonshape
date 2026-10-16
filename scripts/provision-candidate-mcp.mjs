@@ -137,7 +137,9 @@ for (const instance of inventory.instances) {
         ready = true;
         break;
       }
-    } catch {}
+    } catch {
+      // Server not reachable yet; keep polling until the attempts are exhausted.
+    }
     await new Promise((r) => setTimeout(r, 2000));
   }
   if (!ready) {

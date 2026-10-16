@@ -136,6 +136,7 @@ export function canonicalResult(value: unknown): string {
     }
     const field = (key: string): unknown => {
       const d = Object.getOwnPropertyDescriptor(v, key);
+      // biome-ignore lint/complexity/useOptionalChain: explicit null guard keeps this fail-closed validation readable
       if (!d || !d.enumerable || !('value' in d)) {
         throw new Error('delegation_result_invalid');
       }
@@ -206,6 +207,7 @@ export async function delegateRender(
   guard: () => void,
   fetcher: typeof fetch = fetch,
   wait = (ms: number) => new Promise((r) => setTimeout(r, ms)),
+  // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
   warn: (message: string) => void = (message) => console.warn(message),
   inspection = false,
   request?: EngineeringTask,
@@ -232,7 +234,9 @@ export async function delegateRender(
       severity: 'WARNING',
       outcome: 'rejected',
       reason,
+      // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
       leadAgentId: c.delegation!.leadAgentId,
+      // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
       engineerAgentId: c.delegation!.engineerAgentId,
       bindingDigest: bindingDigest(b),
       contextSha256: digest(contextId),
@@ -245,6 +249,7 @@ export async function delegateRender(
     try {
       warn(message);
     } catch {
+      // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
       console.warn(message);
     } // Logging failure never permits the result.
     throw new Error(reason === 'task_context_mismatch' ? 'delegation_denied' : 'delegation_result_invalid');
@@ -403,6 +408,7 @@ export async function delegateTask(
   task: EngineeringTask,
   fetcher: typeof fetch = fetch,
   wait = (ms: number) => new Promise((r) => setTimeout(r, ms)),
+  // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
   warn: (message: string) => void = (message) => console.warn(message),
 ) {
   validateEngineeringTask(task);

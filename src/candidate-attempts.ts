@@ -298,6 +298,7 @@ export function warnCandidate(
   try {
     warn(message);
   } catch {
+    // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
     console.warn(message);
   }
 }

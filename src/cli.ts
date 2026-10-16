@@ -36,7 +36,9 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
           grantedScopes = store.read(true).scopes;
           store.read();
           connected = true;
-        } catch {}
+        } catch {
+          // An unreadable credential store is reported as not connected (fail closed).
+        }
         const binding = config.bindings.find((b) => b.connectionRef === name);
         process.stdout.write(
           `${JSON.stringify({
@@ -90,6 +92,7 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
           }
           await authorizeConnection(store, guard, (save) =>
             connect(
+              // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
               new Consent(config.oauth!.clientId, clientSecret, fetch, Date.now, undefined, requestedScopes),
               save,
             ),

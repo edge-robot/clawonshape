@@ -543,6 +543,7 @@ export class RestClient {
   }
 
   private candidateWarning(): CandidateAttemptWarning {
+    // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
     return this.preparation?.warn ?? ((message) => console.warn(message));
   }
 
@@ -561,6 +562,7 @@ export class RestClient {
     try {
       this.candidateWarning()(message);
     } catch {
+      // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
       console.warn(message);
     }
   }
@@ -660,6 +662,7 @@ export class RestClient {
         documentId: binding.documentId,
         primaryWorkspaceId: binding.primaryWorkspaceId,
         sourceWorkspaceId: binding.workspaceId,
+        // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
         sourceElementId: binding.elementId!,
         sourceMicroversionId,
         candidateWorkspaceId,
@@ -768,6 +771,7 @@ export class RestClient {
       documentId: binding.documentId,
       primaryWorkspaceId: binding.primaryWorkspaceId,
       sourceWorkspaceId: binding.workspaceId,
+      // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
       sourceElementId: binding.elementId!,
       sourceMicroversionId: input.sourceMicroversionId,
       requestDigest: createHash('sha256').update(JSON.stringify(body)).digest('hex'),
@@ -913,6 +917,7 @@ export class RestClient {
         return this.candidateSuccess(
           binding,
           record.sourceMicroversionId,
+          // biome-ignore lint/style/noNonNullAssertion: TODO(#9): invariant not provable locally; replace with an explicit fail-closed check
           record.candidateWorkspaceId!,
           baseline,
           record.featureCount,
