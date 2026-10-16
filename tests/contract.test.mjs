@@ -7,6 +7,7 @@ import {tmpdir} from 'node:os';
 import {registerHooks} from 'node:module';
 import {mutationStore} from '../dist/mutation-workflow.js';
 import {connectionOwner} from '../dist/config.js';
+import {messages, userError} from '../dist/readiness.js';
 
 // Only the private-file SDK is mocked, as in foundation.test.mjs. This file may load first.
 registerHooks({
@@ -38,7 +39,7 @@ registerHooks({
   },
 });
 
-const CONTRACT_VERSION = '0.3.0-draft';
+const CONTRACT_VERSION = '0.4.0-draft';
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./contract/${name}`, import.meta.url), 'utf8'));
 
 test('contract fixture copy has the version this plugin implements', async () => {
@@ -46,11 +47,6 @@ test('contract fixture copy has the version this plugin implements', async () =>
   assert.equal(version.split('\n')[0], CONTRACT_VERSION);
   assert.equal((await fixture('expectations.json')).contractVersion, CONTRACT_VERSION);
 });
-
-// Codes emitted by the mutation workflow that error-codes.json does not list yet. They are generic plugin
-// codes; adding them is a contract change request in the report of
-// docs/prompts/2026-10-16-mutation-context-and-expired-approval.md. Remove entries once the contract lists them.
-const PENDING_CONTRACT_CODES = ['authorization_changed', 'invalid_arguments', 'provider_protocol_error'];
 
 test('every code the mutation workflow can emit is listed in error-codes.json', async () => {
   const codes = await fixture('error-codes.json');
@@ -62,8 +58,20 @@ test('every code the mutation workflow can emit is listed in error-codes.json', 
   }
   assert(emitted.has('approval_expired_not_dispatched'), 'REJECTED reason must be emitted by the workflow');
   assert(emitted.has('mutation_outcome_unknown'));
+  assert(emitted.has('proposal_body_invalid'));
   const unlisted = [...emitted].filter((code) => !listed.has(code)).sort();
-  assert.deepEqual(unlisted, PENDING_CONTRACT_CODES);
+  assert.deepEqual(unlisted, []);
+});
+
+// §6 (0.4.0): plugin tools return every listed code unchanged in details.code, with an operator text.
+test('every contract error code has a message and passes through userError unchanged', async () => {
+  const codes = await fixture('error-codes.json');
+  for (const code of [...codes.plugin, ...codes.server]) {
+    assert(Object.hasOwn(messages, code), `missing message for ${code}`);
+    assert.equal(typeof messages[code], 'string');
+    assert(messages[code].length > 0);
+    assert.deepEqual(userError(new Error(code)), {code, message: messages[code]});
+  }
 });
 
 // Minimal, dependency-free check of the onshape_api_call inputSchema parts the execution context uses.

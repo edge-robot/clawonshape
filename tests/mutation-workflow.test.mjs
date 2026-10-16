@@ -414,3 +414,32 @@ test('executionContext is unavailable once the approval has expired', async () =
     await rm(r.root, {recursive: true, force: true});
   }
 });
+
+// §6 (0.4.0) and M20: the mutation tools build details with userError; listed codes must not collapse.
+test('mutation tool errors keep their code in details.code with an actionable text', async () => {
+  const {userError} = await import('../dist/readiness.js');
+  for (const code of [
+    'mutation_outcome_unknown',
+    'mutation_approval_unavailable',
+    'primary_revision_changed',
+    'proposal_body_invalid',
+    'revision_policy_denied',
+    'invalid_arguments',
+  ]) {
+    const details = userError(new Error(code));
+    assert.equal(details.code, code);
+    assert.notEqual(details.message, userError(new Error('unlisted_code')).message);
+  }
+  assert.equal(userError(new Error('unlisted_code')).code, 'onshape_unavailable');
+  assert.equal(userError('proposal_body_invalid').code, 'onshape_unavailable');
+  // Prototype keys are not codes.
+  for (const key of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+    assert.deepEqual(userError(new Error(key)), userError(new Error('unlisted_code')));
+  }
+  const body = userError(new Error('proposal_body_invalid')).message;
+  for (const field of ['getPartStudioFeatures', 'serializationVersion', 'libraryVersion', 'sourceMicroversion']) {
+    assert(body.includes(field), `proposal_body_invalid text must name ${field}`);
+  }
+  assert(body.includes('rejectMicroversionSkew: true'));
+  assert(!userError(new Error('invalid_arguments')).message.includes('target arguments'));
+});

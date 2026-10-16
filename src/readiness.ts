@@ -77,7 +77,59 @@ export const messages = {
   app_permission_write_unknown:
     'Write permission status is unknown for this Onshape OAuth application. Ask the operator to verify application permission settings.',
   agent_policy_denied: 'This operation is intentionally blocked by current Claw-Onshape agent policy.',
-  invalid_arguments: 'This capability accepts only the configured Camera Mount Plate; retry without target arguments.',
+  invalid_arguments: 'The tool arguments are malformed. Check the tool schema.',
+  // Contract §6 plugin codes (docs/interface/onshape-mcp.md 0.4.0-draft); passed through unchanged.
+  proposal_body_invalid:
+    'Submit the complete native v16 feature from getPartStudioFeatures for the bound feature, with ' +
+    'serializationVersion, libraryVersion, sourceMicroversion and rejectMicroversionSkew: true.',
+  mcp_execution_disabled: 'Native MCP execution is disabled for this plugin. Ask the operator to review the setup.',
+  mcp_discovery_failed: 'The native MCP server could not be discovered. Ask the operator to inspect the MCP status.',
+  invalid_mcp_server: 'The native MCP server configuration is invalid. Ask the operator to fix it.',
+  native_mcp_status_unavailable:
+    'The native MCP status is unavailable or could not be parsed. Ask the operator to inspect it.',
+  mutation_reconciliation_required:
+    'An earlier approved update has an unknown outcome. Reconcile it with onshape_reconcile_update first.',
+  mutation_approval_unavailable:
+    'No current approval exists for this proposal. Ask the operator to approve it, or create a new proposal.',
+  primary_revision_changed:
+    'The Primary workspace changed during the update. Stop and escalate to the operator; do not retry.',
+  mutation_outcome_unknown:
+    'The update outcome is not known yet. Do not repeat the update; reconcile again later or ask the operator.',
+  mutation_verification_mismatch:
+    'The Candidate changed but does not match the approved update. Stop and escalate to the operator.',
+  protected_primary_workspace: 'The Primary workspace is protected. Only the Candidate workspace can be changed.',
+  mcp_credential_unavailable:
+    'The Onshape credential for the native MCP server is unavailable. Ask the operator to reconnect Onshape.',
+  mcp_credential_handoff_unavailable:
+    'The credential handoff to the native MCP server is unavailable. Ask the operator to check its private directory.',
+  // Contract §6 server codes; the plugin may observe them through the native MCP client.
+  external_token_tool_denied: 'This MCP tool is not available in external-token mode. Choose a different tool.',
+  external_token_read_policy_denied:
+    'This read is outside the allowed MCP read set. Correct the request shape; new consent will not help.',
+  target_policy_denied: 'This update is outside the MCP target policy. Escalate to the operator.',
+  revision_policy_denied:
+    'The update does not match the current Candidate baseline. Re-read the feature natively and create a new ' +
+    'proposal with the current sourceMicroversion and rejectMicroversionSkew: true.',
+  target_configuration_invalid: 'The MCP target configuration is invalid. Ask the operator to fix it.',
+  external_token_configuration_invalid: 'The MCP external-token configuration is invalid. Ask the operator to fix it.',
+  mutation_approval_mismatch:
+    'The approval expired or does not match the submitted update. Create a new proposal and approval.',
+  external_private_file_unavailable:
+    'A private MCP handoff file failed its ownership or mode checks. Ask the operator to fix it.',
+  external_token_unavailable:
+    'The MCP server has no valid Onshape access token. Ask the operator to check the plugin connection.',
+  external_token_expired: 'The MCP access token has expired. Wait for the plugin to refresh it, then try again.',
+  external_token_write_scope_missing:
+    'REST write access has not been granted. Ask the operator to reconnect Onshape with write consent.',
+  external_token_client_unavailable: 'The MCP server could not build its Onshape client. Ask the operator.',
+  external_token_request_failed: 'The MCP read request failed. You may retry the read.',
+  mutation_outcome_unknown_reconcile_required:
+    'The update outcome is unknown. Never retry it; call onshape_reconcile_update first.',
+  external_token_auth_owned_externally: 'MCP authentication is managed by the plugin. No login is needed.',
+  external_token_local_url_required: 'The MCP server requires a local URL. Ask the operator to fix the setup.',
+  external_token_local_url_invalid: 'The MCP server local URL is invalid. Ask the operator to fix the setup.',
+  external_token_validation_unavailable:
+    'The MCP server could not validate its token setup. Ask the operator to fix the setup.',
   onshape_unavailable: 'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
   oauth_reconnect_required: 'Onshape authorization did not complete. Choose Connect Onshape to retry.',
   oauth_connect_expired: 'Onshape authorization timed out. Choose Connect Onshape to retry.',
@@ -89,9 +141,11 @@ export type ReadinessCode = keyof typeof messages;
 export function state(code: ReadinessCode) {
   return {code, message: messages[code]};
 }
+const isReadinessCode = (value: string): value is ReadinessCode => Object.hasOwn(messages, value);
+// Contract §6 (0.4.0): every listed code reaches details.code unchanged; only unknown codes collapse.
+// Own keys only, so prototype names such as "toString" never become codes.
 export function userError(error: unknown) {
-  const code =
-    error instanceof Error && error.message in messages ? (error.message as ReadinessCode) : 'onshape_unavailable';
+  const code = error instanceof Error && isReadinessCode(error.message) ? error.message : 'onshape_unavailable';
   return state(code);
 }
 
