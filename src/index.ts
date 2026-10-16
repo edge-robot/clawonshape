@@ -1,229 +1,734 @@
-import {sameBinding,sameOAuth,sameDelegation,sameAuthorizedBinding} from './authorization-snapshot.ts';
-import type {AnyAgentTool,OpenClawPluginApi,OpenClawPluginToolContext} from 'openclaw/plugin-sdk/core';
-import {parseConfig,connectionOwner,id} from './config.ts';
-import {RestClient,validateFeatureObservation,validateFeatureReadEvidence} from './rest.ts';
+import {sameBinding, sameOAuth, sameDelegation, sameAuthorizedBinding} from './authorization-snapshot.ts';
+import type {AnyAgentTool, OpenClawPluginApi, OpenClawPluginToolContext} from 'openclaw/plugin-sdk/core';
+import {parseConfig, connectionOwner, id} from './config.ts';
+import {RestClient, validateFeatureObservation, validateFeatureReadEvidence} from './rest.ts';
 import type {FeatureReadEvidence} from './rest.ts';
 import {credentials} from './credentials.ts';
 import {registerCli} from './cli.ts';
 import {registerDashboard} from './dashboard.ts';
-import {state,userError} from './readiness.ts';
-import {authorizedBinding,leadBinding,delegateRender,delegateTask,validateEngineeringTask,verifyTaskEnvelope,delegationKeySync,signResult} from './delegation.ts';
-import {saveRender,readRender,imageHash} from './render.ts';
+import {state, userError} from './readiness.ts';
+import {
+  authorizedBinding,
+  leadBinding,
+  delegateRender,
+  delegateTask,
+  validateEngineeringTask,
+  verifyTaskEnvelope,
+  delegationKeySync,
+  signResult,
+} from './delegation.ts';
+import {saveRender, readRender, imageHash} from './render.ts';
 import {accessToken} from './authorization.ts';
 import {mcpTokenOwner} from './mcp-token-owner.ts';
 import {mutationStore} from './mutation-workflow.ts';
 import path from 'node:path';
 export default {
-  id:'claw-onshape',name:'Claw-Onshape',
-  register(api:OpenClawPluginApi) {
-    const config=parseConfig(api.pluginConfig);
-    const current=() => {
-      const entry=api.runtime.config.current().plugins?.entries?.['claw-onshape'];
-      if(entry?.enabled!==true) throw new Error('authorization_changed');
+  id: 'claw-onshape',
+  name: 'Claw-Onshape',
+  register(api: OpenClawPluginApi) {
+    const config = parseConfig(api.pluginConfig);
+    const current = () => {
+      const entry = api.runtime.config.current().plugins?.entries?.['claw-onshape'];
+      if (entry?.enabled !== true) throw new Error('authorization_changed');
       return parseConfig(entry.config);
     };
-    registerCli(api,config);
-    if(config.localMcp){
-      const owner=mcpTokenOwner(current,()=>api.runtime.state.resolveStateDir());
-      api.lifecycle.registerRuntimeLifecycle({id:'onshape-mcp-access-owner',dispose:owner.dispose,cleanup:owner.dispose});
-      void owner.sync().catch(()=>{});
+    registerCli(api, config);
+    if (config.localMcp) {
+      const owner = mcpTokenOwner(current, () => api.runtime.state.resolveStateDir());
+      api.lifecycle.registerRuntimeLifecycle({
+        id: 'onshape-mcp-access-owner',
+        dispose: owner.dispose,
+        cleanup: owner.dispose,
+      });
+      void owner.sync().catch(() => {});
     }
-    const lifecycle=registerDashboard(api,current);
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>) => {
-      const initial=authorizedBinding(config,ctx)?.binding;if(!initial) return null;
-      return {
-        name:'onshape_inspect',label:'Inspect active Onshape workspace',
-        description:'Read document/workspace membership and element identifiers for your configured Onshape context.',
-        // Native runtime accepts JSON Schema. The SDK types carry TypeBox metadata
-        // which this dependency-free, empty object schema does not need at runtime.
-        parameters:{type:'object',properties:{},additionalProperties:false} as AnyAgentTool['parameters'],
-        async execute(_callId:string,params:unknown) {
-          const guard=() => {
-            ctx.assertInvocationCurrent?.();
-            const c=current();const b=authorizedBinding(c,ctx)?.binding;
-            if(!b || !sameBinding(b,initial)) throw new Error('authorization_changed');
-            if(!c.liveReads) throw new Error('live_reads_disabled');
-            return b;
+    const lifecycle = registerDashboard(api, current);
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const initial = authorizedBinding(config, ctx)?.binding;
+          if (!initial) return null;
+          return {
+            name: 'onshape_inspect',
+            label: 'Inspect active Onshape workspace',
+            description:
+              'Read document/workspace membership and element identifiers for your configured Onshape context.',
+            // Native runtime accepts JSON Schema. The SDK types carry TypeBox metadata
+            // which this dependency-free, empty object schema does not need at runtime.
+            parameters: {type: 'object', properties: {}, additionalProperties: false} as AnyAgentTool['parameters'],
+            async execute(_callId: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                const c = current();
+                const b = authorizedBinding(c, ctx)?.binding;
+                if (!b || !sameBinding(b, initial)) throw new Error('authorization_changed');
+                if (!c.liveReads) throw new Error('live_reads_disabled');
+                return b;
+              };
+              try {
+                if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length)
+                  throw new Error('invalid_arguments');
+                const b = guard();
+                const store = await credentials(
+                  api.runtime.state.resolveStateDir(),
+                  b.connectionRef,
+                  connectionOwner(b),
+                  current().localMcp?.connectionRef === b.connectionRef
+                    ? current().localMcp?.credentialDirectory
+                    : undefined,
+                );
+                let usedToken: string | undefined;
+                const oauth = current().oauth;
+                const tokenGuard = () => {
+                  guard();
+                  if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                };
+                const client = new RestClient(async () => {
+                  usedToken = await accessToken(store, oauth, tokenGuard);
+                  return usedToken;
+                });
+                let result;
+                try {
+                  result = await client.inspect(b);
+                } catch (e) {
+                  if (e instanceof Error && e.message === 'reconnect_required' && usedToken) {
+                    try {
+                      await store.exclusive(async () => {
+                        if (store.read().accessToken === usedToken) await store.save(null);
+                      });
+                    } catch {}
+                  }
+                  throw e;
+                }
+                guard();
+                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                return {content: [{type: 'text' as const, text: JSON.stringify(result)}], details: result};
+              } catch (e) {
+                const result = userError(e);
+                return {
+                  content: [{type: 'text' as const, text: result.message}],
+                  details: {error: result.code, ...result},
+                  isError: true,
+                };
+              }
+            },
           };
-          try {
-            if(!params || typeof params!=='object' || Array.isArray(params) || Object.keys(params).length) throw new Error('invalid_arguments');
-            const b=guard();
-            const store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),current().localMcp?.connectionRef===b.connectionRef?current().localMcp?.credentialDirectory:undefined);
-            let usedToken:string | undefined;
-            const oauth=current().oauth;
-            const tokenGuard=()=>{guard();if(!sameOAuth(current().oauth,oauth))throw new Error('authorization_changed');};
-            const client=new RestClient(async() => {usedToken=await accessToken(store,oauth,tokenGuard);return usedToken;});
-            let result;
-            try{result=await client.inspect(b);}catch(e){
-              if(e instanceof Error && e.message==='reconnect_required' && usedToken) {
-                try{await store.exclusive(async() => {if(store.read().accessToken===usedToken) await store.save(null);});}catch{}
-              }
-              throw e;
-            }
-            guard();
-            if(store.read().accessToken!==usedToken) throw new Error('authorization_changed');
-            return {content:[{type:'text' as const,text:JSON.stringify(result)}],details:result};
-          } catch(e) {
-            const result=userError(e);
-            return {content:[{type:'text' as const,text:result.message}],details:{error:result.code,...result},isError:true};
-          }
-        }
-      };
-    }},{optional:true});
-    const emptySchema={type:'object',properties:{},additionalProperties:false} as AnyAgentTool['parameters'];
-    const noArgs=(params:unknown)=>{if(!params||typeof params!=='object'||Array.isArray(params)||Object.keys(params).length)throw new Error('invalid_arguments');};
-    const signedDetails=(ctx:OpenClawPluginToolContext,details:Record<string,unknown>)=>{
-      const c=current(),auth=authorizedBinding(c,ctx);
-      return auth?.contextId?{...details,delegationProof:signResult(details,auth.contextId,delegationKeySync(c))}:details;
+        },
+      },
+      {optional: true},
+    );
+    const emptySchema = {type: 'object', properties: {}, additionalProperties: false} as AnyAgentTool['parameters'];
+    const noArgs = (params: unknown) => {
+      if (!params || typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length)
+        throw new Error('invalid_arguments');
     };
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const b=leadBinding(config,ctx);if(!b)return null;
-      return {name:'onshape_delegate_task',label:'Delegate engineering task',
-        description:'Delegate a freely formulated inspect, edit or verify task to Mechanical Engineer and its Workshop skills. The host signs the exact request; an edit request alone does not approve CAD writes.',
-        parameters:{type:'object',properties:{workflow:{type:'string',enum:['inspect','edit','verify']},task:{type:'string',minLength:1,maxLength:8000},approvalId:{type:'string',description:'Previously operator-approved proposal to execute; optional for edit.'}},required:['workflow','task'],additionalProperties:false} as AnyAgentTool['parameters'],
-        async execute(_id:string,params:unknown){
-          const guard=()=>{ctx.assertInvocationCurrent?.();if(!sameBinding(leadBinding(current(),ctx),b)||!sameDelegation(current().delegation,config.delegation))throw new Error('authorization_changed');};
-          try{validateEngineeringTask(params);guard();const details=await delegateTask(current(),b,guard,params,undefined,undefined,message=>api.logger.warn(message));guard();
-            return {content:[{type:'text' as const,text:JSON.stringify(details)}],details,...(['blocked','unavailable'].includes(details.status as string)?{isError:true}:{})};
-          }catch(e){const details=userError(e);return {content:[{type:'text' as const,text:details.message}],details,isError:true};}
-        }};
-    }},{optional:true});
-    for(const operation of ['propose','context','reconcile'] as const){
-      api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-        const initial=authorizedBinding(config,ctx);if(!initial?.contextId)return null;
-        const name={propose:'onshape_propose_update',context:'onshape_mutation_context',reconcile:'onshape_reconcile_update'}[operation];
-        return {name,label:name,
-          description:operation==='propose'?'Record a complete Candidate feature update proposal for operator review; performs no CAD write.':operation==='context'?'Get the exact approved native updatePartStudioFeature context for this signed task; performs no MCP call.':'Independently reconcile Candidate parameters/state and Primary preservation after a native update; never retries a write.',
-          parameters:{type:'object',properties:{request:{type:'object',additionalProperties:true},...(operation==='propose'?{body:{type:'object',additionalProperties:true},summary:{type:'string',minLength:1,maxLength:6000}}:{proposalId:{type:'string'}})},required:operation==='propose'?['request','body','summary']:['request','proposalId'],additionalProperties:false} as AnyAgentTool['parameters'],
-          async execute(_id:string,params:unknown){
-            const guard=()=>{ctx.assertInvocationCurrent?.();const auth=authorizedBinding(current(),ctx);if(!auth||!sameAuthorizedBinding(auth,initial))throw new Error('authorization_changed');return auth.binding;};
-            try{
-              if(!params||typeof params!=='object'||Array.isArray(params))throw new Error('invalid_arguments');
-              const p=params as {request:unknown;body:unknown;summary:string;proposalId:string};const b=guard(),c=current();
-              verifyTaskEnvelope(p.request,b,initial.contextId!,delegationKeySync(c));
-              if(p.request.workflow!=='edit'&&operation!=='reconcile')throw new Error('invalid_arguments');
-              if(b.workspaceId===b.primaryWorkspaceId)throw new Error('protected_primary_workspace');
-              if(!c.liveReads||!c.localMcp)throw new Error('live_reads_disabled');
-              const store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),c.localMcp.credentialDirectory);
-              const tokenGuard=()=>{guard();if(!sameOAuth(current().oauth,c.oauth))throw new Error('authorization_changed');};
-              const client=new RestClient(()=>accessToken(store,c.oauth,tokenGuard));
-              const proposals=await mutationStore(api.runtime.state.resolveStateDir(),b);
-              let result:object;
-              if(operation==='propose')result=await proposals.propose(p.request,p.body,p.summary,client);
-              else{
-                if(operation==='context'&&p.request.approvalId!==p.proposalId)throw new Error('mutation_approval_unavailable');
-                result=operation==='context'?await proposals.executionContext(p.proposalId):await proposals.reconcile(p.proposalId,client,path.join(c.localMcp.credentialDirectory,'mutation-approvals'));
+    const signedDetails = (ctx: OpenClawPluginToolContext, details: Record<string, unknown>) => {
+      const c = current(),
+        auth = authorizedBinding(c, ctx);
+      return auth?.contextId
+        ? {...details, delegationProof: signResult(details, auth.contextId, delegationKeySync(c))}
+        : details;
+    };
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const b = leadBinding(config, ctx);
+          if (!b) return null;
+          return {
+            name: 'onshape_delegate_task',
+            label: 'Delegate engineering task',
+            description:
+              'Delegate a freely formulated inspect, edit or verify task to Mechanical Engineer and its Workshop skills. The host signs the exact request; an edit request alone does not approve CAD writes.',
+            parameters: {
+              type: 'object',
+              properties: {
+                workflow: {type: 'string', enum: ['inspect', 'edit', 'verify']},
+                task: {type: 'string', minLength: 1, maxLength: 8000},
+                approvalId: {
+                  type: 'string',
+                  description: 'Previously operator-approved proposal to execute; optional for edit.',
+                },
+              },
+              required: ['workflow', 'task'],
+              additionalProperties: false,
+            } as AnyAgentTool['parameters'],
+            async execute(_id: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                if (
+                  !sameBinding(leadBinding(current(), ctx), b) ||
+                  !sameDelegation(current().delegation, config.delegation)
+                )
+                  throw new Error('authorization_changed');
+              };
+              try {
+                validateEngineeringTask(params);
+                guard();
+                const details = await delegateTask(current(), b, guard, params, undefined, undefined, (message) =>
+                  api.logger.warn(message),
+                );
+                guard();
+                return {
+                  content: [{type: 'text' as const, text: JSON.stringify(details)}],
+                  details,
+                  ...(['blocked', 'unavailable'].includes(details.status as string) ? {isError: true} : {}),
+                };
+              } catch (e) {
+                const details = userError(e);
+                return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
               }
-              guard();const details={status:'ok',...result};return {content:[{type:'text' as const,text:JSON.stringify(details)}],details};
-            }catch(e){const details=userError(e);return {content:[{type:'text' as const,text:details.message}],details,isError:true};}
-          }};
-      }},{optional:true});
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+    for (const operation of ['propose', 'context', 'reconcile'] as const) {
+      api.registerTool(
+        {
+          contextVersion: 2,
+          create: (ctx: OpenClawPluginToolContext<2>) => {
+            const initial = authorizedBinding(config, ctx);
+            if (!initial?.contextId) return null;
+            const name = {
+              propose: 'onshape_propose_update',
+              context: 'onshape_mutation_context',
+              reconcile: 'onshape_reconcile_update',
+            }[operation];
+            return {
+              name,
+              label: name,
+              description:
+                operation === 'propose'
+                  ? 'Record a complete Candidate feature update proposal for operator review; performs no CAD write.'
+                  : operation === 'context'
+                    ? 'Get the exact approved native updatePartStudioFeature context for this signed task; performs no MCP call.'
+                    : 'Independently reconcile Candidate parameters/state and Primary preservation after a native update; never retries a write.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  request: {type: 'object', additionalProperties: true},
+                  ...(operation === 'propose'
+                    ? {
+                        body: {type: 'object', additionalProperties: true},
+                        summary: {type: 'string', minLength: 1, maxLength: 6000},
+                      }
+                    : {proposalId: {type: 'string'}}),
+                },
+                required: operation === 'propose' ? ['request', 'body', 'summary'] : ['request', 'proposalId'],
+                additionalProperties: false,
+              } as AnyAgentTool['parameters'],
+              async execute(_id: string, params: unknown) {
+                const guard = () => {
+                  ctx.assertInvocationCurrent?.();
+                  const auth = authorizedBinding(current(), ctx);
+                  if (!auth || !sameAuthorizedBinding(auth, initial)) throw new Error('authorization_changed');
+                  return auth.binding;
+                };
+                try {
+                  if (!params || typeof params !== 'object' || Array.isArray(params))
+                    throw new Error('invalid_arguments');
+                  const p = params as {request: unknown; body: unknown; summary: string; proposalId: string};
+                  const b = guard(),
+                    c = current();
+                  verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
+                  if (p.request.workflow !== 'edit' && operation !== 'reconcile') throw new Error('invalid_arguments');
+                  if (b.workspaceId === b.primaryWorkspaceId) throw new Error('protected_primary_workspace');
+                  if (!c.liveReads || !c.localMcp) throw new Error('live_reads_disabled');
+                  const store = await credentials(
+                    api.runtime.state.resolveStateDir(),
+                    b.connectionRef,
+                    connectionOwner(b),
+                    c.localMcp.credentialDirectory,
+                  );
+                  const tokenGuard = () => {
+                    guard();
+                    if (!sameOAuth(current().oauth, c.oauth)) throw new Error('authorization_changed');
+                  };
+                  const client = new RestClient(() => accessToken(store, c.oauth, tokenGuard));
+                  const proposals = await mutationStore(api.runtime.state.resolveStateDir(), b);
+                  let result: object;
+                  if (operation === 'propose') result = await proposals.propose(p.request, p.body, p.summary, client);
+                  else {
+                    if (operation === 'context' && p.request.approvalId !== p.proposalId)
+                      throw new Error('mutation_approval_unavailable');
+                    result =
+                      operation === 'context'
+                        ? await proposals.executionContext(p.proposalId)
+                        : await proposals.reconcile(
+                            p.proposalId,
+                            client,
+                            path.join(c.localMcp.credentialDirectory, 'mutation-approvals'),
+                          );
+                  }
+                  guard();
+                  const details = {status: 'ok', ...result};
+                  return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
+                } catch (e) {
+                  const details = userError(e);
+                  return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
+                }
+              },
+            };
+          },
+        },
+        {optional: true},
+      );
     }
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const initial=authorizedBinding(config,ctx);if(!initial?.contextId)return null;
-      return {name:'onshape_complete_task',label:'Complete signed engineering task',
-        description:'Verify the Lead request signature and independently check arbitrary observed feature parameters/state, then sign the engineering report for A2A. Summary and plans remain agent interpretation; this tool never invokes MCP or grants a write.',
-        parameters:{type:'object',properties:{request:{type:'object',additionalProperties:true},status:{type:'string',enum:['ok','planned','blocked','unavailable']},summary:{type:'string',minLength:1,maxLength:6000},proposalId:{type:'string'},evidence:{type:'object',properties:{microversionId:{type:'string'},observations:{type:'array',minItems:1,maxItems:50,items:{type:'object',properties:{featureId:{type:'string'},featureStatus:{type:'string'},parameterId:{type:'string'},expression:{type:'string'}},required:['featureId','featureStatus'],additionalProperties:false}}},required:['microversionId','observations'],additionalProperties:false}},required:['request','status','summary'],additionalProperties:false} as AnyAgentTool['parameters'],
-        async execute(_id:string,params:unknown){
-          const guard=()=>{ctx.assertInvocationCurrent?.();const a=authorizedBinding(current(),ctx);if(!a||!sameAuthorizedBinding(a,initial))throw new Error('authorization_changed');return a.binding;};
-          try{
-            if(!params||typeof params!=='object'||Array.isArray(params)||Object.keys(params).some(k=>!['request','status','summary','evidence','proposalId'].includes(k)))throw new Error('invalid_arguments');
-            const p=params as {request:unknown;status:string;summary:string;proposalId?:string;evidence?:FeatureReadEvidence};
-            if(!['ok','planned','blocked','unavailable'].includes(p.status)||typeof p.summary!=='string'||!p.summary.trim()||p.summary.length>6000)throw new Error('invalid_arguments');
-            const b=guard(),c=current();verifyTaskEnvelope(p.request,b,initial.contextId!,delegationKeySync(c));
-            let mutationOutcome:string|undefined;
-            if(p.proposalId){const proposals=await mutationStore(api.runtime.state.resolveStateDir(),b);mutationOutcome=(await proposals.read(p.proposalId)).status;}
-            let verified:object|undefined;
-            if(p.evidence){
-              validateFeatureReadEvidence(p.evidence);if(!c.liveReads)throw new Error('live_reads_disabled');
-              const store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),c.localMcp?.credentialDirectory);
-              const oauth=c.oauth;let usedToken:string|undefined;
-              const tokenGuard=()=>{guard();if(!sameOAuth(current().oauth,oauth))throw new Error('authorization_changed');};
-              const client=new RestClient(async()=>{usedToken=await accessToken(store,oauth,tokenGuard);return usedToken;});
-              verified=await client.verifyFeatureEvidence(b,p.evidence);guard();if(store.read().accessToken!==usedToken)throw new Error('authorization_changed');
-            }
-            const details=signedDetails(ctx,{status:p.status,summary:p.summary,requestId:p.request.requestId,requestHash:p.request.requestHash,workflow:p.request.workflow,...(p.proposalId?{proposalId:p.proposalId,mutationOutcome}:{}),summaryVerification:'agent_interpretation',documentId:b.documentId,workspaceId:b.workspaceId,elementId:b.elementId,
-              ...(verified?{evidence:verified}:{}),verification:verified?'independent_rest_match':'agent_report',onshapeUrl:`https://cad.onshape.com/documents/${b.documentId}/w/${b.workspaceId}/e/${b.elementId}`});
-            return {content:[{type:'text' as const,text:JSON.stringify(details)}],details};
-          }catch(e){const details=userError(e);return {content:[{type:'text' as const,text:details.message}],details,isError:true};}
-        }};
-    }},{optional:true});
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const initial=authorizedBinding(config,ctx);if(!initial)return null;
-      return {name:'onshape_verify_feature_read',label:'Verify native Onshape feature observation',
-        description:'Independently verify a live native MCP plateWidth/feature state observation against the configured Onshape target. Call native MCP first; this tool never invokes MCP or modifies CAD.',
-        parameters:{type:'object',properties:{microversionId:{type:'string'},featureId:{type:'string'},plateWidth:{type:'string'},featureStatus:{type:'string'}},required:['microversionId','featureId','plateWidth','featureStatus'],additionalProperties:false} as AnyAgentTool['parameters'],
-        async execute(_id:string,params:unknown){
-          const guard=()=>{ctx.assertInvocationCurrent?.();const c=current(),a=authorizedBinding(c,ctx);if(!a||!sameAuthorizedBinding(a,initial))throw new Error('authorization_changed');if(!c.liveReads)throw new Error('live_reads_disabled');return a.binding;};
-          try{validateFeatureObservation(params);const b=guard(),c=current();
-            const store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),c.localMcp?.connectionRef===b.connectionRef?c.localMcp.credentialDirectory:undefined);
-            const oauth=c.oauth;const tokenGuard=()=>{guard();if(!sameOAuth(current().oauth,oauth))throw new Error('authorization_changed');};
-            let usedToken:string|undefined;
-            const client=new RestClient(async()=>{usedToken=await accessToken(store,oauth,tokenGuard);return usedToken;});
-            const verified=await client.verifyFeatureRead(b,params);guard();if(store.read().accessToken!==usedToken)throw new Error('authorization_changed');
-            const details=signedDetails(ctx,verified);return {content:[{type:'text' as const,text:JSON.stringify(details)}],details};
-          }catch(e){let details:Record<string,unknown>={status:'unavailable',...userError(e)};try{details=signedDetails(ctx,details);}catch{}return {content:[{type:'text' as const,text:JSON.stringify(details)}],details,isError:true};}
-        }};
-    }},{optional:true});
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const b=leadBinding(config,ctx);if(!b)return null;
-      return {name:'onshape_delegate_inspect',label:'Ask Mechanical Engineer for live plate inspection',
-        description:'Delegate a read-only native MCP Camera Mount Plate inspection over authenticated A2A and verify the signed independent REST evidence. Reports current width, feature state and revision.',parameters:emptySchema,
-        async execute(_id:string,params:unknown){
-          const guard=()=>{ctx.assertInvocationCurrent?.();const c=current();if(!sameBinding(leadBinding(c,ctx),b)||!sameDelegation(c.delegation,config.delegation))throw new Error('authorization_changed');};
-          try{noArgs(params);guard();const details=await delegateRender(current(),b,guard,undefined,undefined,message=>api.logger.warn(message),true);guard();
-            if(details.status==='ok'){
-              if(details.documentId!==b.documentId||details.workspaceId!==b.workspaceId||details.elementId!==b.elementId||details.verification!=='independent_rest_match')throw new Error('delegation_denied');
-              validateFeatureObservation({microversionId:details.microversionId,featureId:details.featureId,plateWidth:details.plateWidth,featureStatus:details.featureStatus});
-            }
-            return {content:[{type:'text' as const,text:JSON.stringify(details)}],details,...(details.status!=='ok'?{isError:true}:{})};
-          }catch(e){const details=userError(e);return {content:[{type:'text' as const,text:details.message}],details,isError:true};}
-        }};
-    }},{optional:true});
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const auth=authorizedBinding(config,ctx);
-      const engineer=config.engineerAgentId??config.delegation?.engineerAgentId??'clawcad-mechanical-engineer';
-      if(!auth && (ctx.agentId!==engineer||config.bindings.length))return null;
-      return {name:'onshape_status',label:'Claw-Onshape readiness',description:'Explain connection readiness and native dashboard onboarding without reading CAD or exposing credentials.',parameters:emptySchema,
-        async execute(_id:string,params:unknown){
-          try{noArgs(params);ctx.assertInvocationCurrent?.();const c=current();const selected=authorizedBinding(c,ctx);
-            if(auth && (!selected||!sameAuthorizedBinding(auth,selected)))throw new Error('authorization_changed');
-            const details=signedDetails(ctx,await lifecycle.status(selected?.binding.connectionRef));
-            return {content:[{type:'text' as const,text:JSON.stringify(details)}],details};
-          }catch(e){const details=userError(e);return {content:[{type:'text' as const,text:details.message}],details,isError:true};}
-        }};
-    }},{optional:true});
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const initial=authorizedBinding(config,ctx);if(!initial)return null;
-      return {name:'onshape_render',label:'Show Camera Mount Plate',description:'Inspect the configured Camera Mount Plate and return its current Onshape PNG view pinned to the inspected microversion. No CAD writes.',parameters:emptySchema,
-        async execute(_id:string,params:unknown){
-          const guard=()=>{ctx.assertInvocationCurrent?.();const c=current(),a=authorizedBinding(c,ctx);if(!a||!sameAuthorizedBinding(a,initial))throw new Error('authorization_changed');if(!c.liveReads)throw new Error('live_reads_disabled');return a.binding;};
-          try{noArgs(params);const b=guard(),store=await credentials(api.runtime.state.resolveStateDir(),b.connectionRef,connectionOwner(b),current().localMcp?.connectionRef===b.connectionRef?current().localMcp?.credentialDirectory:undefined);
-            const oauth=current().oauth;
-            const tokenGuard=()=>{guard();if(!sameOAuth(current().oauth,oauth))throw new Error('authorization_changed');};
-            let usedToken:string|undefined;const client=new RestClient(async()=>{usedToken=await accessToken(store,oauth,tokenGuard);return usedToken;});
-            const {bytes,metadata}=await client.render(b);guard();if(store.read().accessToken!==usedToken)throw new Error('authorization_changed');
-            if(!ctx.workspaceDir)throw new Error('credential_store_unavailable');const filePath=await saveRender(ctx.workspaceDir,bytes);
-            guard();if(store.read().accessToken!==usedToken)throw new Error('authorization_changed');
-            const details=signedDetails(ctx,{...metadata,filePath,sha256:imageHash(bytes),bytes:bytes.length});
-            return {content:[{type:'text' as const,text:JSON.stringify(details)},{type:'image' as const,data:bytes.toString('base64'),mimeType:'image/png'}],details};
-          }catch(e){const explanation=userError(e);let details:Record<string,unknown>={status:'unavailable',...explanation};
-            try{details=signedDetails(ctx,details);}catch{}return {content:[{type:'text' as const,text:JSON.stringify(details)}],details,isError:true};}
-        }};
-    }},{optional:true});
-    api.registerTool({contextVersion:2,create:(ctx:OpenClawPluginToolContext<2>)=>{
-      const b=leadBinding(config,ctx);if(!b)return null;
-      return {name:'onshape_delegate_render',label:'Ask Mechanical Engineer for Camera Mount Plate',description:'Delegate a configured, requester-authorized read/render task to the Mechanical Engineer over native A2A. Lead receives no Onshape credential or direct CAD capability.',parameters:emptySchema,
-        async execute(_id:string,params:unknown){
-          const guard=()=>{ctx.assertInvocationCurrent?.();const c=current();if(!sameBinding(leadBinding(c,ctx),b)||!sameDelegation(c.delegation,config.delegation))throw new Error('authorization_changed');};
-          try{noArgs(params);guard();const details=await delegateRender(current(),b,guard,undefined,undefined,message=>api.logger.warn(message));guard();
-            if(details.status!=='ok')return {content:[{type:'text' as const,text:typeof details.message==='string'?details.message:'The Mechanical Engineer could not load the Camera Mount Plate.'}],details,isError:true};
-            if(details.documentId!==b.documentId||details.workspaceId!==b.workspaceId||details.elementId!==b.elementId||!id(details.microversionId)||typeof details.filePath!=='string'||typeof details.sha256!=='string'||!ctx.workspaceDir)throw new Error('delegation_denied');
-            const bytes=await readRender(ctx.workspaceDir,details.filePath,details.sha256);guard();
-            if(ctx.delivery){await ctx.delivery.send({text:`Camera Mount Plate — current inspected revision ${details.microversionId}. ${details.onshapeUrl}`,mediaUrl:details.filePath});guard();details.delivered=true;}
-            return {content:[{type:'text' as const,text:JSON.stringify(details)},{type:'image' as const,data:bytes.toString('base64'),mimeType:'image/png'}],details};
-          }catch(e){const details=userError(e);return {content:[{type:'text' as const,text:details.message}],details,isError:true};}
-        }};
-    }},{optional:true});
-  }
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const initial = authorizedBinding(config, ctx);
+          if (!initial?.contextId) return null;
+          return {
+            name: 'onshape_complete_task',
+            label: 'Complete signed engineering task',
+            description:
+              'Verify the Lead request signature and independently check arbitrary observed feature parameters/state, then sign the engineering report for A2A. Summary and plans remain agent interpretation; this tool never invokes MCP or grants a write.',
+            parameters: {
+              type: 'object',
+              properties: {
+                request: {type: 'object', additionalProperties: true},
+                status: {type: 'string', enum: ['ok', 'planned', 'blocked', 'unavailable']},
+                summary: {type: 'string', minLength: 1, maxLength: 6000},
+                proposalId: {type: 'string'},
+                evidence: {
+                  type: 'object',
+                  properties: {
+                    microversionId: {type: 'string'},
+                    observations: {
+                      type: 'array',
+                      minItems: 1,
+                      maxItems: 50,
+                      items: {
+                        type: 'object',
+                        properties: {
+                          featureId: {type: 'string'},
+                          featureStatus: {type: 'string'},
+                          parameterId: {type: 'string'},
+                          expression: {type: 'string'},
+                        },
+                        required: ['featureId', 'featureStatus'],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ['microversionId', 'observations'],
+                  additionalProperties: false,
+                },
+              },
+              required: ['request', 'status', 'summary'],
+              additionalProperties: false,
+            } as AnyAgentTool['parameters'],
+            async execute(_id: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                const a = authorizedBinding(current(), ctx);
+                if (!a || !sameAuthorizedBinding(a, initial)) throw new Error('authorization_changed');
+                return a.binding;
+              };
+              try {
+                if (
+                  !params ||
+                  typeof params !== 'object' ||
+                  Array.isArray(params) ||
+                  Object.keys(params).some(
+                    (k) => !['request', 'status', 'summary', 'evidence', 'proposalId'].includes(k),
+                  )
+                )
+                  throw new Error('invalid_arguments');
+                const p = params as {
+                  request: unknown;
+                  status: string;
+                  summary: string;
+                  proposalId?: string;
+                  evidence?: FeatureReadEvidence;
+                };
+                if (
+                  !['ok', 'planned', 'blocked', 'unavailable'].includes(p.status) ||
+                  typeof p.summary !== 'string' ||
+                  !p.summary.trim() ||
+                  p.summary.length > 6000
+                )
+                  throw new Error('invalid_arguments');
+                const b = guard(),
+                  c = current();
+                verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
+                let mutationOutcome: string | undefined;
+                if (p.proposalId) {
+                  const proposals = await mutationStore(api.runtime.state.resolveStateDir(), b);
+                  mutationOutcome = (await proposals.read(p.proposalId)).status;
+                }
+                let verified: object | undefined;
+                if (p.evidence) {
+                  validateFeatureReadEvidence(p.evidence);
+                  if (!c.liveReads) throw new Error('live_reads_disabled');
+                  const store = await credentials(
+                    api.runtime.state.resolveStateDir(),
+                    b.connectionRef,
+                    connectionOwner(b),
+                    c.localMcp?.credentialDirectory,
+                  );
+                  const oauth = c.oauth;
+                  let usedToken: string | undefined;
+                  const tokenGuard = () => {
+                    guard();
+                    if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                  };
+                  const client = new RestClient(async () => {
+                    usedToken = await accessToken(store, oauth, tokenGuard);
+                    return usedToken;
+                  });
+                  verified = await client.verifyFeatureEvidence(b, p.evidence);
+                  guard();
+                  if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                }
+                const details = signedDetails(ctx, {
+                  status: p.status,
+                  summary: p.summary,
+                  requestId: p.request.requestId,
+                  requestHash: p.request.requestHash,
+                  workflow: p.request.workflow,
+                  ...(p.proposalId ? {proposalId: p.proposalId, mutationOutcome} : {}),
+                  summaryVerification: 'agent_interpretation',
+                  documentId: b.documentId,
+                  workspaceId: b.workspaceId,
+                  elementId: b.elementId,
+                  ...(verified ? {evidence: verified} : {}),
+                  verification: verified ? 'independent_rest_match' : 'agent_report',
+                  onshapeUrl: `https://cad.onshape.com/documents/${b.documentId}/w/${b.workspaceId}/e/${b.elementId}`,
+                });
+                return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
+              } catch (e) {
+                const details = userError(e);
+                return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
+              }
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const initial = authorizedBinding(config, ctx);
+          if (!initial) return null;
+          return {
+            name: 'onshape_verify_feature_read',
+            label: 'Verify native Onshape feature observation',
+            description:
+              'Independently verify a live native MCP plateWidth/feature state observation against the configured Onshape target. Call native MCP first; this tool never invokes MCP or modifies CAD.',
+            parameters: {
+              type: 'object',
+              properties: {
+                microversionId: {type: 'string'},
+                featureId: {type: 'string'},
+                plateWidth: {type: 'string'},
+                featureStatus: {type: 'string'},
+              },
+              required: ['microversionId', 'featureId', 'plateWidth', 'featureStatus'],
+              additionalProperties: false,
+            } as AnyAgentTool['parameters'],
+            async execute(_id: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                const c = current(),
+                  a = authorizedBinding(c, ctx);
+                if (!a || !sameAuthorizedBinding(a, initial)) throw new Error('authorization_changed');
+                if (!c.liveReads) throw new Error('live_reads_disabled');
+                return a.binding;
+              };
+              try {
+                validateFeatureObservation(params);
+                const b = guard(),
+                  c = current();
+                const store = await credentials(
+                  api.runtime.state.resolveStateDir(),
+                  b.connectionRef,
+                  connectionOwner(b),
+                  c.localMcp?.connectionRef === b.connectionRef ? c.localMcp.credentialDirectory : undefined,
+                );
+                const oauth = c.oauth;
+                const tokenGuard = () => {
+                  guard();
+                  if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                };
+                let usedToken: string | undefined;
+                const client = new RestClient(async () => {
+                  usedToken = await accessToken(store, oauth, tokenGuard);
+                  return usedToken;
+                });
+                const verified = await client.verifyFeatureRead(b, params);
+                guard();
+                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                const details = signedDetails(ctx, verified);
+                return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
+              } catch (e) {
+                let details: Record<string, unknown> = {status: 'unavailable', ...userError(e)};
+                try {
+                  details = signedDetails(ctx, details);
+                } catch {}
+                return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details, isError: true};
+              }
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const b = leadBinding(config, ctx);
+          if (!b) return null;
+          return {
+            name: 'onshape_delegate_inspect',
+            label: 'Ask Mechanical Engineer for live plate inspection',
+            description:
+              'Delegate a read-only native MCP Camera Mount Plate inspection over authenticated A2A and verify the signed independent REST evidence. Reports current width, feature state and revision.',
+            parameters: emptySchema,
+            async execute(_id: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                const c = current();
+                if (!sameBinding(leadBinding(c, ctx), b) || !sameDelegation(c.delegation, config.delegation))
+                  throw new Error('authorization_changed');
+              };
+              try {
+                noArgs(params);
+                guard();
+                const details = await delegateRender(
+                  current(),
+                  b,
+                  guard,
+                  undefined,
+                  undefined,
+                  (message) => api.logger.warn(message),
+                  true,
+                );
+                guard();
+                if (details.status === 'ok') {
+                  if (
+                    details.documentId !== b.documentId ||
+                    details.workspaceId !== b.workspaceId ||
+                    details.elementId !== b.elementId ||
+                    details.verification !== 'independent_rest_match'
+                  )
+                    throw new Error('delegation_denied');
+                  validateFeatureObservation({
+                    microversionId: details.microversionId,
+                    featureId: details.featureId,
+                    plateWidth: details.plateWidth,
+                    featureStatus: details.featureStatus,
+                  });
+                }
+                return {
+                  content: [{type: 'text' as const, text: JSON.stringify(details)}],
+                  details,
+                  ...(details.status !== 'ok' ? {isError: true} : {}),
+                };
+              } catch (e) {
+                const details = userError(e);
+                return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
+              }
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const auth = authorizedBinding(config, ctx);
+          const engineer =
+            config.engineerAgentId ?? config.delegation?.engineerAgentId ?? 'clawcad-mechanical-engineer';
+          if (!auth && (ctx.agentId !== engineer || config.bindings.length)) return null;
+          return {
+            name: 'onshape_status',
+            label: 'Claw-Onshape readiness',
+            description:
+              'Explain connection readiness and native dashboard onboarding without reading CAD or exposing credentials.',
+            parameters: emptySchema,
+            async execute(_id: string, params: unknown) {
+              try {
+                noArgs(params);
+                ctx.assertInvocationCurrent?.();
+                const c = current();
+                const selected = authorizedBinding(c, ctx);
+                if (auth && (!selected || !sameAuthorizedBinding(auth, selected)))
+                  throw new Error('authorization_changed');
+                const details = signedDetails(ctx, await lifecycle.status(selected?.binding.connectionRef));
+                return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
+              } catch (e) {
+                const details = userError(e);
+                return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
+              }
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const initial = authorizedBinding(config, ctx);
+          if (!initial) return null;
+          return {
+            name: 'onshape_render',
+            label: 'Show Camera Mount Plate',
+            description:
+              'Inspect the configured Camera Mount Plate and return its current Onshape PNG view pinned to the inspected microversion. No CAD writes.',
+            parameters: emptySchema,
+            async execute(_id: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                const c = current(),
+                  a = authorizedBinding(c, ctx);
+                if (!a || !sameAuthorizedBinding(a, initial)) throw new Error('authorization_changed');
+                if (!c.liveReads) throw new Error('live_reads_disabled');
+                return a.binding;
+              };
+              try {
+                noArgs(params);
+                const b = guard(),
+                  store = await credentials(
+                    api.runtime.state.resolveStateDir(),
+                    b.connectionRef,
+                    connectionOwner(b),
+                    current().localMcp?.connectionRef === b.connectionRef
+                      ? current().localMcp?.credentialDirectory
+                      : undefined,
+                  );
+                const oauth = current().oauth;
+                const tokenGuard = () => {
+                  guard();
+                  if (!sameOAuth(current().oauth, oauth)) throw new Error('authorization_changed');
+                };
+                let usedToken: string | undefined;
+                const client = new RestClient(async () => {
+                  usedToken = await accessToken(store, oauth, tokenGuard);
+                  return usedToken;
+                });
+                const {bytes, metadata} = await client.render(b);
+                guard();
+                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                if (!ctx.workspaceDir) throw new Error('credential_store_unavailable');
+                const filePath = await saveRender(ctx.workspaceDir, bytes);
+                guard();
+                if (store.read().accessToken !== usedToken) throw new Error('authorization_changed');
+                const details = signedDetails(ctx, {
+                  ...metadata,
+                  filePath,
+                  sha256: imageHash(bytes),
+                  bytes: bytes.length,
+                });
+                return {
+                  content: [
+                    {type: 'text' as const, text: JSON.stringify(details)},
+                    {type: 'image' as const, data: bytes.toString('base64'), mimeType: 'image/png'},
+                  ],
+                  details,
+                };
+              } catch (e) {
+                const explanation = userError(e);
+                let details: Record<string, unknown> = {status: 'unavailable', ...explanation};
+                try {
+                  details = signedDetails(ctx, details);
+                } catch {}
+                return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details, isError: true};
+              }
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+    api.registerTool(
+      {
+        contextVersion: 2,
+        create: (ctx: OpenClawPluginToolContext<2>) => {
+          const b = leadBinding(config, ctx);
+          if (!b) return null;
+          return {
+            name: 'onshape_delegate_render',
+            label: 'Ask Mechanical Engineer for Camera Mount Plate',
+            description:
+              'Delegate a configured, requester-authorized read/render task to the Mechanical Engineer over native A2A. Lead receives no Onshape credential or direct CAD capability.',
+            parameters: emptySchema,
+            async execute(_id: string, params: unknown) {
+              const guard = () => {
+                ctx.assertInvocationCurrent?.();
+                const c = current();
+                if (!sameBinding(leadBinding(c, ctx), b) || !sameDelegation(c.delegation, config.delegation))
+                  throw new Error('authorization_changed');
+              };
+              try {
+                noArgs(params);
+                guard();
+                const details = await delegateRender(current(), b, guard, undefined, undefined, (message) =>
+                  api.logger.warn(message),
+                );
+                guard();
+                if (details.status !== 'ok')
+                  return {
+                    content: [
+                      {
+                        type: 'text' as const,
+                        text:
+                          typeof details.message === 'string'
+                            ? details.message
+                            : 'The Mechanical Engineer could not load the Camera Mount Plate.',
+                      },
+                    ],
+                    details,
+                    isError: true,
+                  };
+                if (
+                  details.documentId !== b.documentId ||
+                  details.workspaceId !== b.workspaceId ||
+                  details.elementId !== b.elementId ||
+                  !id(details.microversionId) ||
+                  typeof details.filePath !== 'string' ||
+                  typeof details.sha256 !== 'string' ||
+                  !ctx.workspaceDir
+                )
+                  throw new Error('delegation_denied');
+                const bytes = await readRender(ctx.workspaceDir, details.filePath, details.sha256);
+                guard();
+                if (ctx.delivery) {
+                  await ctx.delivery.send({
+                    text: `Camera Mount Plate — current inspected revision ${details.microversionId}. ${details.onshapeUrl}`,
+                    mediaUrl: details.filePath,
+                  });
+                  guard();
+                  details.delivered = true;
+                }
+                return {
+                  content: [
+                    {type: 'text' as const, text: JSON.stringify(details)},
+                    {type: 'image' as const, data: bytes.toString('base64'), mimeType: 'image/png'},
+                  ],
+                  details,
+                };
+              } catch (e) {
+                const details = userError(e);
+                return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
+              }
+            },
+          };
+        },
+      },
+      {optional: true},
+    );
+  },
 };

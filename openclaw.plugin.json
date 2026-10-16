@@ -106,9 +106,7 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "required": [
-      "bindings"
-    ],
+    "required": ["bindings"],
     "properties": {
       "liveReads": {
         "type": "boolean",
@@ -117,10 +115,7 @@
       "oauth": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "clientId",
-          "clientSecretFile"
-        ],
+        "required": ["clientId", "clientSecretFile"],
         "properties": {
           "clientId": {
             "type": "string",
@@ -238,13 +233,7 @@
       "delegation": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "leadAgentId",
-          "engineerAgentId",
-          "peerSenderId",
-          "accountId",
-          "keyFile"
-        ],
+        "required": ["leadAgentId", "engineerAgentId", "peerSenderId", "accountId", "keyFile"],
         "properties": {
           "leadAgentId": {
             "type": "string",
@@ -279,10 +268,7 @@
       "localMcp": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "connectionRef",
-          "credentialDirectory"
-        ],
+        "required": ["connectionRef", "credentialDirectory"],
         "properties": {
           "connectionRef": {
             "type": "string",

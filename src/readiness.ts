@@ -1,65 +1,109 @@
 export const messages = {
-  feature_observation_mismatch:'The native MCP observation does not match a fresh independent Onshape read. No verified result is available.',
-  plugin_unavailable:'Claw-Onshape is unavailable. Ask the operator to enable it for the Mechanical Engineer.',
-  not_configured:'Claw-Onshape is installed, but no authorized user connection has been configured yet.',
-  oauth_configuration_required:'Claw-Onshape is installed, but the Onshape application has not been configured yet. Ask the operator to provision the application.',
-  dashboard_callback_required:'The operator needs to register and configure the OpenClaw dashboard OAuth callback before Connect can be used here.',
-  disconnected:'Onshape is not connected. Open Claw-Onshape in the Mechanical Engineer dashboard and choose Connect Onshape.',
-  authorization_in_progress:'Onshape authorization is in progress. Complete browser consent, then refresh the connection status.',
-  reconnect_required:'Your Onshape connection needs to be renewed. Choose Connect Onshape in the Mechanical Engineer dashboard.',
-  oauth_refresh_rejected:'Onshape rejected renewal of this connection. Choose Connect Onshape in the Mechanical Engineer dashboard to authorize again.',
-  oauth_refresh_response_invalid:'Onshape returned an invalid connection-renewal response. Ask the operator to inspect the diagnostic code and reconnect through the Mechanical Engineer dashboard.',
-  credential_store_unavailable:'The private connection store is unavailable. Ask the operator to check its ownership and permissions.',
-  target_missing:'No Camera Mount Plate Part Studio has been selected. Ask the operator to configure the target.',
-  live_reads_disabled:'Onshape is connected, but REST access has not been enabled for this user.',
-  connected:'Onshape is connected. The selected Camera Mount Plate still needs a successful provider read.',
-  ready:'Onshape is connected and the Camera Mount Plate is available.',
-  authorization_changed:'The authorization for this request has changed. Retry from your original authenticated session.',
-  delegation_denied:'This delegated request has no valid user authorization. Ask the operator to check the trusted Lead-to-Engineer delegation setup.',
-  delegation_result_invalid:'The Mechanical Engineer returned a result that could not be verified. Ask the operator to inspect the A2A result transport.',
-  provider_forbidden:'Onshape denied access to the selected Camera Mount Plate. Check that the connected account can read it.',
-  provider_not_found:'The selected Camera Mount Plate could not be found in Onshape.',
-  provider_rate_limited:'Onshape has reached its request limit. Please try again later.',
-  provider_unavailable:'Onshape is temporarily unavailable. Please try again later.',
-  provider_transport_error:'The Onshape request could not be completed. Please try again later.',
-  provider_protocol_error:'Onshape returned an unexpected response. The operator can inspect the diagnostic code.',
-  provider_image_invalid:'Onshape did not return a valid Camera Mount Plate image.',
-  workspace_not_in_document:'The selected workspace is not available in the configured document. Ask the operator to check the target.',
-  target_not_part_studio:'The selected element is not an available Part Studio. Ask the operator to check the Camera Mount Plate target.',
-  source_revision_missing:'The current CAD revision could not be identified. No image was rendered.',
-  source_revision_conflict:'The selected source revision changed before workspace preparation. Refresh and retry from the current revision.',
-  candidate_revision_conflict:'The candidate workspace does not match the verified source revision. It cannot be accepted as a fresh experimental baseline.',
-  candidate_not_isolated:'The candidate workspace must be separate from the source workspace. Select a dedicated experimental workspace.',
-  candidate_verification_pending:'A candidate workspace was created but has not passed verification. Reconcile the existing attempt before requesting another workspace.',
-  candidate_store_required:'Candidate creation requires a private persistent attempt store. Ask the operator to configure it.',
-  candidate_store_unavailable:'The private candidate attempt store is unavailable or invalid. Creation is blocked; ask the operator to inspect it.',
-  candidate_store_full:'The candidate attempt store has reached its bounded capacity. Creation is blocked; unresolved attempts must be preserved.',
-  candidate_preparation_busy:'Another preparation or a stale private lock blocks this operation. Ask the operator to check the attempt; do not repeat workspace creation.',
-  candidate_attempt_mismatch:'The supplied attempt does not match the recorded preparation. Use the original attempt reference.',
-  candidate_result_too_large:'The candidate result exceeded its size limit. Ask the operator to inspect the recorded attempt.',
-  provider_conflict:'Onshape reported a conflict. Inspect the operation state before starting another request.',
-  candidate_creation_unknown:'Workspace creation status is unknown after a transport interruption. Reconcile in Onshape before retrying.',
-  oauth_read_scope_missing:'REST read scope is missing. Reconnect Onshape with read consent.',
-  app_permission_read_disabled:'The application has document read permission disabled. Ask the operator to review its configuration.',
-  capability_result_too_large:'The capability summary exceeded its size limit. Ask the operator to inspect the diagnostic code.',
-  oauth_write_scope_missing:'REST write access has not been granted for this connection. Reconnect Onshape and explicitly authorize REST write access.',
-  app_permission_write_disabled:'The Onshape OAuth application has document write permission disabled. Ask the operator to review whether an approved task requires it.',
-  app_permission_write_unknown:'Write permission status is unknown for this Onshape OAuth application. Ask the operator to verify application permission settings.',
-  agent_policy_denied:'This operation is intentionally blocked by current Claw-Onshape agent policy.',
-  invalid_arguments:'This capability accepts only the configured Camera Mount Plate; retry without target arguments.',
-  onshape_unavailable:'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
-  oauth_reconnect_required:'Onshape authorization did not complete. Choose Connect Onshape to retry.',
-  oauth_connect_expired:'Onshape authorization timed out. Choose Connect Onshape to retry.',
-  connection_busy_or_state_unavailable:'Another connection action is active, or the private state directory is unavailable. Wait and refresh; ask the operator if it persists.',
+  feature_observation_mismatch:
+    'The native MCP observation does not match a fresh independent Onshape read. No verified result is available.',
+  plugin_unavailable: 'Claw-Onshape is unavailable. Ask the operator to enable it for the Mechanical Engineer.',
+  not_configured: 'Claw-Onshape is installed, but no authorized user connection has been configured yet.',
+  oauth_configuration_required:
+    'Claw-Onshape is installed, but the Onshape application has not been configured yet. Ask the operator to provision the application.',
+  dashboard_callback_required:
+    'The operator needs to register and configure the OpenClaw dashboard OAuth callback before Connect can be used here.',
+  disconnected:
+    'Onshape is not connected. Open Claw-Onshape in the Mechanical Engineer dashboard and choose Connect Onshape.',
+  authorization_in_progress:
+    'Onshape authorization is in progress. Complete browser consent, then refresh the connection status.',
+  reconnect_required:
+    'Your Onshape connection needs to be renewed. Choose Connect Onshape in the Mechanical Engineer dashboard.',
+  oauth_refresh_rejected:
+    'Onshape rejected renewal of this connection. Choose Connect Onshape in the Mechanical Engineer dashboard to authorize again.',
+  oauth_refresh_response_invalid:
+    'Onshape returned an invalid connection-renewal response. Ask the operator to inspect the diagnostic code and reconnect through the Mechanical Engineer dashboard.',
+  credential_store_unavailable:
+    'The private connection store is unavailable. Ask the operator to check its ownership and permissions.',
+  target_missing: 'No Camera Mount Plate Part Studio has been selected. Ask the operator to configure the target.',
+  live_reads_disabled: 'Onshape is connected, but REST access has not been enabled for this user.',
+  connected: 'Onshape is connected. The selected Camera Mount Plate still needs a successful provider read.',
+  ready: 'Onshape is connected and the Camera Mount Plate is available.',
+  authorization_changed:
+    'The authorization for this request has changed. Retry from your original authenticated session.',
+  delegation_denied:
+    'This delegated request has no valid user authorization. Ask the operator to check the trusted Lead-to-Engineer delegation setup.',
+  delegation_result_invalid:
+    'The Mechanical Engineer returned a result that could not be verified. Ask the operator to inspect the A2A result transport.',
+  provider_forbidden:
+    'Onshape denied access to the selected Camera Mount Plate. Check that the connected account can read it.',
+  provider_not_found: 'The selected Camera Mount Plate could not be found in Onshape.',
+  provider_rate_limited: 'Onshape has reached its request limit. Please try again later.',
+  provider_unavailable: 'Onshape is temporarily unavailable. Please try again later.',
+  provider_transport_error: 'The Onshape request could not be completed. Please try again later.',
+  provider_protocol_error: 'Onshape returned an unexpected response. The operator can inspect the diagnostic code.',
+  provider_image_invalid: 'Onshape did not return a valid Camera Mount Plate image.',
+  workspace_not_in_document:
+    'The selected workspace is not available in the configured document. Ask the operator to check the target.',
+  target_not_part_studio:
+    'The selected element is not an available Part Studio. Ask the operator to check the Camera Mount Plate target.',
+  source_revision_missing: 'The current CAD revision could not be identified. No image was rendered.',
+  source_revision_conflict:
+    'The selected source revision changed before workspace preparation. Refresh and retry from the current revision.',
+  candidate_revision_conflict:
+    'The candidate workspace does not match the verified source revision. It cannot be accepted as a fresh experimental baseline.',
+  candidate_not_isolated:
+    'The candidate workspace must be separate from the source workspace. Select a dedicated experimental workspace.',
+  candidate_verification_pending:
+    'A candidate workspace was created but has not passed verification. Reconcile the existing attempt before requesting another workspace.',
+  candidate_store_required:
+    'Candidate creation requires a private persistent attempt store. Ask the operator to configure it.',
+  candidate_store_unavailable:
+    'The private candidate attempt store is unavailable or invalid. Creation is blocked; ask the operator to inspect it.',
+  candidate_store_full:
+    'The candidate attempt store has reached its bounded capacity. Creation is blocked; unresolved attempts must be preserved.',
+  candidate_preparation_busy:
+    'Another preparation or a stale private lock blocks this operation. Ask the operator to check the attempt; do not repeat workspace creation.',
+  candidate_attempt_mismatch:
+    'The supplied attempt does not match the recorded preparation. Use the original attempt reference.',
+  candidate_result_too_large:
+    'The candidate result exceeded its size limit. Ask the operator to inspect the recorded attempt.',
+  provider_conflict: 'Onshape reported a conflict. Inspect the operation state before starting another request.',
+  candidate_creation_unknown:
+    'Workspace creation status is unknown after a transport interruption. Reconcile in Onshape before retrying.',
+  oauth_read_scope_missing: 'REST read scope is missing. Reconnect Onshape with read consent.',
+  app_permission_read_disabled:
+    'The application has document read permission disabled. Ask the operator to review its configuration.',
+  capability_result_too_large:
+    'The capability summary exceeded its size limit. Ask the operator to inspect the diagnostic code.',
+  oauth_write_scope_missing:
+    'REST write access has not been granted for this connection. Reconnect Onshape and explicitly authorize REST write access.',
+  app_permission_write_disabled:
+    'The Onshape OAuth application has document write permission disabled. Ask the operator to review whether an approved task requires it.',
+  app_permission_write_unknown:
+    'Write permission status is unknown for this Onshape OAuth application. Ask the operator to verify application permission settings.',
+  agent_policy_denied: 'This operation is intentionally blocked by current Claw-Onshape agent policy.',
+  invalid_arguments: 'This capability accepts only the configured Camera Mount Plate; retry without target arguments.',
+  onshape_unavailable: 'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
+  oauth_reconnect_required: 'Onshape authorization did not complete. Choose Connect Onshape to retry.',
+  oauth_connect_expired: 'Onshape authorization timed out. Choose Connect Onshape to retry.',
+  connection_busy_or_state_unavailable:
+    'Another connection action is active, or the private state directory is unavailable. Wait and refresh; ask the operator if it persists.',
 } as const;
 export type ReadinessCode = keyof typeof messages;
-export function state(code:ReadinessCode){return {code,message:messages[code]};}
-export function userError(error:unknown){const code=error instanceof Error && error.message in messages?error.message as ReadinessCode:'onshape_unavailable';return state(code);}
+export function state(code: ReadinessCode) {
+  return {code, message: messages[code]};
+}
+export function userError(error: unknown) {
+  const code =
+    error instanceof Error && error.message in messages ? (error.message as ReadinessCode) : 'onshape_unavailable';
+  return state(code);
+}
 
 // Operator dashboard metadata only; never attached to agent readiness results.
 export type McpReadiness = {
   provider: 'onshape';
-  local?: {configured:boolean;running:boolean|null;credential:'AVAILABLE'|'MISSING'|'EXPIRED'|'UNKNOWN';expiry?:string;refreshOwner:'claw-onshape'};
+  local?: {
+    configured: boolean;
+    running: boolean | null;
+    credential: 'AVAILABLE' | 'MISSING' | 'EXPIRED' | 'UNKNOWN';
+    expiry?: string;
+    refreshOwner: 'claw-onshape';
+  };
   configured: boolean | null;
   enabled: boolean | null;
   oauth: {
@@ -76,15 +120,30 @@ export type McpReadiness = {
 };
 export function unknownMcpReadiness(): McpReadiness {
   return {
-    provider:'onshape',configured:null,enabled:null,
-    oauth:{status:'UNKNOWN',storedGrant:null,requiresOperatorAction:null,reason:'Native read-only MCP status is unavailable or invalid; no connection was attempted.'},
-    discovery:{status:'HISTORICAL',reason:'ClawCAD discovery was previously recorded on October 9, 2026. Claw-Onshape has not performed authenticated discovery; no current catalog is verified.'},
-    mutation:{status:'BLOCKED',blockers:[
-      'Unverified Candidate Workspace containment',
-      'Missing atomic revision enforcement',
-      'Unverified guarded native MCP invocation',
-      'Unverified Part Studio mutation contract',
-    ]},
-    operatorAction:'Inspect native OpenClaw MCP Settings/status. Keep production MCP disabled. Future consent must use native operator onboarding in an approved isolated profile.',
+    provider: 'onshape',
+    configured: null,
+    enabled: null,
+    oauth: {
+      status: 'UNKNOWN',
+      storedGrant: null,
+      requiresOperatorAction: null,
+      reason: 'Native read-only MCP status is unavailable or invalid; no connection was attempted.',
+    },
+    discovery: {
+      status: 'HISTORICAL',
+      reason:
+        'ClawCAD discovery was previously recorded on October 9, 2026. Claw-Onshape has not performed authenticated discovery; no current catalog is verified.',
+    },
+    mutation: {
+      status: 'BLOCKED',
+      blockers: [
+        'Unverified Candidate Workspace containment',
+        'Missing atomic revision enforcement',
+        'Unverified guarded native MCP invocation',
+        'Unverified Part Studio mutation contract',
+      ],
+    },
+    operatorAction:
+      'Inspect native OpenClaw MCP Settings/status. Keep production MCP disabled. Future consent must use native operator onboarding in an approved isolated profile.',
   };
 }
