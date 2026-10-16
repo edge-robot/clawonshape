@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Contract-Version | `0.2.0-draft` |
+| Contract-Version | `0.3.0-draft` |
 | Status | **draft**: derived from code, not yet accepted |
 | Owner | onshape-architekt (only the architect edits this file and `fixtures/`) |
-| ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11 |
+| ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11; [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), [#10](https://github.com/edge-robot/clawonshape/issues/10) (0.3.0) |
 | Derived from | clawonshape `demo/gateway-native-read-20261014` @ `2457ff8` · onshape-mcp `claw-onshape/external-token` @ `1a1934a` · clawake `demo/gateway-native-read-20261014` @ `4da3957` · OpenClaw `2026.9.9` |
 
 Normative words: **MUST**, **MUST NOT**, **SHOULD**, **MAY**. Gaps and contradictions found
@@ -152,9 +152,26 @@ workspace are static in the config.
 | Fields the server checks | `version == 1`, `expiresAt > now`, `proposalId` non-empty, `body` deep-equals the request body |
 | Fields the server ignores | `requestHash`, `payloadHash`: audit fields for the plugin's receipts. ⚠️ G4 |
 | Lifetime | `expiresAt = approvedAt + 300 000 ms` (5 min) |
-| Reset | After a successful `reconcile` (receipt `VERIFIED`) the plugin writes `null`. ⚠️ G5: an expired approval is not reset automatically. |
+| Reset | The plugin writes `null` when `reconcile` reaches a terminal receipt status (`VERIFIED` or `REJECTED`). There is no timer-based reset; an expired file on disk is harmless because the server rejects it (`mutation_approval_mismatch`). |
+| Receipt lifecycle | `PROPOSED` → (approve) `UNKNOWN` → (reconcile) `VERIFIED` \| `REJECTED`. `VERIFIED` and `REJECTED` are terminal. |
+| Reconcile rules | On an `UNKNOWN` receipt, in this order: (1) Primary microversion changed → `primary_revision_changed`, stays `UNKNOWN`. (2) Candidate microversion changed → verify feature identity, state and approved expressions → `VERIFIED`, else `mutation_verification_mismatch`, stays `UNKNOWN`. (3) Candidate microversion unchanged and `now < expiresAt + 60 000 ms` → `mutation_outcome_unknown`, stays `UNKNOWN`. (4) Candidate microversion unchanged and `now ≥ expiresAt + 60 000 ms` → `REJECTED` with `reason: "approval_expired_not_dispatched"`. The 60 s grace covers the server's 30 s Onshape timeout (§7) so that a dispatch admitted just before expiry has finished. |
 | One-at-a-time | While any receipt is `UNKNOWN`, the plugin MUST NOT issue a new proposal or approval (`mutation_reconciliation_required`). |
 | Fixtures | `fixtures/approved-update/valid/*.json`, `fixtures/approved-update/invalid/*.json` |
+
+### 4.1 Execution context `onshape_mutation_context` (plugin → Engineer → channel A)
+
+The plugin tool hands the approved request to the Engineer, who sends it to the server
+through channel A. Its output is part of the contract because it MUST be a valid
+`onshape_api_call` input. ⚠️ G13 (0.2.x shipped `operation` instead of `endpoint`).
+
+| Item | Contract |
+|---|---|
+| Availability | Only for a receipt in `UNKNOWN` with `now < expiresAt`; otherwise `mutation_approval_unavailable`. Performs no MCP call and no provider I/O. |
+| Schema (`details`, and the JSON text in `content[0].text`) | `{"status": "ok", "proposalId": uuid-v4, "approvedRequestHash": string, "payloadHash": sha256-hex, "expiresAt": integer (Unix ms), "apiCall": {"endpoint": "updatePartStudioFeature", "path_params": {"did", "wid", "eid", "fid"}, "body": object}}` |
+| `apiCall` | MUST validate against the `onshape_api_call` input schema in `fixtures/mcp-tools.json`. `path_params` values are the receipt's target and feature; `body` deep-equals `approved-update.json` `body`. No `query_params`, `header_params` or `file_refs`. |
+| Engineer obligation | Parse the result if it arrives as text, pass `apiCall` **unchanged** as the arguments of `onshape__onshape_api_call`, exactly one attempt, then `onshape_reconcile_update`. |
+| Removed | The 0.2.x top-level fields `operation`, `path_params`, `body` are not part of the contract and MUST NOT be emitted. |
+| Fixtures | `fixtures/mutation-context/valid/update-feature.json` (paired with `approved-update/valid/update-feature.json`) |
 
 ## 5. Channel D: health and readiness
 
@@ -240,7 +257,8 @@ Machine-readable list: `fixtures/error-codes.json`.
 
 | Contract | onshape-mcp image | ClawOnshape | OpenClaw | Status |
 |---|---|---|---|---|
-| 0.1.0-draft | `localhost/clawonshape-mcp@sha256:defe0ab2…` (running 2026-10-15; source commit to be confirmed) | 0.2.8 @ `2457ff8` | 2026.9.9 | observed, not accepted |
+| 0.1.0-draft | `localhost/clawonshape-mcp@sha256:defe0ab2…` (tag `f27613e-external-token-v4`, revision `f27613e`) | 0.2.8 @ `2457ff8` | 2026.9.9 | observed, not accepted; mutation path fails live (G13, G5) |
+| 0.3.0-draft | same image | 0.2.9 (pending prompt 2026-10-16-mutation-context-and-expired-approval) | 2026.9.9 | planned; requires live E2E steps 4–8 |
 
 ## 10. Fixtures
 
@@ -251,6 +269,7 @@ Machine-readable list: `fixtures/error-codes.json`.
 | `fixtures/access-token/invalid/*.json` | contract-first | Rust: rejected with the code in `fixtures/expectations.json`. TS: readiness reader rejects |
 | `fixtures/approved-update/valid/*.json` | contract-first | Rust: `approval_matches` accepts against its paired request. TS: `approve` output matches structurally |
 | `fixtures/approved-update/invalid/*.json` | contract-first | Rust: rejected with the expected code |
+| `fixtures/mutation-context/valid/*.json` | contract-first | TS: `executionContext` output for the paired approval equals the fixture (except volatile `expiresAt`); `apiCall` validates against the `onshape_api_call` schema in `mcp-tools.json`. Rust: not consumed (0.3.0) |
 | `fixtures/error-codes.json` | contract-first | both: every emitted code is listed |
 | `fixtures/expectations.json` | index | both: fixture → expected result or code |
 
@@ -273,16 +292,18 @@ Consumers MUST check line 1 against the version their prompt names.
 | G2 | The approval file is **optional** in the server. If it is absent, a mutation passes with target policy and CAS only. Conflicts with the "ClawOnshape issues approvals" ownership. | `external_token.rs` `execute` (`if mutation && let Some(file)`); `docs/target-policy.md` ("optionally") | Clawake validation rejects `mutation` without `mutation_approval_file` (invariant §8.8). Optionally a server flag `require_approval`. | [edge-robot/onshape-mcp#2](https://github.com/edge-robot/onshape-mcp/issues/2) (Clawake part split off when decided) |
 | G3 | Dynamic candidate target: workspace and `expected_microversion` are pinned in `config.toml`. | `target_policy.rs` `TargetConstraint` | Open question 1 in clawonshape#2: reprovisioning vs. approval-file claims. If claims are chosen, channel C gets a **major** change. | [edge-robot/clawonshape#3](https://github.com/edge-robot/clawonshape/issues/3), clawonshape#2 |
 | G4 | `requestHash` and `payloadHash` are ignored by the server, which matches on the full body only. | `approval_matches` | Keep as audit fields. A future claim-based approval would use `payloadHash`. | [edge-robot/clawonshape#4](https://github.com/edge-robot/clawonshape/issues/4) (proposed: accepted) |
-| G5 | An expired approval stays on disk until a reconcile. The server rejects it as `mutation_approval_mismatch`, not `unavailable`. | `mutation-workflow.ts`; `approval_matches` | Accept as is, or the plugin writes `null` on expiry. Decide when the dashboard status model is built. | [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), clawonshape#2 (MVC) |
+| G5 | **Resolved in 0.3.0-draft (§4 reconcile rule 4).** Live acceptance 2026-10-16 (M16) showed the real defect: an approved but never dispatched update left the receipt `UNKNOWN` forever and blocked all further proposals. The server-side `mutation_approval_mismatch` for an expired file is accepted. | `mutation-workflow.ts` `reconcile`; `docs/evidence/2026-10-16-mutation-path-acceptance.md` | Plugin implements reconcile rule 4 (prompt 2026-10-16-mutation-context-and-expired-approval). | [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), clawonshape#2 (MVC) |
 | G6 | Plugin readiness uses `/health` (liveness), not `/health/ready`. | `src/mcp.ts` `localMcpReadiness` | Plugin additionally probes `/health/ready` → field `ready`. Minor change. | [edge-robot/clawonshape#6](https://github.com/edge-robot/clawonshape/issues/6) |
 | G7 | Private-file checks require the same UID for writer (Engineer) and reader (server) across containers. This is undocumented in Clawake. | `private_json` (`uid == /proc/self` owner) | Clawake documents and validates the UID mapping. | [edge-robot/clawake#16](https://github.com/edge-robot/clawake/issues/16) |
 | G8 | `/mcp` has no HTTP authentication. Any container on the private network can call the tools with the operator's token. | `external_token.rs` `run_http` | Accept: only the Engineer joins the network. Clawake asserts the network membership. Revisit with VC/VP. | [edge-robot/clawonshape#7](https://github.com/edge-robot/clawonshape/issues/7) (ADR note pending) |
 | G9 | Client `requestTimeoutMs` (30 s) equals the server's Onshape timeout (30 s). The client can give up while the server's mutation is still in flight, so the agent never sees `UNKNOWN`. | `runtime_config.py`; `[api] timeout = 30` | Client timeout MUST exceed the server timeout plus a margin, e.g. 45 000 ms. | [edge-robot/clawake#17](https://github.com/edge-robot/clawake/issues/17) |
 | G10 | `clawonshape/spec.md` says "MCP CAD execution: Disabled" and "discovered tools remain disabled". The live Engineer has native MCP with `onshape_api_call` enabled. | `spec.md:35`, `spec.md:79`; clawonshape#2 comment | spec drift issue, as announced in clawonshape#2 | [edge-robot/clawonshape#8](https://github.com/edge-robot/clawonshape/issues/8) |
 | G11 | The running server image digest is not mapped to a source commit. | `podman ps` 2026-10-15 | Clawake records the source commit with the digest. Fill in the matrix in §9. | [edge-robot/clawake#18](https://github.com/edge-robot/clawake/issues/18) |
+| G13 | `onshape_mutation_context` returned `operation` instead of the `endpoint` that `onshape_api_call` requires; the execution context was not specified or tested against the server schema. Live step 7 failed with `missing field endpoint`. | `mutation-workflow.ts` `executionContext`; live evidence 2026-10-16 (M15) | §4.1 `apiCall`; contract test against `mcp-tools.json`. | [edge-robot/clawonshape#10](https://github.com/edge-robot/clawonshape/issues/10) |
 | G12 | `onshape_auth_status` with `validate: true` issues `GET /users/sessioninfo`, which is not in the read set (§2.4). The outcome in external-token mode is unverified (likely `external_token_read_policy_denied` or a validation error). | `tools.rs` `AuthStatusInput`; `external_token.rs` `allowed` | rust-mcp-dev documents the actual behaviour with a test in the G1 prompt; decide afterwards. | [edge-robot/onshape-mcp#1](https://github.com/edge-robot/onshape-mcp/issues/1) (investigation) |
 
 ## Changelog
 
+- `0.3.0-draft` (2026-10-16): §4 receipt lifecycle and reconcile rules; terminal `REJECTED` with `approval_expired_not_dispatched` after `expiresAt + 60 s` (resolves G5, clawonshape#5). New §4.1 execution context with `apiCall` and fixture `mutation-context/valid/update-feature.json` (G13, clawonshape#10). Error code list: plugin `approval_expired_not_dispatched`. Minor: plugin-side, additive for the server; onshape-mcp keeps implementing 0.2.0-draft until its next contract-version bump.
 - `0.2.0-draft` (2026-10-15): add the code-first snapshot `fixtures/mcp-tools.json` (G1), define the `VERSION` file format, record `onshape_auth_status` annotations, link the gap issues in §11, add G12. Minor: additive fixture, no behaviour change.
 - `0.1.0-draft` (2026-10-15): initial draft derived from code by onshape-architekt setup.

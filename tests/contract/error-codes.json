@@ -33,7 +33,8 @@
     "mutation_verification_mismatch",
     "protected_primary_workspace",
     "mcp_credential_unavailable",
-    "mcp_credential_handoff_unavailable"
+    "mcp_credential_handoff_unavailable",
+    "approval_expired_not_dispatched"
   ],
   "unknownOutcomeData": {
     "outcome": "UNKNOWN",

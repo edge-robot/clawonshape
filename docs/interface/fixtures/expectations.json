@@ -1,5 +1,5 @@
 {
-  "contractVersion": "0.2.0-draft",
+  "contractVersion": "0.3.0-draft",
   "target": {
     "document_id": "0123456789abcdef01234567",
     "workspace_id": "89abcdef0123456789abcdef",
@@ -26,5 +26,9 @@
     "invalid/version-2.json": "mutation_approval_mismatch",
     "invalid/empty-proposal-id.json": "mutation_approval_mismatch"
   },
-  "mcp-tools.json": "exact match against the external-token tools/list output, in order"
+  "mcp-tools.json": "exact match against the external-token tools/list output, in order",
+  "mutation-context": {
+    "pairedApproval": "approved-update/valid/update-feature.json",
+    "valid/update-feature.json": "equal to executionContext output (ignoring expiresAt); apiCall validates against mcp-tools.json onshape_api_call inputSchema"
+  }
 }

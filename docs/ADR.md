@@ -64,6 +64,8 @@ The interface between ClawOnshape and onshape-mcp is specified in
 | `spec.md` still says MCP CAD execution is disabled (contract G10) | [edge-robot/clawonshape#8](https://github.com/edge-robot/clawonshape/issues/8) |
 | Whether `before_tool_call` covers native MCP tools | unverified; needs a live hook test (clawonshape#2) |
 | Rewrite title and body of clawonshape#2 to this decision | clawonshape#2 |
+| ~~Approved but never dispatched update leaves the receipt `UNKNOWN` forever (contract G5, live M16)~~ **Decided 2026-10-16:** reconcile → terminal `REJECTED` / `approval_expired_not_dispatched` after `expiresAt + 60 s` with unchanged Candidate and Primary; approval file reset to `null` (contract 0.3.0-draft §4) | [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5) |
+| ~~Execution context is not a valid `onshape_api_call` input (contract G13, live M15)~~ **Decided 2026-10-16:** `onshape_mutation_context` returns `apiCall {endpoint, path_params, body}` validated against the server snapshot (contract 0.3.0-draft §4.1) | [edge-robot/clawonshape#10](https://github.com/edge-robot/clawonshape/issues/10) |
 
 Further contract gaps (G1, G4–G7, G11, G12) are tracked in §11 of the interface contract.
 
