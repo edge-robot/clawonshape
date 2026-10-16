@@ -443,3 +443,143 @@ test('mutation tool errors keep their code in details.code with an actionable te
   assert(body.includes('rejectMicroversionSkew: true'));
   assert(!userError(new Error('invalid_arguments')).message.includes('target arguments'));
 });
+
+// Bounded diagnostics for rejected mutation tool calls: one structured line, no body, token or provider text.
+test('a rejected propose writes one bounded diagnostic line without token, body or provider text', async () => {
+  const {mutationToolFailure} = await import('../dist/mutation-workflow.js');
+  const {RestClient} = await import('../dist/rest.js');
+  const {connectionOwner} = await import('../dist/config.js');
+  const root = await mkdtemp(join(tmpdir(), 'mutation-diagnostic-'));
+  const token = 'fixture-access-DO-NOT-LOG';
+  const marked = {
+    ...body,
+    feature: {...feature, parameters: [{parameterId: 'holeDiameter', expression: 'BODY-DO-NOT-LOG'}]},
+  };
+  try {
+    const store = await mutationStore(root, binding);
+    const seen = [];
+    const fetcher = async (_url, init) => {
+      seen.push(init.headers.Authorization);
+      // A provider answer of the wrong shape, carrying text that must not reach the log.
+      return new Response(JSON.stringify({id: 'PROVIDER-TEXT-DO-NOT-LOG'}), {
+        status: 200,
+        headers: {'Content-Type': 'application/json'},
+      });
+    };
+    const client = new RestClient(async () => token, fetcher);
+    const error = await store.propose(request, marked, 'Plan', client).then(
+      () => assert.fail('propose must reject'),
+      (e) => e,
+    );
+    assert.deepEqual(seen, [`Bearer ${token}`]);
+    const logs = [];
+    const result = mutationToolFailure('onshape_propose_update', error, binding, (m) => logs.push(m));
+    assert.equal(result.isError, true);
+    assert.equal(result.details.code, 'provider_protocol_error');
+    assert.equal(result.content[0].text, result.details.message);
+    assert.equal(logs.length, 1);
+    const line = logs[0];
+    assert(!line.includes('\n'));
+    for (const secret of [token, 'BODY-DO-NOT-LOG', 'PROVIDER-TEXT-DO-NOT-LOG', 'holeDiameter', 'Bearer']) {
+      assert(!line.includes(secret), `diagnostic must not contain ${secret}`);
+    }
+    const prefix = 'WARNING: Claw-Onshape mutation tool rejected. ';
+    assert(line.startsWith(prefix));
+    const event = JSON.parse(line.slice(prefix.length));
+    const {timestamp, ...rest} = event;
+    assert.equal(new Date(timestamp).toISOString(), timestamp);
+    assert.deepEqual(rest, {
+      event: 'claw_onshape.mutation_tool_rejected',
+      schemaVersion: 1,
+      severity: 'WARNING',
+      tool: 'onshape_propose_update',
+      code: 'provider_protocol_error',
+      stage: 'baseline_read',
+      ownerHash: connectionOwner(binding),
+      documentId: D,
+    });
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('diagnostics name the stage for body and policy rejections and skip other codes', async () => {
+  const {mutationToolFailure} = await import('../dist/mutation-workflow.js');
+  const root = await mkdtemp(join(tmpdir(), 'mutation-diagnostic-stage-'));
+  const prefix = 'WARNING: Claw-Onshape mutation tool rejected. ';
+  const logged = (error, tool = 'onshape_propose_update') => {
+    const logs = [];
+    const result = mutationToolFailure(tool, error, binding, (m) => logs.push(m));
+    return {result, events: logs.map((m) => JSON.parse(m.slice(prefix.length)))};
+  };
+  const rejection = (promise) =>
+    promise.then(
+      () => assert.fail('must reject'),
+      (e) => e,
+    );
+  try {
+    const store = await mutationStore(root, binding);
+    const client = {featureUpdateBaseline: async () => baseline()};
+    let r = logged(await rejection(store.propose(request, {parameterChanges: []}, 'Plan', client)));
+    assert.equal(r.result.details.code, 'proposal_body_invalid');
+    assert.deepEqual(
+      r.events.map((e) => [e.code, e.stage]),
+      [['proposal_body_invalid', 'body_validation']],
+    );
+    r = logged(await rejection(store.propose(request, {...body, rejectMicroversionSkew: false}, 'Plan', client)));
+    assert.deepEqual(
+      r.events.map((e) => [e.code, e.stage]),
+      [['revision_policy_denied', 'body_validation']],
+    );
+    const transport = {
+      featureUpdateBaseline: async () => {
+        throw new Error('provider_transport_error');
+      },
+    };
+    r = logged(await rejection(store.propose(request, body, 'Plan', transport)));
+    assert.deepEqual(
+      r.events.map((e) => [e.code, e.stage]),
+      [['provider_transport_error', 'baseline_read']],
+    );
+    // Not a diagnosed code: no line, but the code still passes through.
+    for (const code of ['invalid_arguments', 'mutation_outcome_unknown', 'authorization_changed', 'unlisted']) {
+      r = logged(new Error(code), 'onshape_reconcile_update');
+      assert.deepEqual(r.events, []);
+    }
+    assert.equal(logged(new Error('mutation_outcome_unknown')).result.details.code, 'mutation_outcome_unknown');
+    // A protocol error from the wrapper itself has no stage; it is still logged.
+    r = logged(new Error('provider_protocol_error'), 'onshape_mutation_context');
+    assert.deepEqual(
+      r.events.map((e) => [e.tool, e.stage]),
+      [['onshape_mutation_context', 'tool']],
+    );
+    // A failing logger never replaces the tool result.
+    const result = mutationToolFailure('onshape_propose_update', new Error('proposal_body_invalid'), binding, () => {
+      throw new Error('logger-DO-NOT-LOG');
+    });
+    assert.equal(result.details.code, 'proposal_body_invalid');
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('a provider failure during reconcile is diagnosed at the reconcile_read stage', async () => {
+  const {mutationToolFailure} = await import('../dist/mutation-workflow.js');
+  const r = await approvedReceipt();
+  try {
+    r.client.featureUpdateBaseline = async () => {
+      throw new Error('provider_protocol_error');
+    };
+    const error = await r.store.reconcile(r.proposal.id, r.client, r.directory).then(
+      () => assert.fail('must reject'),
+      (e) => e,
+    );
+    const logs = [];
+    mutationToolFailure('onshape_reconcile_update', error, binding, (m) => logs.push(m));
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /"stage":"reconcile_read"/);
+    assert.equal((await r.store.read(r.proposal.id)).status, 'UNKNOWN');
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
+  }
+});

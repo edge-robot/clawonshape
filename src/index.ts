@@ -20,7 +20,7 @@ import {
 import {saveRender, readRender, imageHash} from './render.ts';
 import {accessToken} from './authorization.ts';
 import {mcpTokenOwner} from './mcp-token-owner.ts';
-import {mutationStore} from './mutation-workflow.ts';
+import {mutationStore, mutationToolFailure} from './mutation-workflow.ts';
 import path from 'node:path';
 export default {
   id: 'claw-onshape',
@@ -309,8 +309,9 @@ export default {
                   const details = {status: 'ok', ...result};
                   return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
                 } catch (e) {
-                  const details = userError(e);
-                  return {content: [{type: 'text' as const, text: details.message}], details, isError: true};
+                  // Same logger path as claw_onshape.candidate_authorization_rejected; the creation-time binding
+                  // identifies the owner even when the authorization guard itself failed.
+                  return mutationToolFailure(name, e, initial.binding, (message) => api.logger.warn(message));
                 }
               },
             };

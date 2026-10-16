@@ -7,6 +7,8 @@ import {connectionOwner, id} from './config.ts';
 import {canonicalResult} from './delegation.ts';
 import type {TaskEnvelope} from './delegation.ts';
 import type {RestClient} from './rest.ts';
+import {ProviderHttpError} from './http.ts';
+import {userError} from './readiness.ts';
 
 export type MutationProposal = {
   version: 1;
@@ -50,6 +52,64 @@ export type ExecutionContext = {
     body: Record<string, unknown>;
   };
 };
+// Where a mutation tool call was rejected; only used for the bounded diagnostic line.
+export type MutationStage = 'body_validation' | 'baseline_read' | 'reconcile_read';
+export class MutationStageError extends Error {
+  readonly stage: MutationStage;
+  readonly httpStatus: number | undefined;
+  constructor(code: string, stage: MutationStage, httpStatus?: number) {
+    super(code);
+    this.stage = stage;
+    this.httpStatus = httpStatus;
+  }
+}
+// Keeps the code (the error message) unchanged and records the stage. Non-Error throws carry no code.
+async function staged<T>(stage: MutationStage, action: () => T | Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (e) {
+    if (e instanceof MutationStageError) {
+      throw e;
+    }
+    const code = e instanceof Error ? e.message : 'onshape_unavailable';
+    throw new MutationStageError(code, stage, e instanceof ProviderHttpError ? e.status : undefined);
+  }
+}
+const DIAGNOSED_CODES: ReadonlySet<string> = new Set([
+  'provider_protocol_error',
+  'proposal_body_invalid',
+  'revision_policy_denied',
+  'provider_transport_error',
+]);
+// Tool result for a rejected mutation tool call (contract §6: details.code unchanged). For the diagnosed codes it
+// writes one structured warning line. The line carries no body, token or provider text.
+export function mutationToolFailure(tool: string, error: unknown, binding: Binding, warn: (message: string) => void) {
+  const details = userError(error);
+  if (DIAGNOSED_CODES.has(details.code)) {
+    const stageError = error instanceof MutationStageError ? error : undefined;
+    const message =
+      'WARNING: Claw-Onshape mutation tool rejected. ' +
+      JSON.stringify({
+        event: 'claw_onshape.mutation_tool_rejected',
+        schemaVersion: 1,
+        timestamp: new Date().toISOString(),
+        severity: 'WARNING',
+        tool,
+        code: details.code,
+        stage: stageError?.stage ?? 'tool',
+        ownerHash: connectionOwner(binding),
+        documentId: binding.documentId,
+        ...(stageError?.httpStatus === undefined ? {} : {httpStatus: stageError.httpStatus}),
+      });
+    try {
+      warn(message);
+    } catch {
+      // Diagnostics are best effort: the tool result below already carries the code, and the logger's own
+      // error text must not reach the agent.
+    }
+  }
+  return {content: [{type: 'text' as const, text: details.message}], details, isError: true as const};
+}
 export const payloadDigest = (body: unknown) => createHash('sha256').update(canonicalResult(body)).digest('hex');
 const proposalId = (s: unknown): s is string =>
   typeof s === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(s);
@@ -180,9 +240,13 @@ export async function mutationStore(stateDir: string, binding: Binding, now: () 
         throw new Error('invalid_arguments');
       }
       // Structural checks first: a broken body causes no provider read.
-      const featureId = proposalFeatureId(body);
-      const baseline = await client.featureUpdateBaseline(binding, featureId);
-      validateUpdateBody(body, featureId, baseline.sourceMicroversion);
+      const featureId = await staged('body_validation', () => proposalFeatureId(body));
+      const baseline = await staged('baseline_read', () => client.featureUpdateBaseline(binding, featureId));
+      await staged('body_validation', () => validateUpdateBody(body, featureId, baseline.sourceMicroversion));
+      // The assertion inside the closure does not narrow here; re-check instead of casting.
+      if (!isRecord(body)) {
+        throw new Error('invalid_arguments');
+      }
       // A complete native v16 feature/payload is prepared by Engineer, reviewed by operator.
       const record: MutationProposal = {
         version: 1,
@@ -309,7 +373,7 @@ export async function mutationStore(stateDir: string, binding: Binding, now: () 
         if (record.status !== 'UNKNOWN') {
           throw new Error('invalid_arguments');
         }
-        const current = await client.featureUpdateBaseline(binding, record.featureId);
+        const current = await staged('reconcile_read', () => client.featureUpdateBaseline(binding, record.featureId));
         // Rule 1: Primary changed. Stays UNKNOWN.
         if (current.primaryMicroversionId !== record.primaryMicroversionId) {
           throw new Error('primary_revision_changed');
