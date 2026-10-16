@@ -261,8 +261,9 @@ Machine-readable list: `fixtures/error-codes.json`.
 | Contract | onshape-mcp image | ClawOnshape | OpenClaw | Status |
 |---|---|---|---|---|
 | 0.1.0-draft | `localhost/clawonshape-mcp@sha256:defe0ab2…` (tag `f27613e-external-token-v4`, revision `f27613e`) | 0.2.8 @ `2457ff8` | 2026.9.9 | observed, not accepted; mutation path fails live (G13, G5) |
-| 0.4.0-draft | same image (`f27613e`) | 0.2.10 (pending prompt 2026-10-16-proposal-codes-and-version-drift) | 2026.9.9 | planned |
-| 0.3.0-draft | same image (`f27613e`, implements 0.2.0-draft; compatible, change is plugin-side) | 0.2.9 @ `09f7b49`, `sha256:5df286a3…7553ade` | 2026.9.9 | deployed 2026-10-16 11:3x CEST; live E2E in progress |
+| 0.4.0-draft | same image (`f27613e`) | 0.2.10 @ `6bbc5e5`, `sha256:e98648b9…433e03b` | 2026.9.9 | **accepted** 2026-10-16 (R7: first complete live mutation `VERIFIED`); Engineer gateway; rollback target for the spike |
+| 0.4.0-draft | same image (`f27613e`) | Lead only: 0.2.11-spike.1 @ `64d2daa` (15:23) → spike.2 @ `795cf78` `sha256:99429bc0…5762` (16:05) → **spike.3 @ `ceaa42c` `sha256:90a5a265…4d0baf` (16:44 CEST, current)**, branch `spike/plugin-command-approval`, clawonshape#13; Engineer: 0.2.10 | 2026.9.9 | **spike, never accepted; rolled back** 2026-10-16 17:02 CEST (Lead back on 0.2.10 `e98648b9…`, backup `state/backups/plugin-rollback-0.2.10-20261016T165841`); spike checks 1–3 passed; no contract element touched |
+| 0.3.0-draft | same image (`f27613e`, implements 0.2.0-draft; compatible, change is plugin-side) | 0.2.9 @ `09f7b49`, `sha256:5df286a3…7553ade` | 2026.9.9 | superseded 2026-10-16 (R1 pass, R2/R3 fail → 0.2.10); rollback target |
 
 ## 10. Fixtures
 
