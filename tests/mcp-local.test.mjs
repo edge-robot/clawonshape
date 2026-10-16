@@ -21,7 +21,7 @@ test('atomic handoff excludes refresh tokens and unrelated metadata; rotation an
   try {
     await publishMcpCredential(root, token);
     const file = path.join(root, 'access-token.json');
-    let c = JSON.parse(await readFile(file));
+    const c = JSON.parse(await readFile(file));
     assert.deepEqual(Object.keys(c).sort(), ['accessToken', 'expiresAt', 'scopes']);
     assert(!JSON.stringify(c).includes(token.refreshToken));
     await publishMcpCredential(root, {...token, accessToken: 'rotated'});

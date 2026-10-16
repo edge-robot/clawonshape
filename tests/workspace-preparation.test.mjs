@@ -300,7 +300,7 @@ test('receipt persistence failures prevent dispatch or retain the original resta
       const slot = createHash('sha256')
         .update(JSON.stringify([connectionOwner(binding), D]))
         .digest('hex');
-      await writeFile(path.join(before, 'claw-onshape-candidate-attempts', slot + '.json'), 'invalid', {mode: 0o600});
+      await writeFile(path.join(before, 'claw-onshape-candidate-attempts', `${slot}.json`), 'invalid', {mode: 0o600});
     }
     return response;
   };
@@ -493,10 +493,9 @@ test('private receipt storage enforces capacity, bounded reads, strict schema an
     await assert.rejects(r.save({...receipt, extra: 'x'.repeat(4096)}), /candidate_store_unavailable/);
     await r.save({...receipt, updatedAt: new Date().toISOString()});
   });
-  const filename =
-    createHash('sha256')
-      .update(JSON.stringify([connectionOwner(b), b.documentId]))
-      .digest('hex') + '.json';
+  const filename = `${createHash('sha256')
+    .update(JSON.stringify([connectionOwner(b), b.documentId]))
+    .digest('hex')}.json`;
   const valid = await readFile(path.join(dir, filename));
   await writeFile(path.join(dir, filename), Buffer.alloc(CANDIDATE_MAX_BYTES + 1, 32));
   await assert.rejects(

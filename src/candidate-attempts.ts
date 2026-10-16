@@ -125,7 +125,7 @@ export async function candidateAttempts(stateDir: string, binding: Binding) {
     .update(JSON.stringify([ownerHash, documentId]))
     .digest('hex');
   const dir = path.join(stateDir, 'claw-onshape-candidate-attempts'),
-    filePath = path.join(dir, slot + '.json');
+    filePath = path.join(dir, `${slot}.json`);
   try {
     await privateDirectory(stateDir);
     await mkdir(dir, {mode: 0o700});
@@ -285,7 +285,7 @@ export function warnCandidate(
   const message =
     'WARNING: Claw-Onshape candidate preparation requires reconciliation. ' +
     JSON.stringify({
-      event: 'claw_onshape.candidate_' + event,
+      event: `claw_onshape.candidate_${event}`,
       schemaVersion: 1,
       timestamp: new Date().toISOString(),
       severity: 'WARNING',

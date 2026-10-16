@@ -62,7 +62,7 @@ export async function mutationStore(stateDir: string, binding: Binding) {
     if (!proposalId(value)) {
       throw new Error('invalid_arguments');
     }
-    return path.join(root, value + '.json');
+    return path.join(root, `${value}.json`);
   };
   const read = async (value: string): Promise<MutationProposal> => {
     const p = file(value);

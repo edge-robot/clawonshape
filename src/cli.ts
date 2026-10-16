@@ -39,13 +39,13 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
         } catch {}
         const binding = config.bindings.find((b) => b.connectionRef === name);
         process.stdout.write(
-          JSON.stringify({
+          `${JSON.stringify({
             connected,
             accountBinding: 'not_verified',
             refresh: 'implemented',
             grantedScopes,
             capabilities: capabilitySummary({config, binding, connected, grantedScopes}),
-          }) + '\n',
+          })}\n`,
         );
       });
       root.command('disconnect <connection>').action(async (name: string) => {
@@ -107,7 +107,7 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
           if (server?.url !== MCP_URL || server.auth === 'oauth' || server.enabled === false) {
             throw new Error('mcp_configuration_required');
           }
-          process.stdout.write(JSON.stringify(await discover(name)) + '\n');
+          process.stdout.write(`${JSON.stringify(await discover(name))}\n`);
         });
     },
     {descriptors: [{name: 'onshape', description: 'Manage Onshape connections', hasSubcommands: true}]},

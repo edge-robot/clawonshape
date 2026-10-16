@@ -128,7 +128,7 @@ export class Consent {
       this.clock() >= this.deadline ||
       host !== redirect.host ||
       path.length > 8192 ||
-      !path.startsWith(redirect.pathname + '?')
+      !path.startsWith(`${redirect.pathname}?`)
     ) {
       throw new Error('oauth_callback_invalid');
     }

@@ -130,7 +130,7 @@ export async function credentials(stateDir: string, connectionRef: string, owner
           return 'unavailable';
         }
         return r.tokens.expiresAt <= Date.now() + 30000 ? 'expired' : 'connected';
-      } catch (e) {
+      } catch {
         try {
           lstatSync(filePath);
           return 'unavailable';

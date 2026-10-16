@@ -6,7 +6,7 @@ import type {FeatureReadEvidence} from './rest.ts';
 import {credentials} from './credentials.ts';
 import {registerCli} from './cli.ts';
 import {registerDashboard} from './dashboard.ts';
-import {state, userError} from './readiness.ts';
+import {userError} from './readiness.ts';
 import {
   authorizedBinding,
   leadBinding,

@@ -977,7 +977,7 @@ export function validateFeatureReadEvidence(value: unknown): asserts value is Fe
     ) {
       throw new Error('invalid_arguments');
     }
-    const key = o.featureId + '\n' + (o.parameterId ?? '');
+    const key = `${o.featureId}\n${o.parameterId ?? ''}`;
     if (seen.has(key)) {
       throw new Error('invalid_arguments');
     }

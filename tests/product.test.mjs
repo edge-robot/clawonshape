@@ -199,7 +199,7 @@ test('signed A2A context restores exact authorized binding, not peer identity or
   const proof = signResult(result, contextId, key);
   assert(verifyResult({microversionId: M, documentId: D, status: 'ok'}, contextId, key, proof));
   assert(!verifyResult({...result, microversionId: D}, contextId, key, proof));
-  assert(!verifyResult(result, contextId + 'x', key, proof));
+  assert(!verifyResult(result, `${contextId}x`, key, proof));
 });
 test('A2A result signatures cover nested fields and arrays independent of object key order', () => {
   const context = 'fixture-context';
@@ -263,7 +263,7 @@ test('A2A result signatures cover nested fields and arrays independent of object
     mutate(changed);
     assert(!verifyResult(changed, context, key, proof));
   }
-  assert(!verifyResult(result, context + 'other', key, proof));
+  assert(!verifyResult(result, `${context}other`, key, proof));
   assert(!verifyResult(result, context, 'cd'.repeat(32), proof));
   assert(!verifyResult(result, context, key, 'invalid-proof'));
   // Previously valid flat result signatures keep their existing representation.
@@ -643,7 +643,7 @@ test('revocation or lifecycle cancellation during OAuth never persists late toke
   try {
     const file = path.join(root, 'app');
     await writeFile(file, 'fixture-secret', {mode: 0o600});
-    let c = parseConfig({
+    const c = parseConfig({
       bindings: [B],
       oauth: {
         clientId: 'fixture',

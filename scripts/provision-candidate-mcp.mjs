@@ -61,7 +61,7 @@ if (proposalId) {
     throw Error('Invalid proposal ID');
   }
   proposal = JSON.parse(
-    readFileSync(join(engineer.state_path, 'claw-onshape/mutations', proposalId + '.json'), 'utf8'),
+    readFileSync(join(engineer.state_path, 'claw-onshape/mutations', `${proposalId}.json`), 'utf8'),
   );
   if (
     proposal.status !== 'PROPOSED' ||
@@ -96,7 +96,7 @@ const servicePath = join(repo, 'state/deployment/onshape-mcp/service.json'),
 const plan = join(repo, 'state/deployment/candidate-plan');
 mkdirSync(plan, {recursive: true, mode: 0o700});
 const plannedInventory = join(plan, 'team.json');
-writeFileSync(plannedInventory, JSON.stringify(inventory, null, 2) + '\n', {mode: 0o600});
+writeFileSync(plannedInventory, `${JSON.stringify(inventory, null, 2)}\n`, {mode: 0o600});
 writeFileSync(join(plan, 'config.toml'), configToml, {mode: 0o600});
 console.log(
   JSON.stringify({
@@ -117,14 +117,14 @@ lifecycle(['sync-plugins', '-c', plannedInventory]);
 if (!execute) {
   process.exit(0);
 }
-const backup = join(repo, 'state/backups/candidate-provision-' + Date.now());
+const backup = join(repo, `state/backups/candidate-provision-${Date.now()}`);
 mkdirSync(backup, {recursive: true, mode: 0o700});
 copyFileSync(inventoryPath, join(backup, 'team.json'));
 copyFileSync(service.config_file, join(backup, 'config.toml'));
 // Stop MCP through Clawake before changing its configuration. All secrets stay intact.
 lifecycle(['onshape-mcp', '-c', servicePath, '--action', 'stop']);
 lifecycle(['onshape-mcp', '-c', servicePath, '--action', 'stop', '--execute']);
-writeFileSync(inventoryPath, JSON.stringify(inventory, null, 2) + '\n');
+writeFileSync(inventoryPath, `${JSON.stringify(inventory, null, 2)}\n`);
 writeFileSync(service.config_file, configToml, {mode: 0o600});
 lifecycle(['setup', '-c', inventoryPath, '--execute']);
 // Wait for native Gateway startup maintenance before plugin synchronization.

@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {Consent} from './oauth.ts';
+import type {Consent} from './oauth.ts';
 export async function connect(
   consent: Consent,
   save: (tokens: Awaited<ReturnType<Consent['complete']>>) => Promise<void>,

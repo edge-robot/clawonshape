@@ -70,7 +70,7 @@ if (mode === 'export') {
   }
   if (execute) {
     mkdirSync(directory, {recursive: true});
-    writeFileSync(join(directory, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+    writeFileSync(join(directory, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   }
 } else {
   const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json'), 'utf8'));

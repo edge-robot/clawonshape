@@ -21,7 +21,7 @@ export async function provisionSecret(secret, file) {
   }
   const f = await open(file, 'wx', 0o600);
   try {
-    await f.writeFile(secret + '\n');
+    await f.writeFile(`${secret}\n`);
     await f.sync();
   } finally {
     await f.close();

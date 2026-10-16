@@ -14,7 +14,7 @@ const title =
   agentId === 'clawcad-robotics-lead'
     ? '# Robotics Lead — Claw-Onshape read/render product increment'
     : '# Mechanical Engineer — Claw-Onshape read/render product increment';
-if (!content.startsWith(title + '\n') || Buffer.byteLength(content) > 32768) {
+if (!content.startsWith(`${title}\n`) || Buffer.byteLength(content) > 32768) {
   throw new Error('Invalid prepared Claw-Onshape role document.');
 }
 const call = (method, params) =>

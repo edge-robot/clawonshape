@@ -147,13 +147,13 @@ export function canonicalResult(value: unknown): string {
         if (v.length > 10000 || keys.length !== v.length + 1) {
           throw new Error('delegation_result_invalid');
         }
-        return '[' + Array.from({length: v.length}, (_, i) => encode(field(String(i)), depth + 1)).join(',') + ']';
+        return `[${Array.from({length: v.length}, (_, i) => encode(field(String(i)), depth + 1)).join(',')}]`;
       }
       return (
         '{' +
         (keys as string[])
           .sort()
-          .map((k) => JSON.stringify(k) + ':' + encode(field(k), depth + 1))
+          .map((k) => `${JSON.stringify(k)}:${encode(field(k), depth + 1)}`)
           .join(',') +
         '}'
       );

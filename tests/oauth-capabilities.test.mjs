@@ -463,7 +463,7 @@ test('token scopes cannot be fabricated by standalone parsing, refreshed upward 
   const consent = new Consent('fixture', 'fixture-secret', async () => json(response), Date.now, undefined, RW);
   const u = new URL(consent.authorizationUrl());
   const tokens = await consent.complete(
-    '/?' + new URLSearchParams({state: u.searchParams.get('state'), code: 'fixture'}),
+    `/?${new URLSearchParams({state: u.searchParams.get('state'), code: 'fixture'})}`,
     'localhost:8765',
   );
   assert.deepEqual(tokens.scopes, RW);

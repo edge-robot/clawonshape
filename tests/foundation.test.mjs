@@ -271,7 +271,7 @@ test('OAuth exact authorization and client_secret_post exchange; only REST resou
   assert.equal(u.origin + u.pathname, AUTHORIZE_URL);
   assert.equal(u.searchParams.get('scope'), 'OAuth2Read');
   assert.equal(u.searchParams.get('redirect_uri'), REDIRECT_URI);
-  const callback = '/?' + new URLSearchParams({state: u.searchParams.get('state'), code: 'fixture-code'});
+  const callback = `/?${new URLSearchParams({state: u.searchParams.get('state'), code: 'fixture-code'})}`;
   const t = await c.complete(callback, 'localhost:8765');
   assert.equal(t.resource, 'https://cad.onshape.com/api/');
   assert.equal(calls, 1);
@@ -297,7 +297,7 @@ test('OAuth explicit write consent requests and validates read+write scope', asy
   );
   const u = new URL(c.authorizationUrl());
   assert.equal(u.searchParams.get('scope'), 'OAuth2Read OAuth2Write');
-  const callback = '/?' + new URLSearchParams({state: u.searchParams.get('state'), code: 'fixture-code'});
+  const callback = `/?${new URLSearchParams({state: u.searchParams.get('state'), code: 'fixture-code'})}`;
   const t = await c.complete(callback, 'localhost:8765');
   assert(t.scopes.includes(OAUTH_SCOPE_READ));
   assert(t.scopes.includes(OAUTH_SCOPE_WRITE));

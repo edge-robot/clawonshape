@@ -55,7 +55,7 @@ try {
   assert.throws(() => sdk.readSecretFileSync(link, 'Synthetic fixture', {rejectSymlink: true}));
   report.checks.push('symlink_read_rejected');
   report.status = 'PASS';
-} catch (error) {
+} catch {
   report.status = root ? 'FAIL' : 'UNAVAILABLE';
   report.reason = root ? 'native_private_file_contract_failed' : 'native_private_file_sdk_unavailable';
   // Only fixed diagnostic codes; paths and exception text are not emitted.
