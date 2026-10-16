@@ -221,6 +221,14 @@ in the contract or in `docs/architecture*`.
 
 ## Open points and risks
 
+- **The contract tests depend on uncommitted foreign changes.** At `da83b54`, the committed `tests/contract/`
+  is still 0.3.0-draft. The 0.4.0-draft copies (`VERSION`, `error-codes.json`, `expectations.json`) exist only
+  in the worktree.
+  - On a clean checkout of this branch, two contract tests fail: the version test, and the `proposal_body_invalid`
+    entry in the emitted-codes test.
+  - The pass-through test fails for the same reason.
+  - The architect's contract commit has to land before or together with these commits.
+
 - **Global pass-through.** `userError` is shared, so the change affects more than the mutation tools. Every tool
   and the dashboard now show listed codes such as `protected_primary_workspace` or `invalid_arguments` with their
   own text instead of `onshape_unavailable`. This is what §6 (0.4.0) requires. The full suite stays green.
