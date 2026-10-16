@@ -53,23 +53,49 @@ export type ExecutionContext = {
 export const payloadDigest = (body: unknown) => createHash('sha256').update(canonicalResult(body)).digest('hex');
 const proposalId = (s: unknown): s is string =>
   typeof s === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(s);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+const MAX_PROPOSAL_BODY_CHARS = 900000;
+const FEATURE_ID = /^[A-Za-z0-9_-]{1,100}$/;
+const SERIALIZATION_VERSION = /^\d+\.\d+\.\d+$/;
+// Structural shape of a complete native v16 feature update. Every defect here can be fixed by re-reading the
+// feature natively and resubmitting it, so it is proposal_body_invalid (contract §6, 0.4.0). The versions must be
+// present and well-formed but are not compared with the plugin's own REST read: Onshape reports different
+// serializationVersion values for the same microversion to different clients (M21).
+export function proposalFeatureId(body: unknown): string {
+  if (!isRecord(body) || canonicalResult(body).length > MAX_PROPOSAL_BODY_CHARS) {
+    throw new Error('invalid_arguments');
+  }
+  const feature = body.feature;
+  const serializationVersion = body.serializationVersion;
+  const libraryVersion = body.libraryVersion;
+  if (
+    !isRecord(feature) ||
+    typeof feature.featureId !== 'string' ||
+    !FEATURE_ID.test(feature.featureId) ||
+    typeof serializationVersion !== 'string' ||
+    !SERIALIZATION_VERSION.test(serializationVersion) ||
+    typeof libraryVersion !== 'number' ||
+    !Number.isSafeInteger(libraryVersion) ||
+    libraryVersion <= 0
+  ) {
+    throw new Error('proposal_body_invalid');
+  }
+  return feature.featureId;
+}
+// Baseline and skew policy against the live Candidate read (contract §2.5 step 4).
 export function validateUpdateBody(
   body: unknown,
   featureId: string,
   baseline: string,
 ): asserts body is Record<string, unknown> {
-  if (!body || typeof body !== 'object' || Array.isArray(body) || canonicalResult(body).length > 900000) {
+  if (proposalFeatureId(body) !== featureId) {
+    throw new Error('revision_policy_denied');
+  }
+  if (!isRecord(body)) {
     throw new Error('invalid_arguments');
   }
-  const b = body as Record<string, unknown>,
-    feature = b.feature as {featureId?: unknown} | undefined;
-  if (
-    !feature ||
-    feature.featureId !== featureId ||
-    b.sourceMicroversion !== baseline ||
-    b.rejectMicroversionSkew !== true ||
-    !id(baseline)
-  ) {
+  if (body.sourceMicroversion !== baseline || body.rejectMicroversionSkew !== true || !id(baseline)) {
     throw new Error('revision_policy_denied');
   }
 }
@@ -150,24 +176,13 @@ export async function mutationStore(stateDir: string, binding: Binding, now: () 
       if (binding.workspaceId === binding.primaryWorkspaceId) {
         throw new Error('protected_primary_workspace');
       }
-      const featureId = (body as {feature?: {featureId?: unknown}})?.feature?.featureId;
-      if (
-        typeof featureId !== 'string' ||
-        !/^[A-Za-z0-9_-]{1,100}$/.test(featureId) ||
-        typeof summary !== 'string' ||
-        !summary.trim() ||
-        summary.length > 6000
-      ) {
+      if (typeof summary !== 'string' || !summary.trim() || summary.length > 6000) {
         throw new Error('invalid_arguments');
       }
+      // Structural checks first: a broken body causes no provider read.
+      const featureId = proposalFeatureId(body);
       const baseline = await client.featureUpdateBaseline(binding, featureId);
       validateUpdateBody(body, featureId, baseline.sourceMicroversion);
-      if (
-        body.serializationVersion !== baseline.body.serializationVersion ||
-        body.libraryVersion !== baseline.body.libraryVersion
-      ) {
-        throw new Error('provider_protocol_error');
-      }
       // A complete native v16 feature/payload is prepared by Engineer, reviewed by operator.
       const record: MutationProposal = {
         version: 1,

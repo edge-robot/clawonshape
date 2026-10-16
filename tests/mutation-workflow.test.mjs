@@ -122,8 +122,102 @@ test('Primary and stale proposal revisions cannot receive execution authority', 
     assert.equal((await store.read(proposal.id)).status, 'PROPOSED');
     await assert.rejects(
       store.propose(request, {...body, sourceMicroversion: D, serializationVersion: 'v10'}, 'Plan', client),
-      /provider_protocol_error/,
+      /proposal_body_invalid/,
     );
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+// M21 (docs/evidence/2026-10-16-mutation-path-acceptance.md): Onshape reports different
+// serializationVersion values for the same microversion to different clients.
+test('propose accepts serializationVersion drift against the plugin REST read', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mutation-version-drift-'));
+  try {
+    const store = await mutationStore(root, binding);
+    const restRead = {...body, serializationVersion: '1.2.21', libraryVersion: 3095};
+    const client = {featureUpdateBaseline: async () => baseline({body: restRead})};
+    const mcpRead = {...body, serializationVersion: '1.2.23', libraryVersion: 3095};
+    const proposal = await store.propose(request, mcpRead, 'Holes 4 → 4.5 mm', client);
+    assert.equal(proposal.status, 'PROPOSED');
+    assert.deepEqual(proposal.body, mcpRead);
+    // libraryVersion is no longer pinned to the plugin read either.
+    const other = await mutationStore(join(root, 'other'), binding);
+    const drift = await other.propose(request, {...mcpRead, libraryVersion: 3096}, 'Holes', client);
+    assert.equal(drift.status, 'PROPOSED');
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('propose rejects structurally incomplete bodies with proposal_body_invalid before any read', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mutation-body-invalid-'));
+  try {
+    const store = await mutationStore(root, binding);
+    let reads = 0;
+    const client = {
+      featureUpdateBaseline: async () => {
+        reads++;
+        return baseline();
+      },
+    };
+    const {serializationVersion: _s, ...withoutSerialization} = body;
+    const {libraryVersion: _l, ...withoutLibrary} = body;
+    const {feature: _f, ...withoutFeature} = body;
+    const invalid = [
+      withoutSerialization,
+      withoutLibrary,
+      {...body, serializationVersion: 1.2},
+      {...body, serializationVersion: '1.2'},
+      {...body, libraryVersion: '3095'},
+      {...body, libraryVersion: 0},
+      {...body, libraryVersion: 3095.5},
+      {parameterChanges: [{parameterId: 'holeDiameter', expression: '4.5 mm'}]},
+      withoutFeature,
+      {...body, feature: [feature]},
+      {...body, feature: {...feature, featureId: 7}},
+      {...body, feature: {...feature, featureId: '../plate'}},
+      {feature: {feature}, sourceMicroversion: M, rejectMicroversionSkew: true},
+    ];
+    for (const value of invalid) {
+      await assert.rejects(store.propose(request, value, 'Plan', client), /^Error: proposal_body_invalid$/);
+    }
+    assert.equal(reads, 0);
+    assert.deepEqual(await store.list(), []);
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+test('propose keeps the baseline, skew, feature and argument checks', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mutation-body-policy-'));
+  try {
+    const store = await mutationStore(root, binding);
+    const client = {featureUpdateBaseline: async () => baseline()};
+    const {sourceMicroversion: _m, ...withoutBaseline} = body;
+    for (const value of [
+      {...body, sourceMicroversion: D},
+      withoutBaseline,
+      {...body, rejectMicroversionSkew: false},
+      {...body, rejectMicroversionSkew: 'true'},
+    ]) {
+      await assert.rejects(store.propose(request, value, 'Plan', client), /^Error: revision_policy_denied$/);
+    }
+    const missing = {
+      featureUpdateBaseline: async () => {
+        throw new Error('feature_observation_mismatch');
+      },
+    };
+    await assert.rejects(store.propose(request, body, 'Plan', missing), /feature_observation_mismatch/);
+    for (const value of [null, [], 'body']) {
+      await assert.rejects(store.propose(request, value, 'Plan', client), /^Error: invalid_arguments$/);
+    }
+    const oversized = {...body, padding: 'x'.repeat(900001)};
+    await assert.rejects(store.propose(request, oversized, 'Plan', client), /^Error: invalid_arguments$/);
+    for (const summary of ['', '  ', 'x'.repeat(6001), 7]) {
+      await assert.rejects(store.propose(request, body, summary, client), /^Error: invalid_arguments$/);
+    }
+    assert.deepEqual(await store.list(), []);
   } finally {
     await rm(root, {recursive: true, force: true});
   }
