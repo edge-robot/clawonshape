@@ -8,6 +8,7 @@
     "external_token_configuration_invalid",
     "mutation_approval_unavailable",
     "mutation_approval_mismatch",
+    "mutation_approval_consumed",
     "external_private_file_unavailable",
     "external_token_unavailable",
     "external_token_expired",
