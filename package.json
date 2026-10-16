@@ -27,8 +27,9 @@
     "openclaw": "2026.9.9"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@types/node": "24.10.0"
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.10.0",
+    "typescript": "5.9.3"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -37,6 +38,9 @@
     "test": "node --test --test-isolation=none tests/*.test.mjs",
     "test:host": "node scripts/host-smoke.mjs",
     "test:native-files": "node scripts/native-secret-file-check.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome ci ."
   }
 }
