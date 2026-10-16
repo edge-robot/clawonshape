@@ -82,9 +82,11 @@ test('Candidate approval binds the exact payload and persists UNKNOWN before nat
     assert.deepEqual(wire.body, body);
     assert.equal(wire.proposalId, proposal.id);
     const execution = await store.executionContext(proposal.id);
-    assert.equal(execution.operation, 'updatePartStudioFeature');
-    assert.equal(execution.path_params.wid, W);
-    assert.deepEqual(execution.body, body);
+    assert.equal(execution.status, 'ok');
+    assert.equal(execution.apiCall.endpoint, 'updatePartStudioFeature');
+    assert.deepEqual(execution.apiCall.path_params, {did: D, wid: W, eid: E, fid: 'plate'});
+    assert.deepEqual(execution.apiCall.body, body);
+    assert.equal(execution.operation, undefined);
     await assert.rejects(store.propose(request, body, 'Another attempt', client), /mutation_reconciliation_required/);
     await assert.rejects(
       store.approve(proposal.id, proposal.payloadHash, directory, client, () => {}),
@@ -165,5 +167,32 @@ test('unreadable mutation receipts block new proposals and approvals', async () 
     assert.equal((await store.read(proposal.id)).status, 'PROPOSED');
   } finally {
     await rm(root, {recursive: true, force: true});
+  }
+});
+
+// Contract §4 reconcile rules 1–4 with an injected clock (docs/interface/onshape-mcp.md 0.3.0-draft).
+const APPROVAL_LIFETIME = 300000;
+async function approvedReceipt(t0 = 1_800_000_000_000) {
+  const root = await mkdtemp(join(tmpdir(), 'mutation-reconcile-'));
+  const directory = join(root, 'approval'),
+    approvalFile = join(directory, 'approved-update.json');
+  const clock = {now: t0};
+  const store = await mutationStore(root, binding, () => clock.now);
+  const client = {current: baseline(), featureUpdateBaseline: async () => client.current};
+  const proposal = await store.propose(request, body, 'Mounting holes 4 → 4.5 mm.', client);
+  const approved = await store.approve(proposal.id, proposal.payloadHash, directory, client, () => {});
+  assert.equal(approved.expiresAt, t0 + APPROVAL_LIFETIME);
+  return {root, directory, approvalFile, clock, store, client, proposal, expiresAt: approved.expiresAt};
+}
+
+test('executionContext is unavailable once the approval has expired', async () => {
+  const r = await approvedReceipt();
+  try {
+    r.clock.now = r.expiresAt - 1;
+    assert.equal((await r.store.executionContext(r.proposal.id)).expiresAt, r.expiresAt);
+    r.clock.now = r.expiresAt;
+    await assert.rejects(r.store.executionContext(r.proposal.id), /mutation_approval_unavailable/);
+  } finally {
+    await rm(r.root, {recursive: true, force: true});
   }
 });

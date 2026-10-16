@@ -31,6 +31,19 @@ export type MutationProposal = {
   expiresAt?: number;
   resultMicroversion?: string;
 };
+// Contract §4.1: the Engineer passes `apiCall` unchanged as the onshape_api_call arguments.
+export type ExecutionContext = {
+  status: 'ok';
+  proposalId: string;
+  approvedRequestHash: string;
+  payloadHash: string;
+  expiresAt: number;
+  apiCall: {
+    endpoint: 'updatePartStudioFeature';
+    path_params: {did: string; wid: string; eid: string; fid: string};
+    body: Record<string, unknown>;
+  };
+};
 export const payloadDigest = (body: unknown) => createHash('sha256').update(canonicalResult(body)).digest('hex');
 const proposalId = (s: unknown): s is string =>
   typeof s === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(s);
@@ -54,7 +67,7 @@ export function validateUpdateBody(
     throw new Error('revision_policy_denied');
   }
 }
-export async function mutationStore(stateDir: string, binding: Binding) {
+export async function mutationStore(stateDir: string, binding: Binding, now: () => number = Date.now) {
   const root = path.join(stateDir, 'claw-onshape', 'mutations');
   await mkdir(root, {recursive: true, mode: 0o700});
   const native = await import('openclaw/plugin-sdk/secret-file-runtime');
@@ -169,7 +182,7 @@ export async function mutationStore(stateDir: string, binding: Binding) {
         payloadHash: payloadDigest(body),
         summary,
         status: 'PROPOSED',
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(now()).toISOString(),
       };
       await exclusive(async () => {
         if ((await list()).some((r) => r.status === 'UNKNOWN')) {
@@ -203,11 +216,12 @@ export async function mutationStore(stateDir: string, binding: Binding) {
           throw new Error('source_revision_conflict');
         }
         assertOperator();
+        const approvedAt = now();
         const approved = {
           ...record,
           status: 'UNKNOWN' as const,
-          approvedAt: new Date().toISOString(),
-          expiresAt: Date.now() + 300000,
+          approvedAt: new Date(approvedAt).toISOString(),
+          expiresAt: approvedAt + 300000,
         };
         // Persist uncertainty before publishing authority. No automatic re-approval/retry.
         await save(approved);
@@ -228,19 +242,32 @@ export async function mutationStore(stateDir: string, binding: Binding) {
         return approved;
       });
     },
-    async executionContext(value: string) {
+    // Contract §4.1: available only for an UNKNOWN receipt with now < expiresAt; no MCP call, no provider I/O.
+    async executionContext(value: string): Promise<ExecutionContext> {
       const record = await read(value);
-      if (record.status !== 'UNKNOWN' || !record.expiresAt || record.expiresAt <= Date.now()) {
+      const expiresAt = record.expiresAt;
+      if (record.status !== 'UNKNOWN' || expiresAt === undefined || !Number.isSafeInteger(expiresAt)) {
+        throw new Error('mutation_approval_unavailable');
+      }
+      if (now() >= expiresAt) {
         throw new Error('mutation_approval_unavailable');
       }
       return {
+        status: 'ok',
         proposalId: record.id,
         approvedRequestHash: record.requestHash,
         payloadHash: record.payloadHash,
-        expiresAt: record.expiresAt,
-        operation: 'updatePartStudioFeature',
-        path_params: {did: record.documentId, wid: record.workspaceId, eid: record.elementId, fid: record.featureId},
-        body: record.body,
+        expiresAt,
+        apiCall: {
+          endpoint: 'updatePartStudioFeature',
+          path_params: {
+            did: record.documentId,
+            wid: record.workspaceId,
+            eid: record.elementId,
+            fid: record.featureId,
+          },
+          body: record.body,
+        },
       };
     },
     async reconcile(value: string, client: RestClient, approvalDirectory: string) {

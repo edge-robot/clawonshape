@@ -227,7 +227,9 @@ export default {
                 operation === 'propose'
                   ? 'Record a complete Candidate feature update proposal for operator review; performs no CAD write.'
                   : operation === 'context'
-                    ? 'Get the exact approved native updatePartStudioFeature context for this signed task; performs no MCP call.'
+                    ? 'Get the approved Candidate update for this signed task; performs no MCP call. Returns apiCall: ' +
+                      'parse the text result if needed and pass apiCall unchanged as the arguments of ' +
+                      'onshape__onshape_api_call, exactly once, then call onshape_reconcile_update.'
                     : 'Independently reconcile Candidate parameters/state and Primary preservation after a native update; never retries a write.',
               parameters: {
                 type: 'object',
