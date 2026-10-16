@@ -1,5 +1,5 @@
 {
-  "contractVersion": "0.3.0-draft",
+  "contractVersion": "0.4.0-draft",
   "target": {
     "document_id": "0123456789abcdef01234567",
     "workspace_id": "89abcdef0123456789abcdef",

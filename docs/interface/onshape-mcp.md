@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Contract-Version | `0.3.0-draft` |
+| Contract-Version | `0.4.0-draft` |
 | Status | **draft**: derived from code, not yet accepted |
 | Owner | onshape-architekt (only the architect edits this file and `fixtures/`) |
-| ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11; [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), [#10](https://github.com/edge-robot/clawonshape/issues/10) (0.3.0) |
+| ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11; [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), [#10](https://github.com/edge-robot/clawonshape/issues/10) (0.3.0); [#12](https://github.com/edge-robot/clawonshape/issues/12) (0.4.0) |
 | Derived from | clawonshape `demo/gateway-native-read-20261014` @ `2457ff8` · onshape-mcp `claw-onshape/external-token` @ `1a1934a` · clawake `demo/gateway-native-read-20261014` @ `4da3957` · OpenClaw `2026.9.9` |
 
 Normative words: **MUST**, **MUST NOT**, **SHOULD**, **MAY**. Gaps and contradictions found
@@ -189,6 +189,8 @@ through channel A. Its output is part of the contract because it MUST be a valid
 ## 6. Errors
 
 Returned as MCP errors (`invalid_request` unless noted). The **code string is the contract**.
+Plugin tools MUST return the code string unchanged in `details.code` together with the operator
+text; they MUST NOT collapse a listed code into a generic one (0.4.0).
 
 | Code | Channel | Meaning | Retry | Consumer action |
 |---|---|---|---|---|
@@ -209,6 +211,7 @@ Returned as MCP errors (`invalid_request` unless noted). The **code string is th
 | `external_token_auth_owned_externally` | CLI | `auth login` in external-token mode | no | none |
 | `external_token_local_url_required` / `_invalid`, `external_token_validation_unavailable` | startup | server refuses to start | no | Clawake or operator |
 | `mcp_execution_disabled`, `mcp_discovery_failed`, `invalid_mcp_server`, `native_mcp_status_unavailable` | plugin | plugin-side MCP projection errors | no | operator |
+| `invalid_arguments`, `authorization_changed`, `provider_protocol_error`, `proposal_body_invalid` | plugin | malformed tool arguments; binding/receipt drift; unexpected provider response shape; proposal body is not a complete native v16 feature update for the bound feature (0.4.0) | no | fix the arguments / re-read / submit the complete native feature from `getPartStudioFeatures` |
 | `mutation_reconciliation_required`, `mutation_approval_unavailable` (plugin), `source_revision_conflict`, `primary_revision_changed`, `mutation_outcome_unknown`, `mutation_verification_mismatch`, `protected_primary_workspace`, `mcp_credential_unavailable`, `mcp_credential_handoff_unavailable` | plugin | proposal, approval, reconciliation and handoff errors | no | per the plugin workflow |
 
 Machine-readable list: `fixtures/error-codes.json`.
@@ -258,7 +261,8 @@ Machine-readable list: `fixtures/error-codes.json`.
 | Contract | onshape-mcp image | ClawOnshape | OpenClaw | Status |
 |---|---|---|---|---|
 | 0.1.0-draft | `localhost/clawonshape-mcp@sha256:defe0ab2…` (tag `f27613e-external-token-v4`, revision `f27613e`) | 0.2.8 @ `2457ff8` | 2026.9.9 | observed, not accepted; mutation path fails live (G13, G5) |
-| 0.3.0-draft | same image | 0.2.9 (pending prompt 2026-10-16-mutation-context-and-expired-approval) | 2026.9.9 | planned; requires live E2E steps 4–8 |
+| 0.4.0-draft | same image (`f27613e`) | 0.2.10 (pending prompt 2026-10-16-proposal-codes-and-version-drift) | 2026.9.9 | planned |
+| 0.3.0-draft | same image (`f27613e`, implements 0.2.0-draft; compatible, change is plugin-side) | 0.2.9 @ `09f7b49`, `sha256:5df286a3…7553ade` | 2026.9.9 | deployed 2026-10-16 11:3x CEST; live E2E in progress |
 
 ## 10. Fixtures
 
@@ -304,6 +308,7 @@ Consumers MUST check line 1 against the version their prompt names.
 
 ## Changelog
 
+- `0.4.0-draft` (2026-10-16): §6 plugin codes `invalid_arguments`, `authorization_changed`, `provider_protocol_error`, `proposal_body_invalid`; plugin tools pass codes through unchanged (CR-1, M20, clawonshape#12). Minor, additive. The proposal no longer pins `serializationVersion`/`libraryVersion` to the plugin's REST read (M21; plugin-internal).
 - `0.3.0-draft` (2026-10-16): §4 receipt lifecycle and reconcile rules; terminal `REJECTED` with `approval_expired_not_dispatched` after `expiresAt + 60 s` (resolves G5, clawonshape#5). New §4.1 execution context with `apiCall` and fixture `mutation-context/valid/update-feature.json` (G13, clawonshape#10). Error code list: plugin `approval_expired_not_dispatched`. Minor: plugin-side, additive for the server; onshape-mcp keeps implementing 0.2.0-draft until its next contract-version bump.
 - `0.2.0-draft` (2026-10-15): add the code-first snapshot `fixtures/mcp-tools.json` (G1), define the `VERSION` file format, record `onshape_auth_status` annotations, link the gap issues in §11, add G12. Minor: additive fixture, no behaviour change.
 - `0.1.0-draft` (2026-10-15): initial draft derived from code by onshape-architekt setup.

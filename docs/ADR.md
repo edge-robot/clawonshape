@@ -76,6 +76,83 @@ Further contract gaps (G1, G4–G7, G11, G12) are tracked in §11 of the interfa
 - MCP mutation as a generic provider passthrough without server-side admission.
 - The dashboard status object as the source of truth for control-plane decisions.
 
+## ADR-2026-10-16: Proof-based mutation release, prepared for Verifiable Presentations
+
+Status: **Accepted** (2026-10-16, user decisions below; implementation pending a live spike for the plugin command; tracking [edge-robot/clawonshape#11](https://github.com/edge-robot/clawonshape/issues/11)).
+Supersedes, once accepted, the dashboard approval and the per-proposal host reprovisioning of
+"ADR-review-2026-10-15". Resolves contract G3 in favour of **claims in the approval file**.
+
+### Context
+
+The live acceptance on 2026-10-16 (`docs/evidence/2026-10-16-mutation-path-acceptance.md`) needed
+eight operator actions across Discord, the plugin dashboard and host scripts for one parameter change:
+dashboard read/write consent, dashboard Candidate preparation, host provisioning (gateway and MCP
+restarts), Discord proposal, host reprovisioning per proposal, dashboard approval within 5 minutes,
+Discord execution, dashboard reconcile. Findings M3, M11, M13, M14, M17 and M19 all stem from this
+split. The target process releases a mutation with one **Verifiable Presentation** (VP) requested in
+chat (QR code). VC functions are not implemented yet; the process must be shaped so that a VP can
+replace the interim proof without changing the plane boundaries.
+
+### Decision (proposed)
+
+1. **One release act.** A mutation is released by exactly one approval proof. Interim proof: an
+   allowlisted Discord approver answers the Lead's approval request in one step. Future proof: a VP
+   answering the same request (challenge = request nonce, domain = deployment).
+2. **Approval request (VP-request-shaped).** Before release, the Engineer prepares a proposal on the
+   Primary baseline (read-only): document, element, source microversion `M`, feature, complete native
+   v16 body with `sourceMicroversion = M`, payload hash. The Lead publishes an approval request with
+   these claims, a nonce and an expiry. In the VP phase the same object is rendered as a QR code.
+3. **Verification happens in plugin code, never in the LLM.** A Lead plugin tool accepts the
+   approval only if the inbound sender ID is in the configured approver set (OpenClaw requester
+   identity), the nonce and expiry match an open request, and the payload hash is unchanged. It then
+   issues a signed **approval proof** (existing A2A signing) to the Engineer. OpenClaw Discord access
+   control (`groupPolicy: allowlist`, `guilds.<id>.users`/`channels.<id>.users`) additionally limits
+   who can talk to the Lead at all.
+4. **Engineer acts automatically on a valid proof.** One Engineer plugin tool verifies the proof,
+   creates the Candidate workspace from Primary at `M` (REST, `OAuth2Write`), verifies the Candidate
+   baseline equals `M`, and publishes the approval file **with target claims** (workspace = new
+   Candidate, element, feature, expected microversion, body, expiry). It returns the `apiCall`. The
+   Engineer sends it once through native MCP, then reconciles. No dashboard step, no host step.
+5. **onshape-mcp admits the target from the approval claims** within static, Clawake-provisioned
+   bounds: document, element, excluded Primary, operation enum, `write_mode`. The approval file
+   becomes mandatory for mutations (closes G2). Revision CAS uses the claimed expected microversion.
+   Reads additionally admit the claimed Candidate workspace while the approval is active, for
+   post-update verification.
+6. **The Lead owns workspace context and coordination** (which Candidate belongs to which task,
+   which proposals are open), as data from plugin tools, not as LLM memory.
+7. **Dashboard is a view.** It shows requests, proofs and receipts; it does not approve.
+   Read/write OAuth consent stays an operator dashboard action.
+
+### Decided parameters (2026-10-16)
+
+- **Approvers:** initially only Discord user `1382988369553915990`. The approver set is configuration,
+  separate from the requester binding, and is **shown in the OpenClaw dashboard now**; editing it from
+  the dashboard is a later increment (until then it is changed through Clawake inventory).
+- **Proof lifetime:** 15 minutes from issuance.
+- **Candidate per task:** one Candidate workspace is created on the first approved release of a task and
+  reused for later releases of the same task. Each release binds the Candidate's current microversion.
+- **Approval channel:** a **plugin command** (`api.registerCommand`, e.g. `/onshape_approve <nonce>`),
+  exposed as a native Discord slash command where supported. The handler verifies sender, nonce, expiry
+  and payload hash deterministically, without the LLM, and delegates to the Engineer itself. The
+  verification core is a pure function that a future VP verifier route reuses. Fallback if the spike
+  fails: a Lead tool with the same core. Spike checks: command visible in Discord, `senderId` populated,
+  asynchronous result posting to the channel.
+
+### Consequences
+
+- Contract channel C changes incompatibly (claims; mandatory file) → major version, four-step
+  migration (server expand → plugin migrate → live E2E → contract), server first.
+- `scripts/provision-candidate-mcp.mjs` and runtime edits of `deploy/team.json` leave the mutation
+  path (M3, M11). Clawake provisions only static bounds.
+- Approver identities become configuration (Clawake inventory → plugin config), separate from the
+  requester binding.
+- Audit: request, proof and receipt are linked by nonce, proposal ID and payload hash; this is the
+  record a VP will later replace one-for-one.
+
+### Open questions
+
+- VP format and trust anchor (issuer DID, credential type) — deferred.
+
 ## ADR-001: REST controls the engineering process; MCP performs CAD work
 
 Status: Accepted
