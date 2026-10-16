@@ -97,8 +97,8 @@ same invocation from reply 1 or the `spike_command_invoked` line.
 
 | File | Lines | Purpose |
 |---|---|---|
-| `src/spike-command.ts` | +80/−10 approx. | `providerId`, `targetShape`, new `Observation` values, adapter lookup by provider id with `provider_unavailable`/`adapter_lookup_failed`, `compactReply` |
-| `tests/spike-command.test.mjs` | rewritten, 7 tests | live-shaped context (`channelId` = Discord channel id, `channel` = `discord`, `to`/`from` with prefixes), shape redaction, compact reply bound, provider lookup, all six fail-closed reasons |
+| `src/spike-command.ts` | +66/−7 | `providerId`, `targetShape`, new `Observation` values, adapter lookup by provider id with `provider_unavailable`/`adapter_lookup_failed`, `compactReply` |
+| `tests/spike-command.test.mjs` | +143/−76, 7 tests | live-shaped context (`channelId` = Discord channel id, `channel` = `discord`, `to`/`from` with prefixes), shape redaction, compact reply bound, provider lookup, all six fail-closed reasons |
 | `package.json`, `package-lock.json`, `openclaw.plugin.json` | 1–2 lines each | `0.2.11-spike.2` |
 
 ## Checks
