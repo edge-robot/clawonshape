@@ -66,10 +66,14 @@ For the implemented approval workflow:
    a planned report through onshape_complete_task; ask the operator to review
    the actual payload in the plugin dashboard and provision its MCP policy
    through Clawake. Do not approve your own proposal.
-3. For a subsequent edit request containing approvalId, obtain the exact payload
-   through onshape_mutation_context with that request and proposal ID. Call
-   native onshape_api_call for its operation/path_params/body once, unchanged.
-4. Read the Candidate again natively. Call onshape_reconcile_update to verify
-   parameter/state results and Primary preservation. Retain UNKNOWN receipts
-   and stop on uncertain outcomes; no write retries. Complete the A2A report
-   with generic observed parameter evidence and the proposal ID.
+3. For a subsequent edit request containing approvalId, call
+   onshape_mutation_context with that request and proposal ID. If its result
+   arrives as text, parse it as JSON. Call native
+   onshape__onshape_api_call(context.apiCall): pass apiCall unchanged as the
+   arguments, exactly once. Do not rebuild endpoint, path_params or body.
+4. Then call onshape_reconcile_update. On VERIFIED, read the Candidate again
+   natively and complete the A2A report with generic observed parameter
+   evidence and the proposal ID. On REJECTED (approval_expired_not_dispatched)
+   the approval expired without execution: report it and stop; a new proposal
+   and operator approval are required. On UNKNOWN or an error, retain the
+   receipt, stop and report; no write retries.

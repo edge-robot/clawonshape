@@ -1,14 +1,14 @@
 ---
-name: "onshape-edit-feature-parameters"
-description: "Plan bounded Onshape Candidate parameter changes through native MCP; execute only with technical approval and verify before/after evidence."
+name: onshape-edit-feature-parameters
+description: Plan bounded Onshape Candidate parameter changes through native MCP; execute only with technical approval and verify before/after evidence.
 ---
 
 # Change feature parameters on a Candidate
 
 Engineering choices belong here; authority comes from Claw-Onshape and the MCP
-server. This skill grants no permissions. Current deployment is read-only: until
-the control plane provides a valid mutation context, complete inspection and a
-change plan, then report the missing execution gate without calling a write.
+server. This skill grants no permissions. Until the control plane provides an approved Candidate execution context, complete
+inspection and a change plan, then report the missing execution gate. A signed
+Lead task is an assignment, not the operator approval of a particular payload.
 
 First use live native MCP inspection to establish the affected feature(s), the
 requested parameter(s), current expressions/units, evaluation state and revision.
@@ -50,19 +50,30 @@ plus Primary preservation. Do not claim success from an HTTP response or paramet
 text alone when the user requested geometric verification. Do not promote, merge,
 delete, export or manufacture as part of this parameter-change task.
 
+For a signed engineering-request return your plan, blocked execution gate or
+verified result through onshape_complete_task, preserving the original request
+and attaching actual observed parameters/state. Its report signature is evidence
+provenance, not mutation approval.
 
-## Signed free engineering task and implemented Candidate execution
+For the implemented approval workflow:
 
-A Lead edit request expresses intent; operator approval binds an actual payload.
-On Primary, inspect and report a plan/blocked Candidate gate. On an assigned
-Candidate, use native v16 getPartStudioFeatures, preserving the complete feature,
-serializationVersion, libraryVersion, sourceMicroversion and rejectMicroversionSkew:true.
-Use onshape_propose_update with original request, body and summary. Return planned
-status and proposalId through onshape_complete_task. The operator reviews the
-actual proposal in the plugin dashboard and provisions its MCP policy through Clawake.
-For an edit request with approvalId, call onshape_mutation_context with request and
-proposalId. Execute its exact operation/path_params/body ONCE through native
-onshape_api_call. Never change the approved payload or retry UNKNOWN. Read again
-natively and call onshape_reconcile_update; finish through onshape_complete_task
-with observed parameter evidence and proposalId. Only a VERIFIED mutation receipt
-permits a verified execution claim. These control-plane tools never execute MCP.
+1. On an assigned Candidate, read the complete feature list natively using
+   getPartStudioFeatures. The provisioned Candidate connector uses API v16, so
+   preserve its current serializationVersion and libraryVersion when building
+   the complete BTFeatureDefinitionCall body. Explain/schema remain native MCP.
+2. Submit the proposed body and the original signed request to
+   onshape_propose_update. Preserve its proposal ID and payload hash. Finish with
+   a planned report through onshape_complete_task; ask the operator to review
+   the actual payload in the plugin dashboard and provision its MCP policy
+   through Clawake. Do not approve your own proposal.
+3. For a subsequent edit request containing approvalId, call
+   onshape_mutation_context with that request and proposal ID. If its result
+   arrives as text, parse it as JSON. Call native
+   onshape__onshape_api_call(context.apiCall): pass apiCall unchanged as the
+   arguments, exactly once. Do not rebuild endpoint, path_params or body.
+4. Then call onshape_reconcile_update. On VERIFIED, read the Candidate again
+   natively and complete the A2A report with generic observed parameter
+   evidence and the proposal ID. On REJECTED (approval_expired_not_dispatched)
+   the approval expired without execution: report it and stop; a new proposal
+   and operator approval are required. On UNKNOWN or an error, retain the
+   receipt, stop and report; no write retries.
