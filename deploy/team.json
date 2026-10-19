@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "runtime_pins": "${HOME}/.config/clawake/clawonshape/pins.json",
   "cluster": {
     "name": "clawonshape",
     "primary_host": "local"
@@ -34,11 +35,7 @@
         "clawcad-demo"
       ],
       "image": {
-        "repository": "ghcr.io/openclaw/openclaw",
-        "tag": "2026.9.9",
-        "digest": "sha256:7f10d5cc975a90b65192eaa099454fe33ce8ce2390806c61c65cd868e9ef730d",
-        "known_good_tag": "2026.9.4",
-        "known_good_digest": "sha256:cc596b846506a5f4cfcee111394a2725f375f01cca2ebb492a161fd1b747f101"
+        "repository": "ghcr.io/openclaw/openclaw"
       },
       "ports": [
         {
@@ -94,8 +91,6 @@
       "plugins": [
         {
           "id": "claw-onshape",
-          "artifact_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/packages/edge-robot-claw-onshape-0.2.8.tgz",
-          "sha256": "sha256:7b11f07ff4b3dbbc9ce8fd59f45dbd568e162bdbed5e47ddb9d2f6499d0c47d3",
           "config": {
             "bindings": [
               {
@@ -107,7 +102,7 @@
                 "connectionRef": "owner-rest",
                 "documentId": "8b63eacf80efca72049f8017",
                 "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
-                "workspaceId": "1e76fac0ddca3ed10ecc9f28",
+                "workspaceId": "9cc20006f770e86549af11f4",
                 "elementId": "7768b96c15d71e78cdbdd7d9"
               }
             ],
@@ -155,11 +150,7 @@
         "clawonshape-mcp-private"
       ],
       "image": {
-        "repository": "ghcr.io/openclaw/openclaw",
-        "tag": "2026.9.9",
-        "digest": "sha256:7f10d5cc975a90b65192eaa099454fe33ce8ce2390806c61c65cd868e9ef730d",
-        "known_good_tag": "2026.9.4",
-        "known_good_digest": "sha256:cc596b846506a5f4cfcee111394a2725f375f01cca2ebb492a161fd1b747f101"
+        "repository": "ghcr.io/openclaw/openclaw"
       },
       "ports": [
         {
@@ -239,8 +230,6 @@
       "plugins": [
         {
           "id": "claw-onshape",
-          "artifact_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/packages/edge-robot-claw-onshape-0.2.8.tgz",
-          "sha256": "sha256:7b11f07ff4b3dbbc9ce8fd59f45dbd568e162bdbed5e47ddb9d2f6499d0c47d3",
           "config": {
             "bindings": [
               {
@@ -252,7 +241,7 @@
                 "connectionRef": "owner-rest",
                 "documentId": "8b63eacf80efca72049f8017",
                 "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
-                "workspaceId": "1e76fac0ddca3ed10ecc9f28",
+                "workspaceId": "9cc20006f770e86549af11f4",
                 "elementId": "7768b96c15d71e78cdbdd7d9"
               }
             ],

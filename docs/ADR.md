@@ -13,6 +13,67 @@ Product priority update: Increment 0 connectivity/onboarding and Increment 1
 Discord read/render take precedence over MCP mutation work. ADR-008–011 record
 the implemented product slice; ADR-001–007's plane/security boundaries remain.
 
+## ADR-2026-10-19: Discord bindings take their IDs from Clawake site values
+
+Status: **Accepted** (2026-10-19, user decision: option A). Answers the
+open decision "ClawOnshape bindings" in `edge-robot/clawake` `docs/ADR.md` ADR-005
+(edge-robot/clawake#26). Related: edge-robot/clawonshape#11 P4 (approver set),
+fresh-machine onboarding runbook `docs/prompts/2026-10-19-team-onboarding.md` (B2–B4).
+
+### Context
+
+- Clawake ADR-005 renders `channels.discord` from the inventory. The private IDs (guild,
+  channel, users, application) come from an operator-written `site_values` file.
+- An inventory string that is exactly `${site:<name>}` is replaced generically, also
+  inside plugin `config`.
+- The ClawOnshape binding needs the same IDs: `requesterSenderId`, `discordChannelId`,
+  and later the approver set of #11. Today they are literal values in
+  `deploy/team.json`. That makes the file site-specific and blocks a fresh-machine
+  checkout.
+- Options:
+  - **(A)** use `${site:…}` references in the plugin `config` of `deploy/team.json`;
+  - **(B)** let the plugin read the binding from the rendered `channels.discord` config.
+
+### Decision
+
+1. **Option A.**
+   - The plugin config schema stays unchanged and stays explicit; validation stays
+     fail-closed in the plugin (`src/config.ts`).
+   - `deploy/team.json` references the IDs, for example:
+     - `"requesterSenderId": "${site:discord.requester}"`;
+     - `"discordChannelId": "${site:discord.lead_channel}"`.
+   - The same site value feeds the channel allowlist, so the two cannot drift apart.
+2. **Rejected (B).**
+   - It couples the plugin to OpenClaw's channel schema and to Clawake's rendering, which
+     ClawOnshape does not own.
+   - The two concepts differ:
+     - the channel `users` list is an access allowlist and may hold several people;
+     - `requesterSenderId` is the single trusted requester of a binding.
+
+     Deriving one from the other would silently widen the trust.
+3. **Site value names** used by ClawOnshape:
+   - `discord.requester` (string): the trusted requester;
+   - `discord.lead_channel` (string);
+   - `discord.approvers` (list of strings, #11 P4).
+
+   The channel allowlist may reference `discord.approvers`. A requester that is not in the
+   allowlist is an operator error, and `setup` cannot detect it. The onboarding runbook
+   checks it.
+4. **Onshape target IDs** (`documentId`, `primaryWorkspaceId`, `workspaceId`, `elementId`)
+   move to site values the same way, for example `onshape.document`. The Candidate
+   workspace ID stays where clawonshape#11 P4 puts it.
+
+### Consequences
+
+- `deploy/team.json` no longer contains Discord or Onshape IDs. Only ClawOnshape-private
+  site values do.
+- Migration order (Clawake handover 2026-10-19):
+  1. `runtime_pins`;
+  2. after Clawake P4 is accepted: site values with Discord;
+  3. bindings to `${site:…}`.
+- No plugin code change is needed for (A). This needs a live check after P4: the
+  rendered plugin config equals the pre-migration config.
+
 ## ADR-review-2026-10-15: Candidate mutation runs through the native MCP client and onshape-mcp admission, not a plugin-side MCP factory
 
 Status: Accepted direction (2026-10-15, review comment 6194334830 on
@@ -93,7 +154,7 @@ split. The target process releases a mutation with one **Verifiable Presentation
 chat (QR code). VC functions are not implemented yet; the process must be shaped so that a VP can
 replace the interim proof without changing the plane boundaries.
 
-### Decision (proposed)
+### Decision
 
 1. **One release act.** A mutation is released by exactly one approval proof. Interim proof: an
    allowlisted Discord approver answers the Lead's approval request in one step. Future proof: a VP
