@@ -1,6 +1,7 @@
 {
   "version": 1,
   "runtime_pins": "${HOME}/.config/clawake/clawonshape/pins.json",
+  "site_values": "${HOME}/.config/clawake/clawonshape/site.json",
   "cluster": {
     "name": "clawonshape",
     "primary_host": "local"
@@ -66,6 +67,25 @@
               "outbound_token_env": "A2A_LEAD_TO_MECHANICAL"
             }
           }
+        },
+        "discord": {
+          "enabled": true,
+          "token_env": "DISCORD_BOT_TOKEN",
+          "dm_policy": "allowlist",
+          "allow_from": "${site:discord.dm_allow}",
+          "group_policy": "allowlist",
+          "guilds": [
+            {
+              "id": "${site:discord.guild}",
+              "require_mention": true,
+              "channels": [
+                {
+                  "id": "${site:discord.lead_channel}",
+                  "users": "${site:discord.approvers}"
+                }
+              ]
+            }
+          ]
         }
       },
       "mounts": [
@@ -95,10 +115,10 @@
             "bindings": [
               {
                 "agentId": "clawcad-mechanical-engineer",
-                "requesterSenderId": "1382988369553915990",
+                "requesterSenderId": "${site:discord.requester}",
                 "messageChannel": "discord",
                 "agentAccountId": "default",
-                "discordChannelId": "1553026145803436056",
+                "discordChannelId": "${site:discord.lead_channel}",
                 "connectionRef": "owner-rest",
                 "documentId": "8b63eacf80efca72049f8017",
                 "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
@@ -135,6 +155,9 @@
           "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets",
           "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/artifacts"
         ]
+      },
+      "readiness": {
+        "channels": true
       }
     },
     {
@@ -181,6 +204,9 @@
               "outbound_token_env": "A2A_MECHANICAL_TO_LEAD"
             }
           }
+        },
+        "discord": {
+          "enabled": false
         }
       },
       "mounts": [
@@ -234,10 +260,10 @@
             "bindings": [
               {
                 "agentId": "clawcad-mechanical-engineer",
-                "requesterSenderId": "1382988369553915990",
+                "requesterSenderId": "${site:discord.requester}",
                 "messageChannel": "discord",
                 "agentAccountId": "default",
-                "discordChannelId": "1553026145803436056",
+                "discordChannelId": "${site:discord.lead_channel}",
                 "connectionRef": "owner-rest",
                 "documentId": "8b63eacf80efca72049f8017",
                 "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
