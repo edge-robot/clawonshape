@@ -5,7 +5,7 @@ worktree: <workspace>/clawonshape (main checkout on the fresh machine)
 issue: pending — draft "Fresh-machine onboarding of the robotics team" (not yet filed); related edge-robot/clawake#26 (ADR-005)
 architecture-ref: clawonshape/docs/architecture.md, clawake/docs/architecture.md, clawonshape/docs/interface/onshape-mcp.md#9-versioning-and-compatibility
 contract-version: 0.4.0-draft (accepted row)
-foreign-repo-commit: clawake 7e6e006, onshape-mcp f27613e
+foreign-repo-commit: clawake 85079c8, onshape-mcp f27613e
 agent: team-onboarding-agent (clawonshape/.claude/agents/team-onboarding-agent.md)
 status: draft
 ---
@@ -58,7 +58,7 @@ Component ownership:
 | onshape-mcp source | `edge-robot/onshape-mcp` commit `f27613e7854de1b4c8de2438c8f6c87761259cd5` (branch `claw-onshape/external-token`) | `git -C onshape-mcp cat-file -e f27613e^{commit}` |
 | onshape-mcp image | built by `clawonshape/deploy/onshape-mcp/build.sh`, tag `localhost/clawonshape-mcp:f27613e-external-token-v4`; reference binary sha256 `28d3bdbc02939f33ad99da1435589735804481ab1dc7b8545462b5289c4ffb64` (`deploy/onshape-mcp/upstream.json`) | compare binary sha256; a different image digest on a new machine is expected and is a **finding**, not a failure (G11) |
 | ClawOnshape plugin | 0.2.10 @ `6bbc5e5`, tarball sha256 `e98648b9c8c2649e21dd5a289e039e60b3a4bbf7c88b6319e51a4da34433e03b` | `sha256sum` of the packed `.tgz`; a mismatch is a finding (npm pack reproducibility is unverified) |
-| Clawake | `edge-robot/clawake` branch `feat/20-runtime-pins` @ `7e6e006` (contains the demo line, P1, P2, P3a; operator checkout since 2026-10-19) | `git -C clawake rev-parse HEAD` |
+| Clawake | `edge-robot/clawake` `main` @ `85079c8` (PR #33 + #35: demo line, runtime pins, `rollout`, Discord + site values, #32 `validate` fix, backup hardening #28–#31/#34); check out detached: `git -C clawake switch --detach 85079c8` | `git -C clawake rev-parse --short HEAD` = `85079c8` |
 
 Clawake is being reworked right now (`clawake/docs/ADR.md`):
 
@@ -350,7 +350,7 @@ Explain `requireMention` in either path: the bot answers only when you write
    true`, `token_env: DISCORD_BOT_TOKEN`, `dm_policy: allowlist`, `group_policy: allowlist`,
    the guild/channel with `require_mention: true`, and `users` from `discord.approvers`.
    The Engineer has `enabled: false` or no block.
-3. Run `clawake validate -c <inv>`, then the `clawake setup -c <inv>` preview. It must list
+3. Run `clawake validate -c <inv>`. It must show `site values: … (N values, M references)`, and it must exit 0. On a fresh machine it must show no `pending adoption` line; such a line means an old hand-written block exists (see 4). Then run the `clawake setup -c <inv>` preview. It must list
    `channels/discord` for the Lead, with IDs shown as `<id>`.
 4. On a fresh machine there is no hand-written block, so no adoption is needed. If the
    preview asks for `--adopt discord-channel`, an old block exists: stop and explain. On
