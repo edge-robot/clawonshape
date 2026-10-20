@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/architecture.md   # tooling only; no architec
 contract-version: 0.4.0-draft
 foreign-repo-commit: acceacd   # onshape-mcp, branch claw-onshape/external-token
 base-commit: 2ac80f8
-status: issued
+status: done
 ---
 # Make `npm ci` reproducible: lock OpenClaw as an exact devDependency
 
