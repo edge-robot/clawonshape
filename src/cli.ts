@@ -21,12 +21,9 @@ export function registerCli(api: OpenClawPluginApi, config: Config): void {
         if (!b) {
           throw new Error('unknown_connection');
         }
-        return credentials(
-          api.runtime.state.resolveStateDir(),
-          name,
-          connectionOwner(b),
-          config.localMcp?.connectionRef === name ? config.localMcp.credentialDirectory : undefined,
-        );
+        // No handoff directory: CLI processes never publish or revoke access-token.json (edge-robot/clawonshape#16).
+        // The gateway's token owner publishes a new grant, or null after disconnect, at its next sync (≤ 15 s).
+        return credentials(api.runtime.state.resolveStateDir(), name, connectionOwner(b));
       };
       root.command('status <connection>').action(async (name: string) => {
         let connected = false,

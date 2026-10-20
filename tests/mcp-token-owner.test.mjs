@@ -222,3 +222,75 @@ test('a recovered sync resets the rate limit and a failing logger does not stop 
     await f.cleanup();
   }
 });
+
+// Minimal commander stand-in: records the action of every `onshape <command>`.
+function cliActions(f) {
+  const actions = new Map();
+  let registrar;
+  plugin.register({
+    registrationMode: 'discovery',
+    logger: {warn: () => {}, info: () => {}, error: () => {}},
+    pluginConfig: f.raw,
+    registerTool: () => {},
+    registerCli: (r) => {
+      registrar = r;
+    },
+    registerService: () => assert.fail('no service outside the gateway'),
+    session: {controls: {registerSessionAction: () => {}}},
+    registerHttpRoute: () => {},
+    lifecycle: {registerRuntimeLifecycle: () => {}},
+    runtime: {
+      state: {resolveStateDir: () => f.root},
+      config: {current: () => ({plugins: {entries: {'claw-onshape': {enabled: true, config: f.raw}}}})},
+    },
+  });
+  const command = (spec) => {
+    const c = {
+      command: (s) => command(s),
+      description: () => c,
+      option: () => c,
+      action: (fn) => {
+        actions.set(spec.split(' ')[0], fn);
+        return c;
+      },
+    };
+    return c;
+  };
+  registrar({program: command('')});
+  return actions;
+}
+async function quietly(run) {
+  const write = process.stdout.write;
+  process.stdout.write = () => true;
+  try {
+    return await run();
+  } finally {
+    process.stdout.write = write;
+  }
+}
+
+test('onshape status and disconnect CLI commands never write access-token.json; the gateway revokes', async () => {
+  const f = await fixture();
+  try {
+    await (await f.store()).save(token());
+    assert.equal((await f.handoffValue()).accessToken, token().accessToken);
+    const actions = cliActions(f);
+    await quietly(() => actions.get('status')('owner-rest'));
+    assert.equal((await f.handoffValue()).accessToken, token().accessToken);
+    await quietly(() => actions.get('disconnect')('owner-rest'));
+    assert.equal((await f.store()).status(), 'disconnected');
+    // The CLI process left the handoff alone ...
+    assert.equal((await f.handoffValue()).accessToken, token().accessToken);
+    // ... and the gateway owner's next sync publishes null.
+    const owner = mcpTokenOwner(
+      () => f.config,
+      () => f.root,
+      () => {},
+    );
+    await assert.rejects(owner.sync(), /mcp_credential_unavailable/);
+    assert.equal(await f.handoffValue(), null);
+    await owner.dispose();
+  } finally {
+    await f.cleanup();
+  }
+});
