@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/onshape-mcp.md#3-channel-b-credenti
 contract-version: 0.4.0-draft
 foreign-repo-commit: acceacd   # onshape-mcp, branch claw-onshape/external-token
 base-commit: 6a1c60f
-status: issued
+status: done
 ---
 # Only the gateway runtime owns the MCP token handoff (#16)
 
