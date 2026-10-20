@@ -35,15 +35,28 @@ export default {
       return parseConfig(entry.config);
     };
     registerCli(api, config);
-    if (config.localMcp) {
-      const owner = mcpTokenOwner(current, () => api.runtime.state.resolveStateDir());
-      api.lifecycle.registerRuntimeLifecycle({
+    // Only the long-running gateway owns access-token.json (edge-robot/clawonshape#16). `openclaw onshape …` CLI
+    // invocations load the plugin in "discovery" mode and retire that instance through runtime-lifecycle dispose,
+    // so neither the owner nor its null-on-dispose may hang off register() or registerRuntimeLifecycle. Plugin
+    // services are started and stopped only by the gateway; the mode check keeps non-gateway loads inert.
+    if (config.localMcp && api.registrationMode === 'full') {
+      let owner: ReturnType<typeof mcpTokenOwner> | undefined;
+      api.registerService({
         id: 'onshape-mcp-access-owner',
-        dispose: owner.dispose,
-        cleanup: owner.dispose,
+        start: () => {
+          owner ??= mcpTokenOwner(
+            current,
+            () => api.runtime.state.resolveStateDir(),
+            (message) => api.logger.warn(message),
+          );
+          owner.start();
+        },
+        stop: async () => {
+          const stopping = owner;
+          owner = undefined;
+          await stopping?.dispose();
+        },
       });
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: TODO(#9): initial MCP credential sync failure is swallowed without log or status
-      void owner.sync().catch(() => {});
     }
     const lifecycle = registerDashboard(api, current);
     api.registerTool(
