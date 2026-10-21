@@ -358,11 +358,11 @@ behaves exactly as in 1.0.0, and approval v2 (§4) is unchanged.
 
 ### 12.1 Server configuration (provisioned by Clawake)
 
-| Key in `[external_token.mutation]` | Contract |
+| Key (in `[external_token]`, next to `mutation_approval_file`, unless noted) | Contract |
 |---|---|
 | `goal_grant_file` | Optional. Absolute canonical path of the goal grant, e.g. `/run/onshape-approval/goal-grant.json` (same ro mount as `mutation_approval_file`). |
 | `dispatch_journal_dir` | **Required if `goal_grant_file` is set**, otherwise the server does not start (`target_configuration_invalid`). Absolute canonical path of a **server-owned, rw**, private directory (mode `0700`, owner = server UID), e.g. `/var/lib/onshape-mcp/journal`. Not mounted into any other container. |
-| `allowed_operations`, `document_id`, `element_id`, `excluded_workspace_ids`, `write_mode` | Unchanged static bounds. A grant can only narrow them (§8.9). |
+| `allowed_operations`, `document_id`, `element_id`, `excluded_workspace_ids`, `write_mode` (in `[external_token.mutation]`) | Unchanged static bounds. A grant can only narrow them (§8.9). |
 
 ### 12.2 Channel C: goal grant `goal-grant.json`
 
