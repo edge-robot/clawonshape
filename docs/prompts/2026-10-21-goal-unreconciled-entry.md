@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/goal-workflow.md#5-reconciliation
 contract-version: 1.2.0-draft   # plugin-facing goal-1.1.0-draft
 foreign-repo-commit: cc67472    # onshape-mcp feat/5-goal-grant, summary with unreconciledEntry accepted
 base-commit: <this prompt's commit>
-status: issued
+status: done
 ---
 # Goal plugin: unreconciledEntry in GoalView and reconcile by goalId (goal-1.1.0-draft)
 
