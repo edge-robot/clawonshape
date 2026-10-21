@@ -105,7 +105,9 @@
         "clawcad-robotics-lead": [
           "message",
           "onshape_delegate_render",
-          "onshape_delegate_task"
+          "onshape_delegate_task",
+          "onshape_goal_status",
+          "onshape_goal_stop"
         ]
       },
       "plugins": [
@@ -142,7 +144,9 @@
       ],
       "global_tool_allow": [
         "onshape_delegate_render",
-        "onshape_delegate_task"
+        "onshape_delegate_task",
+        "onshape_goal_status",
+        "onshape_goal_stop"
       ],
       "state_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/openclaw/robotics-lead",
       "backup_policy": {
@@ -250,7 +254,12 @@
           "onshape_complete_task",
           "onshape_propose_update",
           "onshape_mutation_context",
-          "onshape_reconcile_update"
+          "onshape_reconcile_update",
+          "onshape_goal_propose",
+          "onshape_goal_status",
+          "onshape_goal_reconcile",
+          "onshape_goal_verify",
+          "onshape_goal_stop"
         ]
       },
       "plugins": [
@@ -293,6 +302,10 @@
             "localMcp": {
               "connectionRef": "owner-rest",
               "credentialDirectory": "/run/onshape-credentials"
+            },
+            "goals": {
+              "enabled": true,
+              "approvalDirectory": "/run/onshape-credentials/mutation-approvals"
             }
           },
           "enabled": true,
@@ -311,7 +324,12 @@
         "onshape_complete_task",
         "onshape_propose_update",
         "onshape_mutation_context",
-        "onshape_reconcile_update"
+        "onshape_reconcile_update",
+        "onshape_goal_propose",
+        "onshape_goal_status",
+        "onshape_goal_reconcile",
+        "onshape_goal_verify",
+        "onshape_goal_stop"
       ],
       "onshape_mcp": true,
       "onshape_mcp_enabled": true,

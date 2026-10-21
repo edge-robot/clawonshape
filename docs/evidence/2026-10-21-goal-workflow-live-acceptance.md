@@ -32,4 +32,37 @@ Stage 1 verdict: **accepted** (UI), matrix row → accepted for stage 1.
 
 ## Stage 2: goal path live
 
-_In progress._
+| Item | Value |
+|---|---|
+| Server | `localhost/clawonshape-mcp:cc67472-goal-grant-curl` @ `sha256:4e788a35…c45d` (`feat/5-goal-grant` @ `cc67472`; distroless build `sha256:0dd5ec35…acfcf`, binary sha256 `4dca4cde…07a2cf`, wrapped for the curl `HealthCmd`) |
+| Server config (operator state, not versioned) | `goal_grant_file = /run/onshape-credentials/mutation-approvals/goal-grant.json`, `dispatch_journal_dir = /var/lib/onshape-mcp/journal`; static mutation pins (workspace, feature, expected microversion) removed; backup `config.toml.*.before-goal` |
+| Service (operator state) | image tag and digest switched; `dispatch_journal_directory` set (host dir mode 0700); backup kept next to `service.json` |
+| Clawake | `feat/40-goal-journal` @ `4b59c83` (`clawake onshape-mcp --action apply --execute`, run by the user) |
+| Plugin | unchanged 0.3.0-rc.1 @ `578bc9b`; `deploy/team.json`: Engineer `goals.enabled` + `approvalDirectory`, five goal tools granted to the Engineer, `onshape_goal_status`/`onshape_goal_stop` to the Lead; `clawake sync-plugins --execute` (user) |
+
+| # | Check | Result |
+|---|---|---|
+| D1 | `GET /capabilities` | pass: `{"contractVersion":"1.1.0","mutationAuthorities":["approval-v2","goal-grant-v1"]}` |
+| D2 | `GET /health/ready` (token published) | pass: 200 |
+| D3 | Journal directory owner/mode, mounted rw | pass: operator UID, 0700 |
+| D4 | No goal grant before confirmation | pass: `mutation-approvals/` holds only the empty approval file |
+| D5 | `clawake status` | pass: Lead + Engineer `healthy`, `ready`, 0.3.0-rc.1 `loaded`; only the known "1 automation has failed 3+ runs" notice |
+
+### Not run (aborted 2026-10-21)
+
+The user aborted the acceptance before the Discord flow to switch the agent model of Lead and Engineer
+(the current OpenAI-based model consumes scarce capacity). The following remain open and must be run
+**on the new model**, because the goal flow depends on agent behaviour:
+
+- G1 goal plugin capability `AVAILABLE` in the dashboard panel;
+- G2 Discord goal to the Lead → `onshape_delegate_task` `workflow: "goal"` → Engineer `onshape_goal_propose`;
+- G3 dashboard review (full request) and "Verify Candidate" (D1 interim decision source);
+- G4 two different feature changes in exactly one new Candidate, Primary unchanged, journal entries;
+- G5 `onshape_goal_verify` and result with revision link in the original Discord channel (incl. F4/S6);
+- G6 negative: duplicate dispatch, scope denial, STOP and `goal-close` on a second mini goal;
+- G7 CAD view loads only on click (S6).
+
+Stage 2 verdict: **deployed, not accepted**. The matrix row stays "deployed, acceptance pending".
+Known side effect while this configuration is live: legacy v1 approvals are not admissible (no static
+pins). Rollback: previous matrix row (image `d98a11dc…` + `config.toml.*.before-goal`, plugin config
+without `goals`).
