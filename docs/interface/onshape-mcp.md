@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Contract-Version | `1.0.0-draft` |
+| Contract-Version | `1.1.0-draft` |
 | Status | **draft**: derived from code, not yet accepted |
 | Owner | onshape-architekt (only the architect edits this file and `fixtures/`) |
-| ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11; [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), [#10](https://github.com/edge-robot/clawonshape/issues/10) (0.3.0); [#12](https://github.com/edge-robot/clawonshape/issues/12) (0.4.0); [#14](https://github.com/edge-robot/clawonshape/issues/14) (1.0.0, ADR-2026-10-16) |
+| ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11; [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), [#10](https://github.com/edge-robot/clawonshape/issues/10) (0.3.0); [#12](https://github.com/edge-robot/clawonshape/issues/12) (0.4.0); [#14](https://github.com/edge-robot/clawonshape/issues/14) (1.0.0, ADR-2026-10-16); [#18](https://github.com/edge-robot/clawonshape/issues/18), [edge-robot/onshape-mcp#5](https://github.com/edge-robot/onshape-mcp/issues/5) (1.1.0, ADR-2026-10-21) |
 | Derived from | clawonshape `demo/gateway-native-read-20261014` @ `2457ff8` · onshape-mcp `claw-onshape/external-token` @ `1a1934a` · clawake `demo/gateway-native-read-20261014` @ `4da3957` · OpenClaw `2026.9.9` |
 
 Normative words: **MUST**, **MUST NOT**, **SHOULD**, **MAY**. Gaps and contradictions found
@@ -17,8 +17,8 @@ while deriving this draft are marked ⚠️ and listed in §11.
 
 | Party | Role in this contract |
 |---|---|
-| **onshape-mcp** (server) | Executes Onshape REST calls for MCP tools in **external-token mode**. Sole owner of **execution admission**: target, read policy, operation enum, revision CAS, approved body, single attempt. |
-| **ClawOnshape** (plugin) | Owns OAuth and refresh. Publishes the access token (channel B). Issues mutation approvals (channel C). Assesses readiness (channel D). **Is not an MCP client** (clawonshape#2). |
+| **onshape-mcp** (server) | Executes Onshape REST calls for MCP tools in **external-token mode**. Sole owner of **execution admission**: target, read policy, operation enum, revision CAS, approved body, single attempt; for goals (§12) also grant scope, budget, STOP and the durable dispatch journal. |
+| **ClawOnshape** (plugin) | Owns OAuth and refresh. Publishes the access token (channel B). Issues mutation approvals and goal grants (channel C, §12). Assesses readiness (channel D). **Is not an MCP client** (clawonshape#2). |
 | OpenClaw native MCP client | Transport for agent tool calls (channel A). Third party; its configuration is listed in §2.2. |
 | Clawake | Deploys and configures both sides. Third party; its obligations are listed in §1. |
 
@@ -41,10 +41,10 @@ Engineer container (OpenClaw + ClawOnshape)            clawonshape-mcp container
 | Command | `onshape-mcp --config /run/onshape-config/config.toml http` |
 | Network | Private Podman network `clawonshape-mcp-private`; base URL `http://clawonshape-mcp:8080`. No published host port. Egress only to `cad.onshape.com`. |
 | Image | Pinned by immutable digest. Clawake rejects images without a digest. |
-| Mounts | `credentialDirectory`: rw in the Engineer, **ro** in the server. `approvalDirectory`: rw in the Engineer, **ro** in the server. Config file: ro in the server. |
+| Mounts | `credentialDirectory`: rw in the Engineer, **ro** in the server. `approvalDirectory`: rw in the Engineer, **ro** in the server. Config file: ro in the server. **1.1.0:** `dispatch_journal_dir` (§12.1): rw in the server only, persistent across restarts and image upgrades. |
 | File ownership | The server validates that the file and its parent are owned by **its own UID**, with no group or other bits (§3, §4). Writer and reader MUST therefore resolve to the same host UID through the Podman user-namespace mapping. ⚠️ G7 |
 | Start order | No ordering is required. Until channel B holds a valid token, the server is live but not ready (§5). |
-| Restart | The server is stateless and re-reads both files on every dispatch. A restart MUST NOT cause a retry of an earlier mutation. |
+| Restart | The server re-reads all channel B/C files on every dispatch. A restart MUST NOT cause a retry of an earlier mutation. **1.1.0:** the only server state is the dispatch journal (§12.4); a lost journal directory blocks goal admission (`dispatch_journal_unavailable`) instead of resetting budgets. |
 | Healthcheck | Today: `curl --fail http://127.0.0.1:8080/health`. Planned: `onshape-mcp healthcheck` for a distroless image. That is a minor change, server first, then Clawake. |
 
 ## 2. Channel A: MCP over Streamable HTTP
@@ -226,6 +226,15 @@ text; they MUST NOT collapse a listed code into a generic one (0.4.0).
 | `external_token_client_unavailable` | A | HTTP client could not be built (`internal_error`) | no | operator |
 | `external_token_request_failed` | A | read dispatch failed (`internal_error`) | yes, for reads only | caller MAY retry the read |
 | `mutation_outcome_unknown_reconcile_required` | A | mutation transport failure, 5xx, 3xx or 408 (`internal_error`). `data: {"outcome":"UNKNOWN","retryAllowed":false,"reconciliationRequired":true}` | **never** | plugin `onshape_reconcile_update`; no new attempt until reconciled |
+| `goal_grant_unavailable` | A, C | goal grant file missing, insecure or unreadable (1.1.0, §12.3 step 2) | no | plugin re-publishes the grant |
+| `mutation_authority_conflict` | A, C | a goal grant and an active approval v2 exist at the same time (§12.2) | no | plugin clears one authority |
+| `goal_grant_invalid` | A, C | grant structurally invalid, expired, lifetime > 8 h, budget > 25 (§12.3 step 4) | no | new confirmation (D4) |
+| `goal_grant_stopped` | A, C | grant `STOPPED`, or STOP observed just before dispatch (§12.3 steps 5, 11) | **never** | stop iterating; report |
+| `goal_scope_denied` | A | request outside the grant target, feature IDs or body shape (§12.3 step 7) | no | stay in scope or ask for a new goal |
+| `goal_budget_exhausted` | A | `maxDispatches` reached (§12.3 step 9) | no | verify and report; a new budget needs a new confirmation |
+| `goal_reconciliation_required` | A | an earlier dispatch of this goal is uncertain and not reconciled (§12.3 step 9) | after reconciliation | plugin goal reconcile with `data.sequence` |
+| `goal_dispatch_duplicate` | A | the identical request was already dispatched with outcome `OK` or `UNCERTAIN` (§12.3 step 9) | **never** | re-read the revision; build a new request |
+| `dispatch_journal_unavailable` | A | journal directory or file unreadable, insecure or corrupt (§12.4) | no | operator / Clawake |
 | `external_token_auth_owned_externally` | CLI | `auth login` in external-token mode | no | none |
 | `external_token_local_url_required` / `_invalid`, `external_token_validation_unavailable` | startup | server refuses to start | no | Clawake or operator |
 | `mcp_execution_disabled`, `mcp_discovery_failed`, `invalid_mcp_server`, `native_mcp_status_unavailable` | plugin | plugin-side MCP projection errors | no | operator |
@@ -249,6 +258,9 @@ Machine-readable list: `fixtures/error-codes.json`.
 | Token file / approval file size | 16 384 B / 1 048 576 B | server |
 | `accessToken` length / `scopes` count | 8 192 / 32 | server |
 | Proposal body (plugin) | ≤ 900 000 B canonical JSON | plugin |
+| Goal grant file | ≤ 65 536 B; lifetime ≤ 28 800 000 ms (default 7 200 000); `maxDispatches` ≤ 25 (default 10); `featureIds` ≤ 32 (§12.2) | server (caps), plugin (defaults) |
+| Goal-mode request body | ≤ 900 000 B canonical JSON (§12.3 step 7) | server |
+| `GET /capabilities` timeout (plugin) | 2 000 ms | plugin |
 
 ## 8. Security invariants
 
@@ -265,6 +277,9 @@ Machine-readable list: `fixtures/error-codes.json`.
    configured as well. **1.0.0:** the server enforces this at startup (`target_configuration_invalid`).
 9. The mutation target is never wider than the static bounds: claims can only narrow it to a
    workspace inside the configured document and element, outside `excluded_workspace_ids`.
+10. **1.1.0:** a goal grant never authorizes more than its listed feature IDs, operation, Candidate,
+    budget and lifetime; budget and uncertain-outcome blocking survive server restarts (§12.4).
+    The plugin never auto-confirms a goal and never auto-approves payloads.
 
 ## 9. Versioning and compatibility
 
@@ -297,6 +312,8 @@ Machine-readable list: `fixtures/error-codes.json`.
 | `fixtures/approved-update/valid/*.json` | contract-first | Rust: admitted against the paired request — v1 with the `target` pins, v2 with `boundsV2` (and also with the `target` pins). TS: `approve` output matches structurally (v2 from the migrate step on) |
 | `fixtures/approved-update/invalid/*.json` | contract-first | Rust: rejected with the code in `expectations.json`, evaluated in the §2.5 order; also the behavioural entries `replay`, `missingApprovalFile`, `readsV2` |
 | `fixtures/mutation-context/valid/*.json` | contract-first | TS: `executionContext` output for the paired approval equals the fixture (except volatile `expiresAt`); `apiCall` validates against the `onshape_api_call` schema in `mcp-tools.json`. Rust: not consumed (0.3.0) |
+| `fixtures/goal-grant/valid/*.json`, `invalid/*.json`, `requests/*.json` | contract-first (1.1.0) | Rust: admitted/rejected against `boundsGoal` and the paired requests in `expectations.json` `goal-grant`, incl. behavioural entries (budget, duplicate, uncertain, restart, STOP race, authority conflict, reads). TS: grant writer output validates structurally; `goal-workflow.md` fixtures |
+| `fixtures/capabilities/*.json` | contract-first (1.1.0) | Rust: `/capabilities` output equals the fixture for the matching config. TS: parser accepts both, treats `404` as `UNSUPPORTED` |
 | `fixtures/error-codes.json` | contract-first | both: every emitted code is listed |
 | `fixtures/expectations.json` | index | both: fixture → expected result or code |
 
@@ -329,7 +346,113 @@ Consumers MUST check line 1 against the version their prompt names.
 | G13 | `onshape_mutation_context` returned `operation` instead of the `endpoint` that `onshape_api_call` requires; the execution context was not specified or tested against the server schema. Live step 7 failed with `missing field endpoint`. | `mutation-workflow.ts` `executionContext`; live evidence 2026-10-16 (M15) | §4.1 `apiCall`; contract test against `mcp-tools.json`. | [edge-robot/clawonshape#10](https://github.com/edge-robot/clawonshape/issues/10) |
 | G12 | `onshape_auth_status` with `validate: true` issues `GET /users/sessioninfo`, which is not in the read set (§2.4). The outcome in external-token mode is unverified (likely `external_token_read_policy_denied` or a validation error). | `tools.rs` `AuthStatusInput`; `external_token.rs` `allowed` | rust-mcp-dev documents the actual behaviour with a test in the G1 prompt; decide afterwards. | [edge-robot/onshape-mcp#1](https://github.com/edge-robot/onshape-mcp/issues/1) (investigation) |
 
+## 12. Goal authorization (1.1.0)
+
+ADR-2026-10-21, [edge-robot/clawonshape#18](https://github.com/edge-robot/clawonshape/issues/18),
+[edge-robot/onshape-mcp#5](https://github.com/edge-robot/onshape-mcp/issues/5). One human goal
+confirmation authorizes several **agent-authored** feature updates in **one** Candidate, within a
+grant that the server enforces. The plugin-facing goal model (states, dashboard actions, agent
+tools) is specified in [`goal-workflow.md`](goal-workflow.md); this section covers only what crosses
+the plugin ⇄ server boundary. Everything in §12 is **additive**: a server without goal configuration
+behaves exactly as in 1.0.0, and approval v2 (§4) is unchanged.
+
+### 12.1 Server configuration (provisioned by Clawake)
+
+| Key in `[external_token.mutation]` | Contract |
+|---|---|
+| `goal_grant_file` | Optional. Absolute canonical path of the goal grant, e.g. `/run/onshape-approval/goal-grant.json` (same ro mount as `mutation_approval_file`). |
+| `dispatch_journal_dir` | **Required if `goal_grant_file` is set**, otherwise the server does not start (`target_configuration_invalid`). Absolute canonical path of a **server-owned, rw**, private directory (mode `0700`, owner = server UID), e.g. `/var/lib/onshape-mcp/journal`. Not mounted into any other container. |
+| `allowed_operations`, `document_id`, `element_id`, `excluded_workspace_ids`, `write_mode` | Unchanged static bounds. A grant can only narrow them (§8.9). |
+
+### 12.2 Channel C: goal grant `goal-grant.json`
+
+| Item | Contract |
+|---|---|
+| Producer / consumer | ClawOnshape goal store (on confirm, STOP, reconcile, expiry) → onshape-mcp `goal_grant_file` |
+| Path, directory, file | `<approvalDirectory>/goal-grant.json`; same private-file rules as §3; **≤ 65 536 bytes** |
+| Write | Atomic replace (`writePrivateSecretFileAtomic`). The plugin persists its goal record **before** it publishes a grant revision. `grantRevision` strictly increases per `goalId`. |
+| Schema v1 | `{"version": 1, "goalId": uuid-v4, "grantRevision": integer ≥ 1, "goalHash": sha256-hex, "state": "ACTIVE" \| "STOPPED", "issuedAt": integer (Unix ms), "expiresAt": integer (Unix ms), "target": {"documentId", "workspaceId", "elementId"} (24-hex each), "operations": ["updatePartStudioFeature"], "featureIds": string[1..32] (unique, each 1–64 chars `[A-Za-z0-9_]`), "maxDispatches": integer 1..25, "reconciledThrough": integer ≥ 0}`, or the JSON literal `null` (= no goal authority). All fields required; unknown fields are rejected. |
+| Lifetime | `0 < expiresAt − issuedAt ≤ 28 800 000` (8 h hard cap). Plugin default 2 h (D2). |
+| Budget | `maxDispatches` ≤ 25 (hard cap). Plugin default 10 (D2). |
+| Operations | Phase 1: exactly `["updatePartStudioFeature"]` (D5). |
+| `target.workspaceId` | The goal's Candidate. MUST NOT be in `excluded_workspace_ids`. |
+| `reconciledThrough` | Highest journal `sequence` (§12.4) whose uncertain outcome the plugin has reconciled. Raised only with a new `grantRevision`. |
+| `state: STOPPED` | STOP/revocation (§12.5). The plugin MAY instead write `null`. |
+| Reset | `null` after the goal reaches a terminal state (`COMPLETED`, `FAILED`, `STOPPED`, `EXPIRED`) and has no unreconciled dispatch. |
+| Fixtures | `fixtures/goal-grant/valid/*.json`, `fixtures/goal-grant/invalid/*.json`, `fixtures/goal-grant/requests/*.json` |
+
+**One authority at a time.** If `goal_grant_file` holds a non-`null` grant **and**
+`mutation_approval_file` holds a non-`null`, unexpired approval, every mutation fails with
+`mutation_authority_conflict`. A non-`null` grant selects goal admission (§12.3); otherwise the
+§2.5 path applies unchanged.
+
+### 12.3 Goal mutation admission (`onshape_api_call`, method other than GET)
+
+Evaluated in this order; the first failure wins. **No provider I/O** before step 11 (step 10
+reads only the local token file).
+
+| # | Check | Error |
+|---|---|---|
+| 1 | §2.5 steps 1–2 (mutation section, `write_mode`, `POST`, static `allowed_operations`, no query parameters, JSON headers) | `target_policy_denied` |
+| 2 | The grant file is readable under the private-file rules | `goal_grant_unavailable` |
+| 3 | Authority: grant non-`null` and no active approval v2 | `mutation_authority_conflict` (`null` grant → §2.5 path) |
+| 4 | Grant structurally valid (§12.2), `expiresAt > now`, lifetime ≤ 8 h, `maxDispatches` ≤ 25, operation ∈ static `allowed_operations` | `goal_grant_invalid` |
+| 5 | `state == "ACTIVE"` | `goal_grant_stopped` |
+| 6 | Static bounds: grant `target.documentId` = `document_id`, `target.elementId` = `element_id`, `target.workspaceId` ∉ `excluded_workspace_ids` | `target_policy_denied` |
+| 7 | Grant scope: path = `/partstudios/d/{d}/w/{w}/e/{e}/features/featureid/{fid}` with `{d}`,`{w}`,`{e}` = grant target; `{fid}` ∈ `featureIds`; `body.feature.featureId` = `{fid}`; body top-level keys ⊆ {`feature`, `sourceMicroversion`, `rejectMicroversionSkew`, `serializationVersion`, `libraryVersion`}; canonical body ≤ 900 000 B | `goal_scope_denied` |
+| 8 | Revision: `body.sourceMicroversion` is 24-hex and `body.rejectMicroversionSkew == true` | `revision_policy_denied` |
+| 9 | Journal (§12.4) for `goalId` readable; `reconciledThrough` ≤ the highest journal `sequence` (else `goal_grant_invalid`); no entry with outcome `UNCERTAIN` (or `PENDING`) and `sequence > reconciledThrough` → else `goal_reconciliation_required`; no earlier entry with the same `requestHash` and outcome `OK` or `UNCERTAIN` → else `goal_dispatch_duplicate`; counted entries < `maxDispatches` → else `goal_budget_exhausted` | `dispatch_journal_unavailable` / as listed |
+| 10 | Token valid (§3) **and** scopes contain `OAuth2Write` | `external_token_*` / `external_token_write_scope_missing` |
+| 11 | Append a `PENDING` entry (fsync), re-read the grant: if it is no longer `ACTIVE` with the same `goalId`, set the entry to `NOT_DISPATCHED` and fail with `goal_grant_stopped`. Otherwise single-attempt dispatch to `https://cad.onshape.com/api/v16`, then record the outcome (fsync) | §12.4 |
+
+`requestHash` = SHA-256 hex of the canonical JSON (sorted keys, no whitespace) of
+`{"path": <path>, "body": <body>}`.
+
+### 12.4 Dispatch journal (server-owned)
+
+| Item | Contract |
+|---|---|
+| Location | `<dispatch_journal_dir>/<goalId>.jsonl`, private-file rules, append-only, one JSON object per line, fsync after every write |
+| Entry | `{"sequence": integer ≥ 1 (per goal, gapless), "grantRevision", "requestHash", "featureId", "sourceMicroversion", "admittedAt": Unix ms, "outcome": "PENDING" \| "OK" \| "PROVIDER_REJECTED" \| "UNCERTAIN" \| "NOT_DISPATCHED", "httpStatus": integer \| null}`. An outcome update is a new line with the same `sequence`; the last line per `sequence` wins. |
+| Outcome mapping | 2xx → `OK`; 4xx except 408 → `PROVIDER_REJECTED`; transport error, timeout, 3xx, 408, 5xx → `UNCERTAIN` (MCP error `mutation_outcome_unknown_reconcile_required`, §6) |
+| Restart | On load, a `PENDING` entry without a later outcome counts as `UNCERTAIN`. The journal is never truncated by the server. |
+| Budget | Entries with outcome `NOT_DISPATCHED` do not count; all others do. |
+| Unreadable or corrupt journal | Fail closed: `dispatch_journal_unavailable`; no dispatch. |
+| Error data | Goal-mode errors from steps 9–11 and the unknown-outcome error carry `data: {"goalId", "sequence" (if any), "featureId", "sourceMicroversion", "admittedAt" (if any)}` so that the plugin can reconcile without reading the journal. |
+| At most one uncertain | Because step 9 blocks every admission while an `UNCERTAIN`/`PENDING` entry is unreconciled, a goal has at most one unreconciled entry at any time. |
+| Plugin access | No file access. The plugin reconciles from error data and Onshape REST reads (`goal-workflow.md` §5) and reads progress through `GET /goals/{goalId}/journal-summary` (§12.7). |
+
+### 12.5 STOP, expiry and reconciliation across the boundary
+
+- **STOP:** the plugin atomically writes the grant with `state: STOPPED` (new `grantRevision`) or
+  `null`. Any admission whose step 2 or step 11 read happens after the write fails with
+  `goal_grant_stopped` (or falls back to §2.5 for `null`, which then fails on the approval file).
+  A dispatch already past step 11 completes and is recorded; the plugin reconciles it. Executed
+  changes are not rolled back.
+- **Expiry:** `expiresAt ≤ now` → `goal_grant_invalid`. Resume after `STOPPED` or `EXPIRED` needs a
+  new confirmation (D4), which yields a new grant revision for the same `goalId` and Candidate.
+- **Uncertain outcome:** blocks the goal (step 9) until the plugin publishes a grant with
+  `reconciledThrough ≥ sequence`. Nobody retries the uncertain request blindly; the next request is
+  built on a re-read revision (CAS).
+
+### 12.6 Reads while a goal grant exists
+
+While a non-`null` grant whose target lies within the static bounds exists and `now < expiresAt`
+(`ACTIVE` or `STOPPED`), `{w}` MAY also be the grant's `target.workspaceId` for
+`/documents/d/{d}/w/{w}/currentmicroversion`, `/documents/d/{d}/w/{w}/elements` and
+`/partstudios/d/{d}/w/{w}/e/{e}/features`. Otherwise §2.4 applies unchanged.
+
+### 12.7 Capability reporting
+
+| Probe | Contract |
+|---|---|
+| `GET /capabilities` | server; no auth, no provider I/O; `200` `{"contractVersion": "1.1.0", "mutationAuthorities": string[]}` where the list contains `"approval-v2"` when `mutation_approval_file` is configured and `"goal-grant-v1"` when `goal_grant_file` and `dispatch_journal_dir` are configured and the journal directory passes the private-file checks. Unknown fields MUST be ignored by the plugin. |
+| `GET /goals/{goalId}/journal-summary` | server; no auth (private network, G8), no provider I/O, `goalId` uuid-v4 else `404`. `200` `{"goalId", "entries": integer, "counted": integer, "maxSequence": integer, "unreconciledSequence": integer \| null, "lastOutcome": string \| null, "lastAdmittedAt": integer \| null}` computed from the journal against the current grant's `reconciledThrough`; unknown goal → `200` with zeros and `null`s; unreadable journal → `503` `dispatch_journal_unavailable`. Authoritative source for budget and progress in the plugin. |
+| Plugin | probes `/capabilities` with the §5 liveness rules (2 000 ms, `redirect: 'error'`). The goal path is `AVAILABLE` only if `goal-grant-v1` is listed **and** the plugin config enables goals; otherwise `UNSUPPORTED`. A `404` (pre-1.1.0 server) means `UNSUPPORTED`. |
+
 ## Changelog
+
+- `1.1.0-draft` (2026-10-21): **minor, additive**. New §12 goal authorization (ADR-2026-10-21): goal grant file in channel C, server config `goal_grant_file` + `dispatch_journal_dir`, goal admission order, durable dispatch journal, STOP/expiry/reconciliation rules, goal-grant reads, `GET /capabilities`. New server codes `goal_grant_unavailable`, `mutation_authority_conflict`, `goal_grant_invalid`, `goal_grant_stopped`, `goal_scope_denied`, `goal_budget_exhausted`, `goal_reconciliation_required`, `goal_dispatch_duplicate`, `dispatch_journal_unavailable`. §0, §1, §6, §7, §8.10, §10. Fixtures `goal-grant/`, `capabilities/`, `expectations.json` `goal-grant` + `boundsGoal`. Plugin-facing goal model in `goal-workflow.md`. Approval v2 unchanged. clawonshape#18, onshape-mcp#5.
 
 - `1.0.0-draft` amended (2026-10-16, wording only, fixtures unchanged): rust-mcp-dev expand report CR-1 (microversion pin checked at step 6 → `revision_policy_denied`), CR-2 (v1 without pins → step 4 `mutation_approval_mismatch`), CR-3 (claimed reads only for claims within the static bounds); §6 step references, §2.5 "no provider I/O before step 10", §7 v2 lifetime.
 - `1.0.0-draft` (2026-10-16): **major**. §4 approval file v2 with target claims (`issuedAt`, `target`, `featureId`, `expectedMicroversion`, `operation`; lifetime ≤ 15 min); v1 deprecated. §2.5 rewritten: static bounds only, claims within bounds, approval file mandatory and enforced at startup, new step 8 replay protection `mutation_approval_consumed`. §2.4 reads of the claimed Candidate while an approval is active. §6, §8.8–8.9, §10. Fixtures: `approved-update/valid/update-feature-v2.json`, nine `invalid/v2-*.json`, `invalid/version-2.json` → `version-3.json`; `expectations.json` `boundsV2`, `replay`, `missingApprovalFile`, `readsV2`. Resolves G2, G3. Migration in four steps (§9): server expand → plugin migrate (P3) → live E2E → contract (remove v1 and static pins). clawonshape#14, ADR-2026-10-16.

@@ -1,9 +1,7 @@
 {
-  "version": 2,
-  "proposalId": "3f2b8c1e-9a4d-4e7f-8b6a-1c2d3e4f5a6b",
-  "expiresAt": 4102444800000,
-  "requestHash": "request-hash-fixture",
-  "payloadHash": "e0e0760379e951a4e954cea16300de4f1b0ae85e97a2a229492e06703e00fdd2",
+  "method": "POST",
+  "path": "/partstudios/d/0123456789abcdef01234567/w/cccccccccccccccccccccccc/e/fedcba9876543210fedcba98/features/featureid/FabcDEF123_0",
+  "query_params": [],
   "body": {
     "feature": {
       "featureId": "FabcDEF123_0",
