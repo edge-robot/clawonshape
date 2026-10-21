@@ -81,6 +81,62 @@ No new error codes were needed.
 The fix started with a failing test: `§12.3 CR-5: the unknown-outcome error data is accepted unchanged by
 onshape_goal_reconcile`.
 
+## Review of possible foreign changes (architect note, Codex openclaw-dev 12:20–12:45)
+
+The architect's note arrived after I had committed `ddbffdd..287feb8`. I therefore reviewed the whole
+committed range `dbba3a6..HEAD` hunk by hunk.
+
+**Commits.** All five commits in the range are mine, with the trailers of this prompt. There is no
+foreign commit.
+
+**Hunks.** I could trace every hunk in `src/`, `openclaw.plugin.json` and `tests/` to one of my own edit
+steps in this session:
+
+| File | Hunks | Traced to | Decision |
+|---|---|---|---|
+| `src/goal-lifecycle.ts` | `CLOSED` state, `close` event, `confirmation.nonce`, `operatorNonceView` | my CR-1/CR-3 edit | kept |
+| `src/goal-service.ts` | `operatorNonce` option, `closeGoal` | my edit | kept |
+| `src/dashboard.ts` | `goal-close` action, operator nonce in `goal-status` | my edit | kept |
+| `src/goal-delivery.ts` | §7 receipt, `DeliveryFailure` | my edit | kept |
+| `src/goal-tools.ts` | receipt on failure, `reconcileToolInput` | my edit | kept |
+| `tests/contract.test.mjs` | digest line only | my edit | kept |
+| `tests/goal-workflow.test.mjs` | T11 receipt assertions | my edit | kept |
+| `tests/mcp-readiness.test.mjs` | `goal-close` registry entry | my edit | kept |
+| `openclaw.plugin.json` | `version` → `0.2.10` only | my edit | kept |
+
+The only formatting difference is that Biome put the `GoalEvent` union on one line.
+
+**`tests/goal-crs.test.mjs`.** When I wrote this file, it did not exist; the Write tool reported it as
+newly created. The committed file contains exactly my 9 tests.
+
+**Duplicates.** There is exactly one implementation each of `closeGoal`, `operatorNonceView`, `goal-close`,
+`reconcileToolInput` and `DeliveryFailure`, and no test name occurs twice across `tests/*.mjs`.
+
+**Working tree.** No uncommitted changes remain in `src/`, `tests/`, `skills/`, `package.json` or
+`openclaw.plugin.json`.
+
+**Result.**
+- **Kept:** all hunks above. I could not identify any of them as foreign.
+- **Changed:** none.
+- **Dropped:** none.
+
+If foreign edits happened in the window, they were either overwritten or matched mine. Note that I
+staged whole files, so my commits contain the working-tree state of each file at commit time. The diff
+review above is the evidence that nothing beyond my own changes is in them.
+
+**Fresh checks after the review**, from a clean `dist/`:
+
+| Command | Result |
+|---|---|
+| `npm ci` | pass |
+| `npm run typecheck` | pass |
+| `npm test` | 183 tests, 183 pass |
+| `npm run test:native-files` | `PASS` |
+| `npm pack --dry-run` | pass, 174 files |
+| `npx biome ci .` | pass |
+
+I did not touch, stage or commit `README.md`, `spec.md` or `docs/product/**`.
+
 ## Contract deviations and change requests
 
 None. Interpretations within the amended text:
