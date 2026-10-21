@@ -296,7 +296,7 @@ Server-side negative tests (scope, Primary, budget, duplicate, uncertain, restar
 | GW1 | Conversation target (`origin`) availability in the tool context | ts-plugin-dev verifies against `node_modules/openclaw` SDK types; fallback: origin from the signed delegation context set by the Lead's `onshape_delegate_task` |
 | GW2 | Dashboard confirmer identity: which client identity the gateway exposes to plugin actions | verify in the SDK; record whatever is available, at minimum `kind` |
 | GW3 | Volatile fields of the features response for the canonical feature hash | fixed by a recorded response in plugin tests |
-| GW5 | Dashboard event log with hand-off of diagnostic entries (e.g. `unreconciledEntry`) to an OpenClaw session | separate issue (clawonshape); OpenClaw session/hand-off API unverified |
+| GW5 | Dashboard event log with hand-off of diagnostic entries (e.g. `unreconciledEntry`) to an OpenClaw session | [edge-robot/clawonshape#20](https://github.com/edge-robot/clawonshape/issues/20); OpenClaw session/hand-off API unverified |
 | GW4 | A2A delegation timeout vs. long goal iterations | measure in the live E2E; the goal state is durable, so a timed-out delegation can be resumed with `workflow: "goal"` and the same `goalId` |
 
 ## Accepted interpretations (ts-plugin-dev report 2026-10-21)
