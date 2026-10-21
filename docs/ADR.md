@@ -13,6 +13,101 @@ Product priority update: Increment 0 connectivity/onboarding and Increment 1
 Discord read/render take precedence over MCP mutation work. ADR-008–011 record
 the implemented product slice; ADR-001–007's plane/security boundaries remain.
 
+## ADR-2026-10-21: Goal-scoped mutation authorization
+
+Status: **Accepted** (2026-10-21, user decisions D1–D5 below). Tracking
+[edge-robot/clawonshape#18](https://github.com/edge-robot/clawonshape/issues/18) (contract and plugin),
+[edge-robot/onshape-mcp#5](https://github.com/edge-robot/onshape-mcp/issues/5) (server enforcement).
+Product source: `docs/product/dashboard-workflow-2026-10-21/README.md` (COC-GOAL-WORKFLOW-20261021);
+top-down report `docs/prompts/2026-10-21-goal-workflow-topdown.report.md`.
+Amends ADR-2026-10-16 (one release act per payload) once accepted; keeps its plane boundaries.
+
+### Context
+
+The user wants to confirm a feature goal once. The Mechanical Engineer then iterates the
+necessary changes in one Candidate until the goal is verified, blocked or stopped. ADR-2026-10-16
+binds one release act to one exact payload (approval v2, contract §4). Hiding, batching or
+auto-clicking payload approvals to simulate a goal is forbidden. The server must enforce the goal
+boundary, because onshape-mcp is the only hard admission boundary (contract §8.4).
+
+### Decision
+
+1. **Goal object (ClawOnshape).** A goal is a durable plugin record: `goalId`, team/agent binding,
+   requester, original conversation target, document, element, Candidate workspace, goal text,
+   goal conditions, preservation conditions, scope, budget, lifetime, state and evidence. The
+   dashboard and the agents read one normalized goal status (MVC, #2).
+2. **One goal, one Candidate.** The Candidate is created once from Primary at the confirmed
+   microversion (REST, `OAuth2Write`) on activation and reused on refresh, resume and further
+   dispatches. No Candidate per step.
+3. **Immutable scope.** `goalHash` = SHA-256 over the canonical goal text, conditions, target,
+   allowed operations, allowed feature IDs, budget and lifetime. Any change creates a new goal
+   revision and needs a new confirmation.
+4. **One release act per goal.** The Engineer prepares a goal request (claims, nonce, expiry,
+   `goalHash`). A human confirms it once. Plugin code verifies the confirmation (confirmer
+   authority, nonce, expiry, unchanged `goalHash`), never the LLM, and only then activates the goal.
+   **Interim confirmation source (D1): the dashboard.** The cockpit's confirm button becomes the
+   "Verify Candidate" act: the operator (`operator.admin`) verifies goal, scope and Candidate target
+   in one step. The verification core is a pure function over (confirmer, nonce, expiry,
+   `goalHash`) so that a Verifiable Credential verifier replaces the dashboard adapter later
+   without changing the goal model. From then on the dashboard only shows decisions made by the
+   credential verifier.
+5. **Goal grant (channel C, new document).** The Engineer plugin publishes `goal-grant.json`:
+   `goalId`, `grantRevision`, `goalHash`, `state` (`ACTIVE` | `STOPPED`), target (document,
+   Candidate workspace, element), allowed operations, allowed feature IDs, `maxDispatches`,
+   `issuedAt`, `expiresAt`. It contains no body: the Engineer authors each body.
+6. **Server admission within the grant.** onshape-mcp admits a mutation only if the path target
+   equals the grant target and is not excluded (Primary), the operation and feature ID are allowed,
+   `sourceMicroversion` is present with `rejectMicroversionSkew = true` (CAS on the revision the
+   Engineer read), the grant is `ACTIVE` and unexpired, the budget is not used up, and no earlier
+   dispatch of this goal is uncertain. Single attempt, as today.
+7. **Durable dispatch journal (onshape-mcp).** A private, server-owned journal records per goal
+   each admitted dispatch (sequence, request hash, outcome `OK` | `PROVIDER_REJECTED` |
+   `UNCERTAIN`). It survives restarts, so the budget and the duplicate-dispatch protection hold.
+   An `UNCERTAIN` dispatch blocks the goal until the plugin publishes a higher `grantRevision`
+   after reconciliation. (D3)
+8. **STOP and revocation.** The plugin writes `state: STOPPED` (or `null`) atomically; the server
+   re-reads the grant on every dispatch and admits nothing after that write. A dispatch already in
+   flight completes and is reconciled. Executed changes are not rolled back. Resume after STOP
+   needs a new confirmation. (D4)
+9. **Preservation conditions** are enforced in two layers: structurally by the server (only allowed
+   feature IDs and operations), semantically by the plugin's independent goal verification (REST
+   reads of the Candidate revision). The server does not judge geometry.
+10. **Independent goal verification.** A plugin tool verifies goal and preservation conditions on
+    the Candidate's current microversion. Only verified evidence yields `COMPLETED`; tool success or
+    a payload `VERIFIED` count never does.
+11. **Result in the original channel.** The goal keeps the conversation target of the confirming
+    command (`ctx.from`, ADR-2026-10-16 spike rule 3). The Lead posts result, verification, open
+    limits and the Onshape revision link there; the delivery is recorded in the goal evidence.
+12. **Migration.** Approval v2 stays admissible during expand/migrate. A server has at most one
+    active authority at a time (an active goal grant or an approval v2 file). The dashboard operator
+    actions (#17) stay until the goal path is live-accepted (contract §9 four steps).
+
+Lifecycle (plugin): `DRAFT` → `AWAITING_CONFIRMATION` → `ACTIVE` ⇄ `RECONCILING` →
+`VERIFYING` → `COMPLETED` | `FAILED`; from any non-terminal state `STOPPED` or `EXPIRED`;
+`BLOCKED` when the budget is used up or verification needs a human decision.
+
+### Decided parameters (2026-10-21)
+
+- **D1 Confirmation source:** the dashboard "Verify Candidate" act, as an explicit **interim
+  workaround** until Verifiable Credentials are used (see decision 4). This deliberately amends, for
+  the interim, ADR-2026-10-16 decision 7 and the "dashboard is never the decision source" rule of
+  ADR-review-2026-10-15: the dashboard is the decision source now and becomes a pure view once the
+  credential verifier decides. The dashboard never approves individual payloads for goals and
+  never auto-confirms.
+- **D2 Bounds:** default `maxDispatches` 10, hard cap 25; default lifetime 2 h, hard cap 8 h.
+- **D3 Journal:** durable server journal in a private rw state directory provisioned by Clawake.
+- **D4 Resume:** resume after `STOPPED` or `EXPIRED` needs a new confirmation.
+- **D5 Operations:** phase 1 allows only `updatePartStudioFeature` on listed feature IDs; new
+  features are a later contract extension.
+
+### Consequences
+
+- Contract: additive expand (`1.1.0-draft`, new channel C document, new error codes), server first;
+  approval v2 unchanged.
+- Clawake: grant file path and, with D3 (a), a private rw journal directory for the server.
+- Delivery order: onshape-mcp (rust-mcp-dev) → ClawOnshape (ts-plugin-dev) → Clawake. Dashboard goal
+  views stay with the Codex top-down team and consume the goal status, never decide.
+
 ## ADR-2026-10-19: Discord bindings take their IDs from Clawake site values
 
 Status: **Accepted** (2026-10-19, user decision: option A). Answers the
