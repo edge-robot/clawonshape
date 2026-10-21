@@ -6,11 +6,14 @@ Current status:
 
 - Read/render flow is accepted for one configured owner.
 - Gateway-owned native MCP feature reads pass, including hole diameter inspection. Candidate mutation is implemented but has not yet passed live write acceptance; the deployed target remains read-only.
-- Candidate preparation and exact-payload approval are operator dashboard actions. Engineer performs approved feature updates through native MCP; no agent creation tool is granted.
+- The Engineering Cockpit is a read-only overview and review page. A separate, collapsed Operator actions section preserves the existing guarded `mutation-approve`, `mutation-reconcile` and `candidate-prepare` actions until Discord approval proofs ship (P3b, #11). Engineer performs approved feature updates through native MCP; no agent creation tool is granted.
+- The native cockpit now has Workspace, CAD and 3D Print views in the working tree. Current labels load through guarded, GET-only workspace metadata independently of PNGs. Goal iteration and automated print preparation remain blocked; browser/live acceptance is open.
 - Deployment and configuration reconciliation are owned by Clawake.
 - Native dashboard and CLI share the same OAuth connection lifecycle.
 
 Start here:
+
+- [Engineering Cockpit](docs/engineering-cockpit.md) — workspace, Candidate selection, CAD views, evidence and next steps
 
 - [Live read evidence](docs/dashboard-connection-fix-2026-10-14.md) — Gateway-owned hole inspection and request-policy repair
 - [docs/product-mvp-status.md](docs/product-mvp-status.md) — current product acceptance and known gaps
@@ -109,7 +112,7 @@ Operator steps:
 node scripts/provision-oauth-secret.mjs
 ```
 
-3. Open the native Claw-Onshape page, connect the configured owner connection, and complete Onshape consent.
+3. Open the native Claw-Onshape page → **Verbindung & technische Details** → **Onshape verbinden**, and complete Onshape consent.
 4. Refresh status and verify the connection is actually active.
 
 CLI equivalents:

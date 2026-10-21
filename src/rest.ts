@@ -35,8 +35,28 @@ export function validateFeatureObservation(value: unknown): asserts value is Fea
   }
 }
 
-type WorkspaceInfo = {id?: unknown; documentId?: unknown; microversion?: unknown};
-type ElementInfo = {id?: unknown; elementType?: unknown};
+type WorkspaceInfo = {id?: unknown; documentId?: unknown; microversion?: unknown; name?: unknown};
+type ElementInfo = {id?: unknown; elementType?: unknown; name?: unknown};
+// Optional labels are display metadata, never identity or revision evidence.
+export function validatedDisplayNames(value: {
+  documentName?: unknown;
+  workspaceName?: unknown;
+  primaryWorkspaceName?: unknown;
+  elementName?: unknown;
+}): Partial<Record<'documentName' | 'workspaceName' | 'primaryWorkspaceName' | 'elementName', string>> {
+  const result: Partial<Record<'documentName' | 'workspaceName' | 'primaryWorkspaceName' | 'elementName', string>> = {};
+  for (const key of ['documentName', 'workspaceName', 'primaryWorkspaceName', 'elementName'] as const) {
+    const raw = value[key];
+    if (typeof raw !== 'string' || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(raw)) {
+      continue;
+    }
+    const name = raw.trim();
+    if (name && Array.from(name).length <= 256) {
+      result[key] = name;
+    }
+  }
+  return result;
+}
 type SourceFeatures = {sourceMicroversion?: unknown; features?: unknown};
 
 export type CandidateFeatureMetadata = Readonly<{
@@ -224,7 +244,7 @@ export class RestClient {
 
   private async inspectSnapshot(binding: Binding) {
     validateTarget(binding, binding.documentId, binding.workspaceId);
-    const doc = (await this.get(`documents/${binding.documentId}`)) as {id?: unknown};
+    const doc = (await this.get(`documents/${binding.documentId}`)) as {id?: unknown; name?: unknown};
     if (!doc || doc.id !== binding.documentId) {
       throw new Error('provider_protocol_error');
     }
@@ -241,6 +261,39 @@ export class RestClient {
       },
       elements: elements as readonly ElementInfo[],
       workspaces,
+      documentName: doc.name,
+    };
+  }
+
+  // Current display context only: three existing metadata GETs, no geometry or ancestry claim.
+  async workspaceContext(binding: Binding) {
+    const {elements, workspaces, documentName} = await this.inspectSnapshot(binding);
+    if (
+      workspaces.length > 1000 ||
+      workspaces.some((w) => !id(w?.id) || (w.documentId !== undefined && w.documentId !== binding.documentId)) ||
+      ![...new Set([binding.workspaceId, binding.primaryWorkspaceId])].every(
+        (wid) => workspaces.filter((w) => w.id === wid).length === 1,
+      )
+    ) {
+      throw new Error('provider_protocol_error');
+    }
+    const element = elements.filter((e) => e.id === binding.elementId);
+    if (!binding.elementId || element.length !== 1 || element[0].elementType !== 'PARTSTUDIO') {
+      throw new Error('unsupported_element');
+    }
+    return {
+      target: {
+        documentId: binding.documentId,
+        workspaceId: binding.workspaceId,
+        primaryWorkspaceId: binding.primaryWorkspaceId,
+        elementId: binding.elementId,
+      },
+      ...validatedDisplayNames({
+        documentName,
+        workspaceName: workspaces.find((w) => w.id === binding.workspaceId)?.name,
+        primaryWorkspaceName: workspaces.find((w) => w.id === binding.primaryWorkspaceId)?.name,
+        elementName: element[0].name,
+      }),
     };
   }
 
@@ -395,7 +448,7 @@ export class RestClient {
     if (!binding.elementId) {
       throw new Error('target_missing');
     }
-    const {summary: inspected, elements} = await this.inspectSnapshot(binding);
+    const {summary: inspected, elements, workspaces, documentName} = await this.inspectSnapshot(binding);
     if (!inspected.elementIds.includes(binding.elementId)) {
       throw new Error('target_not_part_studio');
     }
@@ -432,7 +485,13 @@ export class RestClient {
       metadata: {
         status: 'ok',
         code: 'ready',
-        message: 'Onshape is connected and the Camera Mount Plate is available.',
+        ...validatedDisplayNames({
+          documentName,
+          workspaceName: workspaces.find((w) => w.id === binding.workspaceId)?.name,
+          primaryWorkspaceName: workspaces.find((w) => w.id === binding.primaryWorkspaceId)?.name,
+          elementName: (pinned as ElementInfo[]).find((e) => e.id === binding.elementId)?.name,
+        }),
+        message: 'Onshape is connected and the configured Part Studio is available.',
         documentId: binding.documentId,
         workspaceId: binding.workspaceId,
         elementId: binding.elementId,
@@ -441,7 +500,7 @@ export class RestClient {
         size: IMAGE_SIZE,
         featureCount: features.features.length,
         onshapeUrl: `https://cad.onshape.com/documents/${binding.documentId}/w/${binding.workspaceId}/e/${binding.elementId}`,
-        revisionUrl: `https://cad.onshape.com/documents/${binding.documentId}/m/${microversionId}/e/${binding.elementId}`,
+        revisionUrl: `https://cad.onshape.com/documents/${binding.documentId}/w/${binding.workspaceId}/m/${microversionId}/e/${binding.elementId}`,
       },
     };
   }

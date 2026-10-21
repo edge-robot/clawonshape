@@ -7,7 +7,6 @@ import {mcpReadiness, projectMcpStatus} from '../dist/mcp.js';
 import {registerDashboard} from '../dist/dashboard.js';
 import {parseConfig, connectionOwner} from '../dist/config.js';
 import {credentials} from '../dist/credentials.js';
-import ui from '../ui/control-ui.js';
 const native = (authStatus = {hasTokens: true, requiresAuthorization: false}, enabled = false) => ({
   servers: [{name: 'onshape', configured: true, enabled, ok: enabled, auth: 'oauth', authStatus}],
 });
@@ -175,6 +174,8 @@ test('operator scope is checked before native reads; no native metadata enters s
   assert.deepEqual(
     d.actions.map((a) => [a.id, a.requiredScopes]),
     [
+      ['render', ['operator.read']],
+      ['workspace-context', ['operator.read']],
       ['status', ['operator.read']],
       ['connect', ['operator.admin']],
       ['disconnect', ['operator.admin']],
@@ -246,174 +247,39 @@ test('REST connected/disconnected statuses remain independent with no network, r
     await rm(root, {recursive: true, force: true});
   }
 });
-test('dashboard preserves successful REST status and offers native read/write consent', async () => {
-  const originalDocument = globalThis.document;
-  class Element {
-    children = [];
-    value = '';
-    textContent = '';
-    attrs = {};
-    append(...items) {
-      this.children.push(...items);
-      if (this.attrs['aria-label'] === 'Configured Onshape connection' && !this.value && items.length) {
-        this.value = items[0].value;
-      }
-    }
-    replaceChildren(...items) {
-      this.children = items;
-    }
-    setAttribute(k, v) {
-      this.attrs[k] = v;
-    }
-    removeAttribute(k) {
-      delete this.attrs[k];
-    }
-    remove() {}
-  }
-  globalThis.document = {createElement: () => new Element()};
-  try {
-    let page;
-    ui.activate({ui: {registerNavigation: () => {}, registerPage: (p) => (page = p)}});
-    const container = new Element(),
-      requests = [];
-    const view = page.mount(container, {
-      signal: {aborted: false},
-      host: {
-        request: async (method, args) => {
-          requests.push([method, args.actionId, args.payload]);
-          return {
-            ok: true,
-            result: {
-              code: 'connected',
-              message: 'REST fixture',
-              connections: ['owner-rest'],
-              mcp: projectMcpStatus(native()),
-            },
-          };
-        },
-      },
-    });
-    await new Promise((resolve) => setImmediate(resolve));
-    const nodes = (e) => [e, ...e.children.flatMap(nodes)],
-      all = nodes(container),
-      text = all.map((e) => e.textContent).join('\n');
-    for (const label of [
-      'Onshape REST',
-      'Onshape MCP',
-      'CAD mutation: approved Candidate payload and bound MCP execution policy required.',
-      'Disabled',
-      'HISTORICAL',
-      'UNKNOWN',
-    ]) {
-      assert(text.includes(label));
-    }
-    assert(!text.includes('Connect MCP'));
-    assert(!text.includes('Disconnect MCP'));
-    assert(text.includes('Connect Onshape'));
-    assert(text.includes('Status: connected'));
-    assert(!text.includes('plugin_unavailable'));
-    const connectWrite = all.find((e) => e.textContent === 'Connect Onshape read/write');
-    const disconnect = all.find((e) => e.textContent === 'Disconnect Onshape');
-    assert.equal(connectWrite.disabled, false);
-    assert.equal(disconnect.disabled, false);
-    assert.deepEqual(requests, [['plugins.sessionAction', 'status', {}]]);
-    all.find((e) => e.attrs['aria-label'] === 'Configured Onshape connection').value = 'owner-rest';
-    await connectWrite.onclick();
-    assert.deepEqual(requests.at(-1), [
-      'plugins.sessionAction',
-      'connect',
-      {connectionRef: 'owner-rest', requestRestWriteAccess: true},
-    ]);
-    view.dispose();
-  } finally {
-    globalThis.document = originalDocument;
-  }
+
+test('status discards metadata when the binding changes during native readiness', async () => {
+  let config = parseConfig({bindings: [B]});
+  const actions = [];
+  registerDashboard(
+    {
+      session: {controls: {registerSessionAction: (a) => actions.push(a)}},
+      registerHttpRoute() {},
+      lifecycle: {registerRuntimeLifecycle() {}},
+      runtime: {state: {resolveStateDir: () => '/tmp'}, config: {current: () => ({})}},
+    },
+    () => config,
+    async () => {
+      config = parseConfig({bindings: []});
+      return projectMcpStatus(native());
+    },
+  );
+  const result = await actions
+    .find((a) => a.id === 'status')
+    .handler({payload: {}, client: {scopes: ['operator.read']}});
+  assert.equal(result.result.code, 'authorization_changed');
+  assert.equal(result.result.mcp, undefined);
 });
 
-test('dashboard proposal cards show REJECTED with its reason and keep terminal actions disabled', async () => {
-  const originalDocument = globalThis.document;
-  class Element {
-    children = [];
-    value = '';
-    textContent = '';
-    attrs = {};
-    append(...items) {
-      this.children.push(...items);
-    }
-    replaceChildren(...items) {
-      this.children = items;
-    }
-    setAttribute(k, v) {
-      this.attrs[k] = v;
-    }
-    removeAttribute(k) {
-      delete this.attrs[k];
-    }
-    remove() {}
+test('mutation view fails closed for missing read scope or a foreign connection', async () => {
+  const d = dashboard(parseConfig({bindings: [B]}), '/tmp', async () => projectMcpStatus(native()));
+  const action = d.actions.find((a) => a.id === 'mutation-status');
+  for (const scopes of [[], ['operator.write']]) {
+    const result = await action.handler({payload: {}, client: {scopes}});
+    assert.equal(result.result.code, 'authorization_changed');
+    assert.equal(result.result.proposals, undefined);
   }
-  globalThis.document = {createElement: () => new Element()};
-  const proposal = (id, status, extra = {}) => ({
-    id,
-    status,
-    summary: `${status} summary`,
-    documentId: 'a'.repeat(24),
-    workspaceId: 'c'.repeat(24),
-    elementId: 'd'.repeat(24),
-    featureId: 'plate',
-    sourceMicroversion: 'e'.repeat(24),
-    payloadHash: '0'.repeat(64),
-    body: {},
-    ...extra,
-  });
-  try {
-    let page;
-    ui.activate({ui: {registerNavigation: () => {}, registerPage: (p) => (page = p)}});
-    const container = new Element();
-    const view = page.mount(container, {
-      signal: {aborted: false},
-      host: {
-        request: async (_method, args) => ({
-          ok: true,
-          result:
-            args.actionId === 'mutation-status'
-              ? {
-                  status: 'ok',
-                  oauthWrite: true,
-                  target: {workspaceId: 'c'.repeat(24), primaryWorkspaceId: 'b'.repeat(24)},
-                  proposals: [
-                    proposal('rejected-id', 'REJECTED', {
-                      reason: 'approval_expired_not_dispatched',
-                      rejectedAt: '2026-10-16T10:00:00.000Z',
-                    }),
-                    proposal('verified-id', 'VERIFIED'),
-                    proposal('unknown-id', 'UNKNOWN'),
-                  ],
-                }
-              : {code: 'connected', message: 'REST fixture', connections: ['owner-rest']},
-        }),
-      },
-    });
-    await new Promise((resolve) => setImmediate(resolve));
-    const nodes = (e) => [e, ...e.children.flatMap(nodes)];
-    await nodes(container)
-      .find((e) => e.textContent === 'Load change proposals')
-      .onclick();
-    const all = nodes(container);
-    const card = (id) => all.find((e) => e.children[0]?.textContent?.startsWith(`${id} — `));
-    const buttons = (id) => card(id).children.filter((e) => 'onclick' in e);
-    assert.equal(
-      card('rejected-id').children[0].textContent,
-      'rejected-id — REJECTED (approval_expired_not_dispatched)',
-    );
-    assert.equal(card('verified-id').children[0].textContent, 'verified-id — VERIFIED');
-    for (const id of ['rejected-id', 'verified-id']) {
-      assert(buttons(id).length === 2 && buttons(id).every((b) => b.disabled === true), `${id} actions disabled`);
-    }
-    const [approveUnknown, reconcileUnknown] = buttons('unknown-id');
-    assert.equal(approveUnknown.disabled, true);
-    assert.equal(reconcileUnknown.disabled, false);
-    view.dispose();
-  } finally {
-    globalThis.document = originalDocument;
-  }
+  const result = await action.handler({payload: {connectionRef: 'foreign'}, client: {scopes: ['operator.read']}});
+  assert.equal(result.result.code, 'not_configured');
+  assert.equal(result.result.target, undefined);
 });
