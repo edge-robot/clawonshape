@@ -3,7 +3,11 @@ import type {Config} from './config.ts';
 import {connectionOwner} from './config.ts';
 import {connectionLifecycle, CALLBACK_PATH} from './connections.ts';
 import {RestClient, validatedDisplayNames} from './rest.ts';
-import {operatorCandidateAuthorization} from './candidate-authorization.ts';
+import {operatorCandidateAuthorization, operatorGoalCandidateAuthorization} from './candidate-authorization.ts';
+import {candidateAttempts} from './candidate-attempts.ts';
+import {goalAuthorityActive} from './goal-store.ts';
+import {confirmGoal, goalStatus, reconcileGoal, stopGoal} from './goal-service.ts';
+import type {GoalContext} from './goal-service.ts';
 import {credentials} from './credentials.ts';
 import {accessToken} from './authorization.ts';
 import {authorizationSnapshot, matchesAuthorizationSnapshot} from './authorization-snapshot.ts';
@@ -20,6 +24,9 @@ export function registerDashboard(
   api: OpenClawPluginApi,
   current: () => Config,
   readMcp: typeof mcpReadiness = mcpReadiness,
+  // Egress to MCP_URL for the goal capability and journal-summary probes (injectable for tests).
+  goalFetcher: typeof fetch = fetch,
+  now: () => number = Date.now,
 ) {
   const lifecycle = connectionLifecycle(
     current,
@@ -324,6 +331,11 @@ export function registerDashboard(
               approvalDirectory,
               client,
               assertOperator,
+              async () => {
+                if (await goalAuthorityActive(api.runtime.state.resolveStateDir())) {
+                  throw new Error('goal_active_conflict');
+                }
+              },
             );
             return response({status: 'approved', proposal: record, reconciliationRequired: true});
           }
@@ -343,7 +355,138 @@ export function registerDashboard(
       },
     });
   }
+  registerGoalActions(api, current, goalFetcher, now);
   api.registerHttpRoute({path: CALLBACK_PATH, match: 'exact', auth: 'plugin', handler: lifecycle.callback});
   api.lifecycle.registerRuntimeLifecycle({id: 'onshape-consent', dispose: lifecycle.cancel, cleanup: lifecycle.cancel});
   return lifecycle;
+}
+
+const GOAL_ACTION_KEYS = {
+  'goal-status': ['connectionRef'],
+  'goal-confirm': ['connectionRef', 'goalId', 'nonce', 'expectedGoalHash'],
+  'goal-stop': ['connectionRef', 'goalId'],
+  'goal-reconcile': ['connectionRef', 'goalId', 'sequence', 'featureId', 'sourceMicroversion', 'admittedAt'],
+} as const;
+
+// goal-workflow.md §4.1. Every response is {ok: true, goal: GoalView} (goal-status also carries history) or
+// {ok: false, code, message}. goal-confirm acts only on an explicit operator call with the displayed goalHash.
+function registerGoalActions(
+  api: OpenClawPluginApi,
+  current: () => Config,
+  goalFetcher: typeof fetch,
+  now: () => number,
+) {
+  for (const actionId of ['goal-status', 'goal-confirm', 'goal-stop', 'goal-reconcile'] as const) {
+    const required = actionId === 'goal-status' ? 'operator.read' : 'operator.admin';
+    api.session.controls.registerSessionAction({
+      id: actionId,
+      description: `Claw-Onshape ${actionId}`,
+      requiredScopes: [required],
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          connectionRef: {type: 'string', pattern: '^[a-z][a-z0-9_-]{0,63}$'},
+          goalId: {type: 'string'},
+          nonce: {type: 'string'},
+          expectedGoalHash: {type: 'string'},
+          sequence: {type: 'integer'},
+          featureId: {type: 'string'},
+          sourceMicroversion: {type: 'string'},
+          admittedAt: {type: 'integer'},
+        },
+      },
+      async handler(action): Promise<PluginSessionActionResult> {
+        const response = (value: unknown) => ({ok: true as const, result: JSON.parse(JSON.stringify(value))});
+        try {
+          const initial = current();
+          const snapshot = authorizationSnapshot(initial);
+          const assertOperator = () => {
+            if (!action.client?.scopes.includes(required) || !matchesAuthorizationSnapshot(current(), snapshot)) {
+              throw new Error('authorization_changed');
+            }
+          };
+          assertOperator();
+          const payload: unknown = action.payload ?? {};
+          if (
+            !payload ||
+            typeof payload !== 'object' ||
+            Array.isArray(payload) ||
+            Object.keys(payload).some((key) => !(GOAL_ACTION_KEYS[actionId] as readonly string[]).includes(key))
+          ) {
+            throw new Error('invalid_arguments');
+          }
+          // Validated as a plain JSON object with only the listed keys; each value is checked where it is used.
+          const input = payload as Record<string, unknown>;
+          const ref = input.connectionRef;
+          if (ref !== undefined && (typeof ref !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(ref))) {
+            throw new Error('invalid_arguments');
+          }
+          const bindings = initial.bindings.filter((b) => ref === undefined || b.connectionRef === ref);
+          if (bindings.length !== 1) {
+            throw new Error('not_configured');
+          }
+          const binding = bindings[0];
+          const stateDir = api.runtime.state.resolveStateDir();
+          const store = await credentials(
+            stateDir,
+            binding.connectionRef,
+            connectionOwner(binding),
+            initial.localMcp?.credentialDirectory,
+          );
+          const readGuard = () => {
+            assertOperator();
+            if (!current().liveReads) {
+              throw new Error('live_reads_disabled');
+            }
+          };
+          const client = new RestClient(() => accessToken(store, initial.oauth, readGuard));
+          const ctx: GoalContext = {
+            stateDir,
+            config: initial,
+            binding,
+            client,
+            fetcher: goalFetcher,
+            now,
+            guard: assertOperator,
+          };
+          if (actionId === 'goal-status') {
+            const {goal, history} = await goalStatus(ctx);
+            assertOperator();
+            return response({ok: true, goal, history});
+          }
+          if (actionId === 'goal-stop') {
+            return response({ok: true, goal: await stopGoal(ctx, input.goalId, 'Stopped by the operator.')});
+          }
+          if (actionId === 'goal-reconcile') {
+            readGuard();
+            return response({ok: true, goal: await reconcileGoal(ctx, input)});
+          }
+          readGuard();
+          // The Candidate is created from Primary through the existing candidate path (REST OAuth2Write).
+          const source = {...binding, workspaceId: binding.primaryWorkspaceId};
+          const creator = new RestClient(() => accessToken(store, initial.oauth, readGuard), fetch, {
+            stateDir,
+            authorization: operatorGoalCandidateAuthorization(current, binding, stateDir, assertOperator),
+          });
+          const goal = await confirmGoal(
+            ctx,
+            {goalId: input.goalId, nonce: input.nonce, expectedGoalHash: input.expectedGoalHash},
+            {
+              kind: 'dashboard-operator',
+              ...(typeof action.client?.connId === 'string' ? {clientId: action.client.connId} : {}),
+              scopes: action.client?.scopes ?? [],
+            },
+            {
+              readAttempt: async () => (await candidateAttempts(stateDir, source)).exclusive(async (r) => r.read()),
+              create: (candidateInput) => creator.prepareCandidateWorkspace(source, candidateInput),
+            },
+          );
+          return response({ok: true, goal});
+        } catch (e) {
+          return response({ok: false, ...userError(e)});
+        }
+      },
+    });
+  }
 }

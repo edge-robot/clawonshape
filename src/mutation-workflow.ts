@@ -283,6 +283,9 @@ export async function mutationStore(stateDir: string, binding: Binding, now: () 
       approvalDirectory: string,
       client: RestClient,
       assertOperator: () => void,
+      // goal-workflow.md §1: rejects while a goal holds live authority (goal_active_conflict). Runs inside this
+      // store's lock, which the goal confirmation also takes before it publishes a grant.
+      assertNoGoalAuthority: () => Promise<void> = () => Promise.resolve(),
     ) {
       return exclusive(async () => {
         assertOperator();
@@ -293,6 +296,7 @@ export async function mutationStore(stateDir: string, binding: Binding, now: () 
         if ((await list()).some((r) => r.status === 'UNKNOWN')) {
           throw new Error('mutation_reconciliation_required');
         }
+        await assertNoGoalAuthority();
         const current = await client.featureUpdateBaseline(binding, record.featureId);
         if (
           current.sourceMicroversion !== record.sourceMicroversion ||
