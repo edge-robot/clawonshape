@@ -99,6 +99,8 @@ test('CR-1 agent tools never see the nonce (Engineer onshape_goal_status through
     const proposed = await proposeVector(h);
     const cfg = rawConfig(h);
     const factories = [];
+    // The tools take the MCP fetcher (global fetch) at registration: route it to the harness first (no network).
+    t.mock.method(globalThis, 'fetch', h.ctx.fetcher);
     plugin.register({
       session: {controls: {registerSessionAction: () => {}}},
       registerHttpRoute: () => {},
@@ -112,8 +114,6 @@ test('CR-1 agent tools never see the nonce (Engineer onshape_goal_status through
         state: {resolveStateDir: () => h.root},
       },
     });
-    // Tools probe MCP with the global fetch; route it to the harness (no network).
-    t.mock.method(globalThis, 'fetch', h.ctx.fetcher);
     const ctx = {
       agentId: binding.agentId,
       requesterSenderId: binding.requesterSenderId,
@@ -126,6 +126,8 @@ test('CR-1 agent tools never see the nonce (Engineer onshape_goal_status through
     assert.equal(result.isError, undefined, JSON.stringify(result.details));
     assert.equal(result.details.goal.state, 'AWAITING_CONFIRMATION');
     assert.equal(result.details.goal.confirmation.nonce, null);
+    // Proves the probe reached the harness and not the network.
+    assert.equal(result.details.goal.capability, 'AVAILABLE');
     assert(!result.content[0].text.includes(await nonceOf(h, proposed.goalId)));
   } finally {
     await h.cleanup();
