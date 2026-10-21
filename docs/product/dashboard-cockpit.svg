@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1060" viewBox="0 0 1600 1060" font-size="14" role="img" aria-labelledby="title desc">
+<title id="title">pib Engineering Cockpit – visueller Dashboard-Entwurf</title>
+<desc id="desc">Dunkles Dashboard mit Workspace, Candidate-Auswahl, CAD-Vergleich und getrennten Anzeigen für Freigabe, Ausführung und Prüfung. Alle Inhalte sind illustrative Beispieldaten, keine Runtime-Belege. Statischer Produktmockup ohne Funktionen.</desc>
+<defs>
+  <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101923"/><stop offset="1" stop-color="#080e16"/></linearGradient>
+  <linearGradient id="face" x2="0.7" y2="1"><stop stop-color="#667d91"/><stop offset="1" stop-color="#2d4357"/></linearGradient>
+  <linearGradient id="candidateFace" x2="0.7" y2="1"><stop stop-color="#5c8e9d"/><stop offset="1" stop-color="#2a5264"/></linearGradient>
+  <radialGradient id="stage"><stop stop-color="#1c3040"/><stop offset="1" stop-color="#101b27"/></radialGradient>
+  <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#405367" stroke-opacity=".2" stroke-width=".7"/></pattern>
+  <filter id="shadow" x="-40%" y="-60%" width="180%" height="240%"><feGaussianBlur stdDeviation="14"/></filter>
+  <g id="plate">
+    <ellipse cx="190" cy="140" rx="172" ry="27" fill="#02070b" opacity=".65" filter="url(#shadow)"/>
+    <path d="M0 50 150 140 380 50 380 69 150 159 0 69Z" fill="#192d3d" stroke="#547184" stroke-width="1.2"/>
+    <path d="M150 140V159L380 69V50Z" fill="#254456"/>
+    <path d="M0 50 230 -40 380 50 150 140Z" fill="url(#face)" stroke="#8ba6b8" stroke-width="1.4"/>
+    <path d="M7 51 230 -34 373 51 150 134Z" fill="none" stroke="#b1c4cf" stroke-opacity=".2"/>
+  </g>
+  <g id="hole"><ellipse rx="18" ry="10" fill="#0a1520" stroke="#b2c8d1" stroke-width="1.5"/><path d="M-15 5 Q0 -4 15 5" fill="none" stroke="#4c6d81" stroke-width="2"/></g>
+  <g id="largeHole"><ellipse rx="24" ry="13" fill="#09151e" stroke="#f3b66a" stroke-width="2"/><path d="M-21 6 Q0 -6 21 6" fill="none" stroke="#566b72" stroke-width="2"/><ellipse rx="31" ry="18" fill="none" stroke="#f3b66a" stroke-opacity=".4" stroke-dasharray="3 4"/></g>
+  <g id="check"><circle r="9" fill="#1b3d35"/><path d="m-4 0 3 3 5-6" fill="none" stroke="#71d4b1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <style>
+    text{font-family:Arial,Helvetica,sans-serif;fill:#e3ebf4}
+    .muted{fill:#8fa3b7}.dim{fill:#637d94}.small{font-size:12px}.tiny{font-size:11px}.mono{font-family:monospace;font-size:12px}.label{font-size:11px;letter-spacing:1.8px;fill:#8299ae}.cyan{fill:#60d4d1}.green{fill:#81d9b6}.amber{fill:#edbc7d}.white{fill:#f3f7fb}.line{stroke:#263849;stroke-width:1}.card{fill:#141f2c;stroke:#28394a;stroke-width:1}
+  </style>
+</defs>
+<rect width="1600" height="1060" fill="#080f18"/>
+<!-- Navigation -->
+<rect width="204" height="1060" fill="#0c141f"/>
+<path d="M204 0V1060" class="line"/>
+<rect x="24" y="27" width="36" height="36" rx="11" fill="#55d4d0"/>
+<path d="M34 52V38H47Q54 38 54 44Q54 50 47 50H40" fill="none" stroke="#0a202b" stroke-width="3" stroke-linecap="round"/>
+<text x="72" y="43" font-size="20" font-weight="700">pib<tspan class="muted" font-size="14"> / engineering</tspan></text>
+<text x="25" y="111" class="label">ARBEITSBEREICH</text>
+<rect x="14" y="128" width="176" height="44" rx="9" fill="#19313e"/>
+<rect x="14" y="139" width="3" height="22" rx="1.5" fill="#5bd2cd"/>
+<path d="M30 141h15v15H30zM35 137h15v15" fill="none" stroke="#66d9d4" stroke-width="1.4"/>
+<text x="60" y="155" class="cyan" font-weight="700">Workspace</text>
+<path d="M30 191h17v14H30zM34 187h9" fill="none" stroke="#7891a6" stroke-width="1.4"/>
+<text x="60" y="202" class="muted">Candidates</text>
+<rect x="157" y="185" width="23" height="22" rx="6" fill="#243345"/><text x="165" y="201" class="small">3</text>
+<path d="M30 236h17v16H30zM34 241h9M34 246h6" fill="none" stroke="#7891a6" stroke-width="1.4"/>
+<text x="60" y="248" class="muted">Aufträge</text>
+<path d="M30 286h16v10H30zM34 281h8v5M34 297v4h8v-4" fill="none" stroke="#7891a6" stroke-width="1.4"/>
+<text x="60" y="294" class="muted">Druckvorbereitung</text>
+<path d="M24 330H180" class="line"/>
+<text x="25" y="365" class="label">VERBINDUNGEN</text>
+<circle cx="32" cy="394" r="4" fill="#72cfa9"/><text x="47" y="399" class="small">Onshape</text>
+<text x="25" y="422" class="tiny muted">Letzter Abgleich vor 12 s</text>
+<circle cx="32" cy="457" r="4" fill="#dbac68"/><text x="47" y="462" class="small">Bambu Studio</text>
+<text x="25" y="485" class="tiny muted">Profil noch auswählen</text>
+<rect x="16" y="901" width="172" height="98" rx="10" fill="#111e2b" stroke="#26394b"/>
+<circle cx="36" cy="925" r="4" fill="#67c6b9"/><text x="49" y="930" class="small">Robotics Lead</text>
+<text x="28" y="956" class="tiny muted">Ergebnisse im Team-Channel</text>
+<text x="28" y="979" class="small cyan">Channel öffnen ↗</text>
+<text x="24" y="1030" class="tiny dim">pib · Mechanical Engineer</text>
+<!-- Header -->
+<rect x="205" width="1395" height="80" fill="#0f1824"/>
+<path d="M205 80H1600" class="line"/>
+<text x="238" y="34" class="small muted">pib / Mechanical Engineering</text>
+<text x="238" y="58" font-size="17" font-weight="700">Engineering Cockpit</text>
+<rect x="1101" y="26" width="212" height="29" rx="14" fill="#283021" stroke="#55533b"/>
+<text x="1116" y="45" class="tiny amber" letter-spacing="1">ENTWURF · BEISPIELDATEN</text>
+<rect x="1330" y="24" width="163" height="33" rx="8" fill="#192535" stroke="#314256"/>
+<text x="1344" y="45" class="small muted">Team pib · Entwicklung</text>
+<circle cx="1541" cy="40" r="18" fill="#233e4c"/><text x="1531" y="45" class="small cyan" font-weight="700">ME</text>
+<!-- Main title -->
+<rect x="205" y="81" width="1395" height="979" fill="url(#bg)"/>
+<text x="238" y="119" class="label">ONSHAPE WORKSPACE</text>
+<text x="238" y="158" font-size="30" font-weight="700" class="white">Camera Mount Plate</text>
+<text x="239" y="184" class="muted">Vier Montagebohrungen anpassen. Positionen und Außenmaße erhalten.</text>
+<rect x="1318" y="126" width="248" height="40" rx="9" fill="#1c303d" stroke="#466774"/>
+<text x="1341" y="151" class="cyan" font-weight="700">Workspace in Onshape öffnen ↗</text>
+<!-- Candidate selector -->
+<rect x="238" y="212" width="308" height="100" rx="12" fill="#18313b" stroke="#5ec9c5" stroke-width="1.5"/>
+<circle cx="261" cy="237" r="4" fill="#75d7b5"/><text x="274" y="242" class="tiny green" font-weight="700" letter-spacing=".6">GEPRÜFT</text>
+<text x="258" y="268" font-size="17" font-weight="700">C-014 · Bohrungen Ø 5 mm</text>
+<text x="258" y="291" class="small muted">Ausgewählt · Auftrag ENG-024</text>
+<path d="m516 262 6 6 10-12" fill="none" stroke="#6bd5cc" stroke-width="2"/>
+<rect x="558" y="212" width="308" height="100" rx="12" class="card"/>
+<circle cx="581" cy="237" r="4" fill="#e6b774"/><text x="594" y="242" class="tiny amber" font-weight="700" letter-spacing=".6">FREIGEGEBEN · WARTET</text>
+<text x="578" y="268" font-size="17" font-weight="700">C-015 · Kantenradius</text>
+<text x="578" y="291" class="small muted">Noch nicht ausgeführt · ENG-025</text>
+<rect x="878" y="212" width="308" height="100" rx="12" class="card"/>
+<circle cx="901" cy="237" r="4" fill="#8897ad"/><text x="914" y="242" class="tiny muted" font-weight="700" letter-spacing=".6">VORSCHLAG</text>
+<text x="898" y="268" font-size="17" font-weight="700">C-016 · Materialstärke</text>
+<text x="898" y="291" class="small muted">Freigabe ausstehend · ENG-026</text>
+<!-- Right panel -->
+<rect x="1206" y="212" width="360" height="790" rx="12" class="card"/>
+<text x="1230" y="245" font-size="17" font-weight="700">Candidate C-014</text>
+<rect x="1452" y="228" width="91" height="25" rx="12" fill="#203b34"/><text x="1467" y="245" class="small green">Geprüft ✓</text>
+<text x="1230" y="275" class="small muted">Auftrag ENG-024 · Beispiel</text>
+<path d="M1230 297H1542" class="line"/>
+<text x="1230" y="329" class="label">ÄNDERUNG</text>
+<text x="1230" y="359" font-size="18" font-weight="700">4 × Montagebohrung</text>
+<text x="1230" y="397" font-size="29" class="white">Ø 4 mm <tspan class="dim" font-size="23"> → </tspan><tspan class="cyan">Ø 5 mm</tspan></text>
+<text x="1230" y="425" class="small muted">Zielwerte im Entwurf sind illustrativ.</text>
+<path d="M1230 447H1542" class="line"/>
+<text x="1230" y="478" class="label">FREIGABE &amp; ERGEBNIS</text>
+<path d="M1241 513V659" fill="none" stroke="#345747" stroke-width="2"/>
+<use href="#check" x="1241" y="515"/><text x="1264" y="512" font-weight="700">Freigabe erteilt</text>
+<text x="1264" y="532" class="small muted">A. Beispiel · 14:02 · Vorschlag v3</text>
+<use href="#check" x="1241" y="578"/><text x="1264" y="575" font-weight="700">Änderung ausgeführt</text>
+<text x="1264" y="595" class="small muted">14:04 · einmaliger Schreibaufruf</text>
+<use href="#check" x="1241" y="641"/><text x="1264" y="638" font-weight="700">Ergebnis geprüft</text>
+<text x="1264" y="658" class="small muted">14:05 · Parameter &amp; Maße geprüft</text>
+<rect x="1229" y="684" width="314" height="62" rx="8" fill="#152e30" stroke="#2d5050"/>
+<text x="1245" y="709" class="small cyan" font-weight="700">Ergebnis im Team-Channel zugestellt</text>
+<text x="1245" y="730" class="small muted">Ansichten, Prüfergebnis und CAD-Verweis ↗</text>
+<text x="1230" y="782" class="label">NÄCHSTER SCHRITT</text>
+<text x="1230" y="812">Variante fachlich beurteilen.</text>
+<text x="1230" y="835" class="small muted">Produktionsfreigabe noch nicht erteilt.</text>
+<rect x="1229" y="856" width="314" height="39" rx="8" fill="#233444" stroke="#40586c"/>
+<text x="1280" y="881" font-weight="700">Prüfbericht ansehen ↗</text>
+<text x="1230" y="929" class="tiny muted">Freigaben erfolgen über den Robotics Lead.</text>
+<text x="1230" y="949" class="tiny muted">Dieses Cockpit zeigt den zugehörigen Stand.</text>
+<text x="1230" y="979" class="tiny dim">Stand: 14:05:12 · Beispieldaten</text>
+<!-- Comparison viewport -->
+<rect x="238" y="334" width="948" height="410" rx="12" fill="#101b27" stroke="#2c4052"/>
+<path d="M250 334H1174Q1186 334 1186 346V390H238V346Q238 334 250 334" fill="#172431"/>
+<text x="260" y="369" font-weight="700">Modellvergleich</text>
+<rect x="814" y="347" width="348" height="30" rx="7" fill="#101b27"/>
+<rect x="816" y="349" width="113" height="26" rx="5" fill="#2a4350"/>
+<text x="839" y="367" class="small cyan">Vergleich</text><text x="946" y="367" class="small muted">Candidate</text><text x="1062" y="367" class="small muted">Änderungen</text>
+<rect x="239" y="391" width="946" height="352" fill="url(#stage)"/>
+<rect x="239" y="391" width="946" height="352" fill="url(#grid)"/>
+<path d="M711 391V743" stroke="#375064" stroke-dasharray="4 7"/>
+<rect x="257" y="410" width="183" height="27" rx="6" fill="#1d2c3b"/>
+<text x="270" y="428" class="small">PRIMARY <tspan class="muted">· geschützt</tspan></text>
+<rect x="729" y="410" width="206" height="27" rx="6" fill="#153b40"/>
+<text x="742" y="428" class="small cyan">CANDIDATE C-014 · geprüft</text>
+<g transform="translate(275 517) scale(.98)"><use href="#plate"/><use href="#hole" x="73" y="49"/><use href="#hole" x="216" y="-6"/><use href="#hole" x="303" y="49"/><use href="#hole" x="160" y="104"/></g>
+<g transform="translate(749 517) scale(.98)"><use href="#plate"/><path d="M0 50 230 -40 380 50 150 140Z" fill="url(#candidateFace)" stroke="#72c4c9" stroke-width="1.5"/><use href="#largeHole" x="73" y="49"/><use href="#largeHole" x="216" y="-6"/><use href="#largeHole" x="303" y="49"/><use href="#largeHole" x="160" y="104"/></g>
+<path d="M1049 562 1119 516H1156" fill="none" stroke="#edb97a" stroke-width="1.2"/>
+<circle cx="1049" cy="562" r="3" fill="#edb97a"/><text x="1095" y="501" class="small amber">Ø 5 mm</text>
+<text x="259" y="709" class="mono muted">Baseline · EXAMPLE-A</text>
+<text x="731" y="709" class="mono cyan">Ergebnis · EXAMPLE-B</text>
+<text x="1007" y="709" class="tiny muted">Schematische CAD-Ansicht</text>
+<!-- Checks -->
+<rect x="238" y="764" width="588" height="238" rx="12" class="card"/>
+<text x="260" y="797" font-size="17" font-weight="700">Was hat sich geändert?</text>
+<text x="260" y="827" class="label">PRÜFKRITERIUM</text><text x="577" y="827" class="label">ERGEBNIS</text>
+<path d="M260 842H804" class="line"/>
+<text x="260" y="869">Bohrungsdurchmesser · 4 Positionen</text><text x="577" y="869" class="cyan">4 → 5 mm</text><use href="#check" x="788" y="864"/>
+<path d="M260 884H804" class="line"/>
+<text x="260" y="911">Bohrungspositionen &amp; Außenmaße</text><text x="577" y="911" class="muted">Unverändert</text><use href="#check" x="788" y="906"/>
+<path d="M260 926H804" class="line"/>
+<text x="260" y="953">Geschützter Primary-Workspace</text><text x="577" y="953" class="muted">Unverändert</text><use href="#check" x="788" y="948"/>
+<text x="260" y="983" class="tiny dim">Prüfmethoden und Belege im Bericht · Beispiel eines Soll-Ergebnisses</text>
+<rect x="846" y="764" width="340" height="238" rx="12" class="card"/>
+<text x="868" y="797" font-size="17" font-weight="700">Ergebnis &amp; Weiterverwendung</text>
+<rect x="868" y="816" width="296" height="43" rx="7" fill="#1c2c3c"/><text x="883" y="843">Vorher-/Nachher-Ansichten</text><text x="1140" y="843" class="muted">↗</text>
+<rect x="868" y="869" width="296" height="43" rx="7" fill="#1c2c3c"/><text x="883" y="896">Geprüften CAD-Stand öffnen</text><text x="1140" y="896" class="muted">↗</text>
+<path d="M868 932H1164" class="line"/>
+<text x="868" y="955" class="small muted">STL &amp; Druckvorbereitung</text>
+<text x="868" y="977" class="small amber">Warten auf Produktionsfreigabe</text>
+<text x="238" y="1032" class="tiny dim">VISUELLES KONZEPT 01 · DARK ENGINEERING COCKPIT</text>
+<text x="1132" y="1032" class="tiny dim">Keine Live-Daten · Keine aktiven Bedienelemente</text>
+</svg>
