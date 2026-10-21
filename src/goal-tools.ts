@@ -13,7 +13,12 @@ import {authorizedBinding, delegateGoalTask, delegationKeySync, leadBinding, ver
 import type {OutboundLoader} from './goal-delivery.ts';
 import {deliverGoalResult, rememberGoalOrigin, resultText} from './goal-delivery.ts';
 import type {GoalResult} from './goal-lifecycle.ts';
-import {uuidV4} from './goal-lifecycle.ts';
+import {boundedView, uuidV4} from './goal-lifecycle.ts';
+import type {GoalView} from './goal-lifecycle.ts';
+
+// Tool results stay small enough for the agent context; failing checks are kept first.
+const TOOL_VIEW_MAX_BYTES = 24_000;
+const toolView = (view: GoalView) => boundedView(view, TOOL_VIEW_MAX_BYTES);
 import type {GoalContext} from './goal-service.ts';
 import {goalStatus, proposeGoal, reconcileGoal, stopGoal, validateOrigin, verifyGoal} from './goal-service.ts';
 import {userError} from './readiness.ts';
@@ -241,7 +246,7 @@ export function registerGoalTools(
               verifyTaskEnvelope(p.request, goal.binding, contextId, delegationKeySync(goal.config));
               const view = await proposeGoal(goal, p.request, p);
               goal.guard();
-              return ok({status: 'ok', goal: view});
+              return ok({status: 'ok', goal: toolView(view)});
             } catch (e) {
               return failure(e);
             }
@@ -301,7 +306,7 @@ export function registerGoalTools(
               goal.guard();
               return ok({
                 status: 'ok',
-                goal: status.goal,
+                goal: status.goal ? toolView(status.goal) : null,
                 ...(status.execution ? {execution: status.execution} : {}),
               });
             } catch (e) {
@@ -342,7 +347,7 @@ export function registerGoalTools(
               const goal = await engineerContext(ctx, initial);
               const view = await reconcileGoal(goal, p);
               goal.guard();
-              return ok({status: 'ok', goal: view});
+              return ok({status: 'ok', goal: toolView(view)});
             } catch (e) {
               return failure(e);
             }
@@ -380,7 +385,7 @@ export function registerGoalTools(
               const goal = await engineerContext(ctx, initial);
               const view = await verifyGoal(goal, p.goalId);
               goal.guard();
-              return ok({status: 'ok', goal: view});
+              return ok({status: 'ok', goal: toolView(view)});
             } catch (e) {
               return failure(e);
             }
@@ -436,7 +441,7 @@ export function registerGoalTools(
               const goal = await engineerContext(ctx, initial);
               const view = await stopGoal(goal, p.goalId, p.reason);
               goal.guard();
-              return ok({status: 'ok', goal: view});
+              return ok({status: 'ok', goal: toolView(view)});
             } catch (e) {
               return failure(e);
             }

@@ -24,6 +24,7 @@ import {mutationStore, mutationToolFailure} from './mutation-workflow.ts';
 import {registerGoalTools} from './goal-tools.ts';
 import type {OutboundLoader} from './goal-delivery.ts';
 import {goalForReport} from './goal-service.ts';
+import {reportView} from './goal-lifecycle.ts';
 import path from 'node:path';
 export default {
   id: 'claw-onshape',
@@ -465,7 +466,7 @@ export default {
                     throw new Error('invalid_arguments');
                   }
                   // The goal result comes from the durable goal record, never from the agent's summary.
-                  goal = await goalForReport(await goalTools.engineerContext(ctx, initial), p.goalId);
+                  goal = reportView(await goalForReport(await goalTools.engineerContext(ctx, initial), p.goalId));
                 }
                 let mutationOutcome: string | undefined;
                 if (p.proposalId) {

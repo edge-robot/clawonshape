@@ -1079,3 +1079,38 @@ test('propose validates scope and Part Studio membership before writing; revise 
     await h.cleanup();
   }
 });
+
+test('bounded projections: a large verification fits the A2A report, dashboard and tool limits', async () => {
+  const {boundedView, reportView, goalView} = await import('../dist/goal-lifecycle.js');
+  const {canonicalResult} = await import('../dist/delegation.js');
+  const h = await goalHarness();
+  try {
+    const primary = h.workspaces.get(P);
+    for (let i = 0; i < 900; i++) {
+      primary.features.push({...structuredClone(primary.features[2]), featureId: `Fbulk${i}`, name: `Bulk ${i}`});
+    }
+    const goal = await activeGoal(h);
+    h.workspaces.get(C).features.find((f) => f.featureId === 'Fbulk7').name = 'changed';
+    const view = await verifyGoal(h.ctx, goal.goalId);
+    assert(view.progress.lastVerification.checks.length > 900);
+    assert(Buffer.byteLength(JSON.stringify(view)) > 32768);
+    const bounded = boundedView(view, 32000);
+    assert(Buffer.byteLength(JSON.stringify(bounded)) <= 32000);
+    assert.deepEqual(Object.keys(bounded), Object.keys(view));
+    // Failing checks survive the bound; passing ones are dropped first.
+    assert(bounded.progress.lastVerification.checks.some((c) => c.conditionId === 'implicit:Fbulk7'));
+    assert(bounded.progress.lastVerification.checks.every((c) => c.result !== 'pass'));
+    const report = reportView(goalView(await h.record(goal.goalId), null, 'AVAILABLE', h.now()));
+    assert.deepEqual(Object.keys(report).sort(), [
+      'capability',
+      'goalHash',
+      'goalId',
+      'result',
+      'scopeRevision',
+      'state',
+    ]);
+    assert(canonicalResult(report).length < 16384);
+  } finally {
+    await h.cleanup();
+  }
+});

@@ -7,6 +7,13 @@ import {operatorCandidateAuthorization, operatorGoalCandidateAuthorization} from
 import {candidateAttempts} from './candidate-attempts.ts';
 import {goalAuthorityActive} from './goal-store.ts';
 import {confirmGoal, goalStatus, reconcileGoal, stopGoal} from './goal-service.ts';
+import {boundedView} from './goal-lifecycle.ts';
+import type {GoalView} from './goal-lifecycle.ts';
+
+// Plugin JSON results are bounded (DASHBOARD_PNG_MAX_BYTES note above); history entries stay small.
+const GOAL_VIEW_MAX_BYTES = 160_000;
+const GOAL_HISTORY_VIEW_MAX_BYTES = 8_000;
+const boundedGoal = (view: GoalView) => boundedView(view, GOAL_VIEW_MAX_BYTES);
 import type {GoalContext} from './goal-service.ts';
 import {credentials} from './credentials.ts';
 import {accessToken} from './authorization.ts';
@@ -453,14 +460,21 @@ function registerGoalActions(
           if (actionId === 'goal-status') {
             const {goal, history} = await goalStatus(ctx);
             assertOperator();
-            return response({ok: true, goal, history});
+            return response({
+              ok: true,
+              goal: goal ? boundedGoal(goal) : null,
+              history: history.map((view) => boundedView(view, GOAL_HISTORY_VIEW_MAX_BYTES)),
+            });
           }
           if (actionId === 'goal-stop') {
-            return response({ok: true, goal: await stopGoal(ctx, input.goalId, 'Stopped by the operator.')});
+            return response({
+              ok: true,
+              goal: boundedGoal(await stopGoal(ctx, input.goalId, 'Stopped by the operator.')),
+            });
           }
           if (actionId === 'goal-reconcile') {
             readGuard();
-            return response({ok: true, goal: await reconcileGoal(ctx, input)});
+            return response({ok: true, goal: boundedGoal(await reconcileGoal(ctx, input))});
           }
           readGuard();
           // The Candidate is created from Primary through the existing candidate path (REST OAuth2Write).
@@ -482,7 +496,7 @@ function registerGoalActions(
               create: (candidateInput) => creator.prepareCandidateWorkspace(source, candidateInput),
             },
           );
-          return response({ok: true, goal});
+          return response({ok: true, goal: boundedGoal(goal)});
         } catch (e) {
           return response({ok: false, ...userError(e)});
         }

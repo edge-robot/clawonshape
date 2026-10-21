@@ -739,3 +739,42 @@ export function validateRecord(value: unknown, goalId: string): GoalRecord {
   }
   return v;
 }
+
+// Size bound for a GoalView projection (dashboard JSON limits, tool results). Keeps every key; when the view is too
+// large, the last verification keeps only its non-passing checks (failures first), then none.
+export function boundedView(view: GoalView, maxBytes: number): GoalView {
+  const fits = (candidate: GoalView) => Buffer.byteLength(JSON.stringify(candidate)) <= maxBytes;
+  const last = view.progress.lastVerification;
+  if (fits(view) || !last) {
+    return view;
+  }
+  const withChecks = (checks: VerificationCheck[]): GoalView => ({
+    ...view,
+    progress: {...view.progress, lastVerification: {...last, checks}},
+  });
+  const order = {fail: 0, unverifiable: 1, pass: 2};
+  const open = last.checks.filter((c) => c.result !== 'pass').sort((a, b) => order[a.result] - order[b.result]);
+  for (const limit of [50, 20, 5]) {
+    const trimmed = withChecks(open.slice(0, limit));
+    if (fits(trimmed)) {
+      return trimmed;
+    }
+  }
+  return withChecks([]);
+}
+
+// The goal part of a signed onshape_complete_task report (§7): what the Lead needs to post the result. Bounded so that
+// the signed A2A result stays far below the 32 768-character transport limit.
+export function reportView(view: GoalView) {
+  const result = view.result
+    ? {...view.result, openLimits: view.result.openLimits.slice(0, 20).map((text) => text.slice(0, 500))}
+    : null;
+  return {
+    goalId: view.goalId,
+    scopeRevision: view.scopeRevision,
+    state: view.state,
+    goalHash: view.goalHash,
+    result,
+    capability: view.capability,
+  };
+}
