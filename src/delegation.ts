@@ -211,6 +211,7 @@ export async function delegateRender(
   warn: (message: string) => void = (message) => console.warn(message),
   inspection = false,
   request?: EngineeringTask,
+  origin?: GoalOrigin,
 ) {
   if (!c.delegation) {
     throw new Error('delegation_denied');
@@ -271,7 +272,7 @@ export async function delegateRender(
       artifacts?: {parts?: {text?: unknown}[]}[];
     };
   };
-  const envelope = request ? createTaskEnvelope(b, request, contextId, key) : undefined;
+  const envelope = request ? createTaskEnvelope(b, request, contextId, key, origin) : undefined;
   const instruction = envelope
     ? JSON.stringify(envelope)
     : inspection
@@ -326,7 +327,15 @@ export async function delegateRender(
   return inspection || envelope ? {...details, a2aTaskId: taskId} : details;
 }
 
-export type EngineeringTask = {workflow: 'inspect' | 'edit' | 'verify'; task: string; approvalId?: string};
+export type EngineeringTask = {
+  workflow: 'inspect' | 'edit' | 'verify' | 'goal';
+  task: string;
+  approvalId?: string;
+  // workflow "goal" only (goal-workflow.md §4.2): optional on the first, proposing delegation.
+  goalId?: string;
+};
+// goal-workflow.md §1/§7, GW1: the host-provided conversation target of the Lead turn, signed into the request.
+export type GoalOrigin = {channel: string; target: string; accountId?: string};
 export type TaskEnvelope = EngineeringTask & {
   kind: 'engineering-request';
   version: 1;
@@ -334,6 +343,7 @@ export type TaskEnvelope = EngineeringTask & {
   contextId: string;
   bindingDigest: string;
   target: {documentId: string; workspaceId: string; elementId: string};
+  origin?: GoalOrigin;
   requestHash: string;
   requestProof: string;
 };
@@ -342,26 +352,40 @@ export function validateEngineeringTask(value: unknown): asserts value is Engine
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
-    Object.keys(value).some((k) => !['task', 'workflow', 'approvalId'].includes(k))
+    Object.keys(value).some((k) => !['task', 'workflow', 'approvalId', 'goalId'].includes(k))
   ) {
     throw new Error('invalid_arguments');
   }
   const v = value as EngineeringTask;
   if (
-    !['inspect', 'edit', 'verify'].includes(v.workflow) ||
+    !['inspect', 'edit', 'verify', 'goal'].includes(v.workflow) ||
     typeof v.task !== 'string' ||
     !v.task.trim() ||
     v.task.length > 8000 ||
     (v.approvalId !== undefined &&
-      (v.workflow !== 'edit' || typeof v.approvalId !== 'string' || !/^[a-f0-9-]{36}$/.test(v.approvalId)))
+      (v.workflow !== 'edit' || typeof v.approvalId !== 'string' || !/^[a-f0-9-]{36}$/.test(v.approvalId))) ||
+    (v.goalId !== undefined &&
+      (v.workflow !== 'goal' ||
+        typeof v.goalId !== 'string' ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v.goalId)))
   ) {
     throw new Error('invalid_arguments');
   }
 }
-export function createTaskEnvelope(b: Binding, task: EngineeringTask, contextId: string, key: string): TaskEnvelope {
+export function createTaskEnvelope(
+  b: Binding,
+  task: EngineeringTask,
+  contextId: string,
+  key: string,
+  origin?: GoalOrigin,
+): TaskEnvelope {
   validateEngineeringTask(task);
   if (!b.elementId) {
     throw new Error('target_missing');
+  }
+  // A goal request always carries the origin; other workflows never do.
+  if ((task.workflow === 'goal') !== (origin !== undefined)) {
+    throw new Error('delegation_denied');
   }
   const request = {
     kind: 'engineering-request' as const,
@@ -371,6 +395,7 @@ export function createTaskEnvelope(b: Binding, task: EngineeringTask, contextId:
     bindingDigest: bindingDigest(b),
     target: {documentId: b.documentId, workspaceId: b.workspaceId, elementId: b.elementId},
     ...task,
+    ...(origin ? {origin: {...origin}} : {}),
   };
   const requestHash = createHash('sha256').update(canonicalResult(request)).digest('hex');
   return {...request, requestHash, requestProof: signResult({...request, requestHash}, contextId, key)};
@@ -385,7 +410,14 @@ export function verifyTaskEnvelope(
     throw new Error('delegation_denied');
   }
   const {requestProof, requestHash, ...request} = value as TaskEnvelope;
-  validateEngineeringTask({workflow: request.workflow, task: request.task});
+  validateEngineeringTask({
+    workflow: request.workflow,
+    task: request.task,
+    ...(request.goalId !== undefined ? {goalId: request.goalId} : {}),
+  });
+  if ((request.workflow === 'goal') !== (request.origin !== undefined)) {
+    throw new Error('delegation_denied');
+  }
   if (
     request.kind !== 'engineering-request' ||
     request.version !== 1 ||
@@ -413,4 +445,22 @@ export async function delegateTask(
 ) {
   validateEngineeringTask(task);
   return delegateRender(c, b, guard, fetcher, wait, warn, false, task);
+}
+// workflow "goal": the origin is taken from the Lead's host-provided delivery context, never from tool arguments.
+export async function delegateGoalTask(
+  c: Config,
+  b: Binding,
+  guard: () => void,
+  task: EngineeringTask,
+  origin: GoalOrigin,
+  fetcher: typeof fetch = fetch,
+  wait = (ms: number) => new Promise((r) => setTimeout(r, ms)),
+  // biome-ignore lint/suspicious/noConsole: TODO(#9): route through the OpenClaw plugin logger instead of console (behaviour change)
+  warn: (message: string) => void = (message) => console.warn(message),
+) {
+  validateEngineeringTask(task);
+  if (task.workflow !== 'goal') {
+    throw new Error('invalid_arguments');
+  }
+  return delegateRender(c, b, guard, fetcher, wait, warn, false, task, origin);
 }

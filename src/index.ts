@@ -21,6 +21,9 @@ import {saveRender, readRender, imageHash} from './render.ts';
 import {accessToken} from './authorization.ts';
 import {mcpTokenOwner} from './mcp-token-owner.ts';
 import {mutationStore, mutationToolFailure} from './mutation-workflow.ts';
+import {registerGoalTools} from './goal-tools.ts';
+import type {OutboundLoader} from './goal-delivery.ts';
+import {goalForReport} from './goal-service.ts';
 import path from 'node:path';
 export default {
   id: 'claw-onshape',
@@ -59,6 +62,21 @@ export default {
       });
     }
     const lifecycle = registerDashboard(api, current);
+    // goal-workflow.md §7: outbound text to the recorded origin through the host channel adapter (ADR-2026-10-16
+    // spike rule 3). The target is the host-provided conversation target stored with the goal origin.
+    const outboundFor =
+      (ctx: OpenClawPluginToolContext<2>): OutboundLoader =>
+      async (channel) => {
+        const cfg = ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config;
+        const adapter = await api.runtime.channel.outbound.loadAdapter(channel);
+        const sendText = adapter?.sendText;
+        if (!cfg || !sendText) {
+          return undefined;
+        }
+        return async ({to, text, accountId}) => {
+          await sendText({cfg, to, text, accountId: accountId ?? null});
+        };
+      };
     api.registerTool(
       {
         contextVersion: 2,
@@ -173,15 +191,20 @@ export default {
             name: 'onshape_delegate_task',
             label: 'Delegate engineering task',
             description:
-              'Delegate a freely formulated inspect, edit or verify task to Mechanical Engineer and its Workshop skills. The host signs the exact request; an edit request alone does not approve CAD writes.',
+              'Delegate a freely formulated inspect, edit, verify or goal task to Mechanical Engineer and its Workshop skills. The host signs the exact request; an edit request alone does not approve CAD writes. For workflow goal the host also signs this conversation as the goal origin; a goal is confirmed only by the operator in the dashboard.',
             parameters: {
               type: 'object',
               properties: {
-                workflow: {type: 'string', enum: ['inspect', 'edit', 'verify']},
+                workflow: {type: 'string', enum: ['inspect', 'edit', 'verify', 'goal']},
                 task: {type: 'string', minLength: 1, maxLength: 8000},
                 approvalId: {
                   type: 'string',
                   description: 'Previously operator-approved proposal to execute; optional for edit.',
+                },
+                goalId: {
+                  type: 'string',
+                  description:
+                    'Existing goal to continue, resume or revise; workflow goal only, optional on the first delegation.',
                 },
               },
               required: ['workflow', 'task'],
@@ -200,6 +223,17 @@ export default {
               try {
                 validateEngineeringTask(params);
                 guard();
+                if (params.workflow === 'goal') {
+                  const details = await goalTools.leadDelegate(ctx, b, {
+                    task: params.task,
+                    ...(params.goalId ? {goalId: params.goalId} : {}),
+                  });
+                  return {
+                    content: [{type: 'text' as const, text: JSON.stringify(details)}],
+                    details,
+                    ...(['blocked', 'unavailable'].includes(details.status as string) ? {isError: true} : {}),
+                  };
+                }
                 const details = await delegateTask(current(), b, guard, params, undefined, undefined, (message) =>
                   api.logger.warn(message),
                 );
@@ -353,6 +387,10 @@ export default {
                 status: {type: 'string', enum: ['ok', 'planned', 'blocked', 'unavailable']},
                 summary: {type: 'string', minLength: 1, maxLength: 6000},
                 proposalId: {type: 'string'},
+                goalId: {
+                  type: 'string',
+                  description: 'Goal of a workflow goal request; the report carries its result.',
+                },
                 evidence: {
                   type: 'object',
                   properties: {
@@ -396,7 +434,7 @@ export default {
                   typeof params !== 'object' ||
                   Array.isArray(params) ||
                   Object.keys(params).some(
-                    (k) => !['request', 'status', 'summary', 'evidence', 'proposalId'].includes(k),
+                    (k) => !['request', 'status', 'summary', 'evidence', 'proposalId', 'goalId'].includes(k),
                   )
                 ) {
                   throw new Error('invalid_arguments');
@@ -406,6 +444,7 @@ export default {
                   status: string;
                   summary: string;
                   proposalId?: string;
+                  goalId?: unknown;
                   evidence?: FeatureReadEvidence;
                 };
                 if (
@@ -420,6 +459,14 @@ export default {
                   c = current();
                 // biome-ignore lint/style/noNonNullAssertion: narrowed by the initial?.contextId guard at factory creation; lost in this closure
                 verifyTaskEnvelope(p.request, b, initial.contextId!, delegationKeySync(c));
+                let goal: object | undefined;
+                if (p.goalId !== undefined) {
+                  if (p.request.workflow !== 'goal') {
+                    throw new Error('invalid_arguments');
+                  }
+                  // The goal result comes from the durable goal record, never from the agent's summary.
+                  goal = await goalForReport(await goalTools.engineerContext(ctx, initial), p.goalId);
+                }
                 let mutationOutcome: string | undefined;
                 if (p.proposalId) {
                   const proposals = await mutationStore(api.runtime.state.resolveStateDir(), b);
@@ -462,6 +509,7 @@ export default {
                   requestHash: p.request.requestHash,
                   workflow: p.request.workflow,
                   ...(p.proposalId ? {proposalId: p.proposalId, mutationOutcome} : {}),
+                  ...(goal ? {goalId: p.goalId, goal} : {}),
                   summaryVerification: 'agent_interpretation',
                   documentId: b.documentId,
                   workspaceId: b.workspaceId,
@@ -839,5 +887,7 @@ export default {
       },
       {optional: true},
     );
+    // Registered last so that the existing tool order stays unchanged; the closures above run only after register().
+    const goalTools = registerGoalTools(api, config, current, outboundFor);
   },
 };
