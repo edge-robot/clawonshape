@@ -8,6 +8,9 @@ import {registerHooks} from 'node:module';
 import {mutationStore} from '../dist/mutation-workflow.js';
 import {connectionOwner} from '../dist/config.js';
 import {messages, userError} from '../dist/readiness.js';
+import {canonicalJson, goalHash, validateScope} from '../dist/goal-scope.js';
+import {goalView, grantDocument, grantViolations} from '../dist/goal-lifecycle.js';
+import {goalCapability} from '../dist/goal-mcp.js';
 
 // Only the private-file SDK is mocked, as in foundation.test.mjs. This file may load first.
 registerHooks({
@@ -39,12 +42,14 @@ registerHooks({
   },
 });
 
-const CONTRACT_VERSION = '0.4.0-draft';
+const CONTRACT_VERSION = '1.1.0-draft';
+const CONTRACT_DIGEST = 'sha256:37aca6a4323ae2c26b5826539ef2d607e532773ae1f7caf44d7d92c8020ae341';
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./contract/${name}`, import.meta.url), 'utf8'));
 
 test('contract fixture copy has the version this plugin implements', async () => {
   const version = await readFile(new URL('./contract/VERSION', import.meta.url), 'utf8');
   assert.equal(version.split('\n')[0], CONTRACT_VERSION);
+  assert.equal(version.split('\n')[1], CONTRACT_DIGEST);
   assert.equal((await fixture('expectations.json')).contractVersion, CONTRACT_VERSION);
 });
 
@@ -61,6 +66,26 @@ test('every code the mutation workflow can emit is listed in error-codes.json', 
   assert(emitted.has('proposal_body_invalid'));
   const unlisted = [...emitted].filter((code) => !listed.has(code)).sort();
   assert.deepEqual(unlisted, []);
+});
+
+test('every code the goal modules can emit is listed in error-codes.json or is an existing plugin code', async () => {
+  const codes = await fixture('error-codes.json');
+  const listed = new Set([...codes.plugin, ...codes.server]);
+  const emitted = new Set();
+  for (const name of ['goal-scope', 'goal-lifecycle', 'goal-store', 'goal-mcp', 'goal-service', 'goal-delivery']) {
+    const source = await readFile(new URL(`../dist/${name}.js`, import.meta.url), 'utf8');
+    for (const m of source.matchAll(/\b(?:Error|fail)\('([a-z0-9_]+)'\)/g)) {
+      emitted.add(m[1]);
+    }
+  }
+  for (const code of ['goal_unsupported', 'goal_active_conflict', 'goal_hash_mismatch', 'goal_confirmation_expired']) {
+    assert(emitted.has(code), code);
+  }
+  // Pre-existing plugin codes outside the contract list (readiness model) are allowed; everything must have a text.
+  for (const code of emitted) {
+    assert(listed.has(code) || Object.hasOwn(messages, code), `unlisted code ${code}`);
+    assert(Object.hasOwn(messages, code), `missing message for ${code}`);
+  }
 });
 
 // §6 (0.4.0): plugin tools return every listed code unchanged in details.code, with an operator text.
@@ -197,4 +222,167 @@ test('executionContext apiCall is a valid onshape_api_call input carrying the ap
   } finally {
     await rm(root, {recursive: true, force: true});
   }
+});
+
+// T1 (goal-workflow.md §2): the goalHash test vector.
+test('T1 goalHash and canonical JSON equal the goal-hash vector; any scope field change changes the hash', async () => {
+  const vector = await fixture('goal-workflow/goal-hash/vector.json');
+  const scope = validateScope(vector.scope);
+  assert.equal(canonicalJson(scope), vector.canonical);
+  assert.equal(canonicalJson(vector.scope), vector.canonical);
+  assert.equal(goalHash(scope), vector.goalHash);
+  // featureIds are sorted before hashing.
+  assert.equal(goalHash({...scope, featureIds: [...scope.featureIds].reverse()}), vector.goalHash);
+  const variants = [
+    {...scope, goalText: `${scope.goalText} `},
+    {...scope, maxDispatches: 11},
+    {...scope, lifetimeMs: 3600000},
+    {...scope, featureIds: ['FabcDEF123_0']},
+    {...scope, target: {...scope.target, baseMicroversion: 'b'.repeat(24)}},
+    {...scope, candidate: {mode: 'reuse', workspaceId: '8'.repeat(24)}},
+    {...scope, origin: {...scope.origin, target: 'channel:other'}},
+    {...scope, requester: {...scope.requester, senderId: 'other'}},
+    {...scope, goalConditions: [{...scope.goalConditions[0], expression: '61 mm'}, ...scope.goalConditions.slice(1)]},
+    {...scope, preservationConditions: scope.preservationConditions.slice(0, 1)},
+  ];
+  const hashes = new Set(variants.map(goalHash));
+  assert.equal(hashes.size, variants.length);
+  assert(!hashes.has(vector.goalHash));
+});
+
+function typeShape(value) {
+  if (value === null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, typeShape(value[key])]),
+    );
+  }
+  return typeof value;
+}
+
+async function activeGoalRecord() {
+  const vector = await fixture('goal-workflow/goal-hash/vector.json');
+  const view = await fixture('goal-workflow/goal-view/active.json');
+  const scope = validateScope(vector.scope);
+  return {
+    goalId: view.goalId,
+    scopeRevision: 1,
+    scope,
+    goalHash: goalHash(scope),
+    state: 'ACTIVE',
+    binding: {
+      agentId: 'engineer',
+      documentId: scope.target.documentId,
+      elementId: scope.target.elementId,
+      primaryWorkspaceId: scope.target.primaryWorkspaceId,
+    },
+    candidateWorkspaceId: view.target.candidateWorkspaceId,
+    baseline: {microversionId: scope.target.baseMicroversion, features: {}},
+    confirmation: {
+      nonce: 'c'.repeat(32),
+      issuedAt: view.confirmation.confirmedAt - 1000,
+      expiresAt: view.confirmation.expiresAt,
+      confirmedAt: view.confirmation.confirmedAt,
+      confirmedBy: {kind: 'dashboard-operator'},
+    },
+    grant: {
+      grantRevision: 1,
+      state: 'ACTIVE',
+      issuedAt: view.confirmation.confirmedAt,
+      expiresAt: view.grant.expiresAt,
+      maxDispatches: 10,
+      reconciledThrough: 0,
+    },
+    reconciliations: [],
+    verifications: [],
+    result: null,
+    origin: {...scope.origin},
+    requester: {...scope.requester},
+    createdAt: view.confirmation.confirmedAt - 2000,
+    updatedAt: view.confirmation.confirmedAt,
+    lastGrantRevision: 1,
+    candidatePreparation: null,
+  };
+}
+
+test('GoalView of an ACTIVE goal after two OK dispatches has exactly the fixture keys and types (§9)', async () => {
+  const expected = await fixture('goal-workflow/goal-view/active.json');
+  const record = await activeGoalRecord();
+  const summary = {
+    goalId: record.goalId,
+    entries: 2,
+    counted: 2,
+    maxSequence: 2,
+    unreconciledSequence: null,
+    lastOutcome: 'OK',
+    lastAdmittedAt: expected.observedAt - 1000,
+  };
+  const view = goalView(record, summary, 'AVAILABLE', expected.observedAt);
+  assert.deepEqual(typeShape(view), typeShape(expected));
+  // Non-volatile values of the fixture are reproduced exactly.
+  assert.deepEqual(view, expected);
+});
+
+test('T10 grant documents match the valid golden fixtures; invalid structural fixtures are rejected', async () => {
+  const record = await activeGoalRecord();
+  for (const name of ['active', 'stopped', 'reconciled-through-1']) {
+    const golden = await fixture(`goal-grant/valid/${name}.json`);
+    assert.deepEqual(grantViolations(golden), [], name);
+    const produced = grantDocument(
+      {...record, goalHash: golden.goalHash},
+      {
+        grantRevision: golden.grantRevision,
+        state: golden.state,
+        issuedAt: golden.issuedAt,
+        expiresAt: golden.expiresAt,
+        maxDispatches: golden.maxDispatches,
+        reconciledThrough: golden.reconciledThrough,
+      },
+    );
+    assert.deepEqual(produced, golden, name);
+    assert.deepEqual(Object.keys(produced), Object.keys(golden));
+  }
+  assert.deepEqual(grantViolations(null), []);
+  // Structural defects (server code goal_grant_invalid) are rejected by the writer. Expiry and static bounds are
+  // server-side admission checks of a structurally valid document.
+  for (const name of [
+    'budget-over-25',
+    'budget-zero',
+    'duplicate-feature-ids',
+    'empty-feature-ids',
+    'lifetime-over-8h',
+    'missing-target',
+    'operation-add-feature',
+    'state-unknown',
+    'unknown-field',
+    'version-2',
+  ]) {
+    assert.notDeepEqual(grantViolations(await fixture(`goal-grant/invalid/${name}.json`)), [], name);
+  }
+  for (const name of ['expired', 'document-outside-bounds', 'workspace-excluded-primary']) {
+    assert.deepEqual(grantViolations(await fixture(`goal-grant/invalid/${name}.json`)), [], name);
+  }
+});
+
+test('capability fixtures: goal-grant-v1 listed → AVAILABLE, approval-v2 only → UNSUPPORTED (§12.7)', async () => {
+  const serve =
+    (body, status = 200) =>
+    async (url, init) => {
+      assert.equal(new URL(url).pathname, '/capabilities');
+      assert.equal(init.redirect, 'error');
+      return new Response(JSON.stringify(body), {status, headers: {'Content-Type': 'application/json'}});
+    };
+  assert.equal(await goalCapability(serve(await fixture('capabilities/approval-v2-and-goal.json'))), 'AVAILABLE');
+  assert.equal(await goalCapability(serve(await fixture('capabilities/approval-v2-only.json'))), 'UNSUPPORTED');
+  assert.equal(await goalCapability(serve({}, 404)), 'UNSUPPORTED');
+  // Unknown fields are ignored.
+  const extended = {...(await fixture('capabilities/approval-v2-and-goal.json')), future: {x: 1}};
+  assert.equal(await goalCapability(serve(extended)), 'AVAILABLE');
 });

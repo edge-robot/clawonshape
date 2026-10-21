@@ -114,6 +114,8 @@ export const messages = {
   external_token_configuration_invalid: 'The MCP external-token configuration is invalid. Ask the operator to fix it.',
   mutation_approval_mismatch:
     'The approval expired or does not match the submitted update. Create a new proposal and approval.',
+  mutation_approval_consumed:
+    'This approval was already used once. Do not repeat the update; reconcile it and create a new proposal if needed.',
   external_private_file_unavailable:
     'A private MCP handoff file failed its ownership or mode checks. Ask the operator to fix it.',
   external_token_unavailable:
@@ -130,6 +132,36 @@ export const messages = {
   external_token_local_url_invalid: 'The MCP server local URL is invalid. Ask the operator to fix the setup.',
   external_token_validation_unavailable:
     'The MCP server could not validate its token setup. Ask the operator to fix the setup.',
+  // Contract 1.1.0 §6/§12 server codes (goal grant); passed through unchanged.
+  goal_grant_unavailable: 'The MCP server cannot read the goal grant. Stop and ask the operator to check the setup.',
+  mutation_authority_conflict:
+    'A goal grant and a payload approval are both active. Stop and ask the operator to resolve the conflict.',
+  goal_grant_invalid: 'The goal grant is invalid or expired. Stop and report; a new confirmation is required.',
+  goal_grant_stopped: 'The goal was stopped. Do not send further updates; stop and report.',
+  goal_scope_denied:
+    'This update is outside the confirmed goal scope (Candidate, feature or body keys). Correct the request; ' +
+    'do not widen the scope.',
+  goal_budget_exhausted: 'The goal dispatch budget is used up. Stop, verify and report.',
+  goal_reconciliation_required:
+    'An earlier goal update has an unknown outcome. Call onshape_goal_reconcile with the error data first; ' +
+    'never retry blindly.',
+  goal_dispatch_duplicate:
+    'This exact update was already dispatched. Re-read the feature and build the next update on the current revision.',
+  dispatch_journal_unavailable: 'The MCP dispatch journal is unavailable. Stop and ask the operator.',
+  // goal-workflow.md §8 plugin codes.
+  goal_unsupported: 'Goal authorization is not available: it is disabled here or the MCP server does not support it.',
+  goal_not_found: 'No such goal exists for this binding.',
+  goal_active_conflict:
+    'Another goal is still open, or a goal holds live authority. Finish or stop it first; payload approval is ' +
+    'blocked while a goal is active.',
+  goal_hash_mismatch: 'The confirmed goal differs from the stored goal. Refresh the goal and review it again.',
+  goal_confirmation_expired: 'The goal confirmation expired. Ask the Engineer to renew the goal.',
+  goal_state_invalid: 'This goal action is not allowed in the current goal state, or its data is stale. Refresh.',
+  goal_candidate_mismatch: 'The goal Candidate is missing or does not belong to the bound document.',
+  goal_verification_incomplete:
+    'The goal could not be verified completely. Some checks were not evaluable; nothing was marked complete.',
+  goal_result_delivery_failed:
+    'The goal result could not be posted to the original conversation. It is retried on the next Lead turn.',
   onshape_unavailable: 'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
   oauth_reconnect_required: 'Onshape authorization did not complete. Choose Connect Onshape to retry.',
   oauth_connect_expired: 'Onshape authorization timed out. Choose Connect Onshape to retry.',
