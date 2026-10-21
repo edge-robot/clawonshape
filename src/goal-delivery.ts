@@ -5,7 +5,7 @@ import {mkdir, readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {assertPrivateFile} from './credentials.ts';
 import type {GoalOrigin} from './delegation.ts';
-import type {GoalResult, ResultDelivery} from './goal-lifecycle.ts';
+import type {GoalResult} from './goal-lifecycle.ts';
 import {uuidV4} from './goal-lifecycle.ts';
 import {canonicalJson} from './goal-scope.ts';
 
@@ -14,13 +14,24 @@ export type OutboundText = (params: {to: string; text: string; accountId?: strin
 export type OutboundLoader = (channel: string) => Promise<OutboundText | undefined>;
 export type CurrentConversation = {channel?: string; to?: string} | undefined;
 
-type DeliveryEntry = {
+// §7 step 3 (CR-2): the durable Lead-side delivery receipt, returned as goalResultDelivery in the Lead tool result.
+export type DeliveryReceipt = {
   goalId: string;
   origin: GoalOrigin;
   resultDigest?: string;
-  delivery?: ResultDelivery;
-  failedAt?: number;
+  via?: 'lead-reply' | 'outbound';
+  deliveredAt?: number;
+  failure?: {failedAt: number; code: 'goal_result_delivery_failed'};
 };
+type DeliveryEntry = DeliveryReceipt;
+// A recorded delivery failure; carries the receipt so that the Lead tool result can return it.
+export class DeliveryFailure extends Error {
+  readonly receipt: DeliveryReceipt | undefined;
+  constructor(receipt?: DeliveryReceipt) {
+    super('goal_result_delivery_failed');
+    this.receipt = receipt;
+  }
+}
 
 const MAX_ENTRY_BYTES = 16 * 1024;
 const directory = (stateDir: string) => path.join(stateDir, 'claw-onshape', 'goal-deliveries');
@@ -103,22 +114,22 @@ export async function deliverGoalResult(options: {
   current: CurrentConversation;
   loadOutbound: OutboundLoader;
   now: () => number;
-}): Promise<ResultDelivery> {
+}): Promise<DeliveryReceipt> {
   const {stateDir, goalId, result, current, loadOutbound, now} = options;
   const entry = await readEntry(stateDir, goalId);
   if (!entry) {
     // Without a recorded origin there is no host-provided target to deliver to.
-    throw new Error('goal_result_delivery_failed');
+    throw new DeliveryFailure();
   }
   const digest = resultDigest(result);
-  if (entry.delivery && entry.resultDigest === digest) {
-    return entry.delivery;
+  if (entry.deliveredAt !== undefined && entry.resultDigest === digest) {
+    return entry;
   }
   const origin = entry.origin;
-  let delivery: ResultDelivery;
+  let via: 'lead-reply' | 'outbound';
   if (sameConversation(origin, current)) {
     // The Lead's reply in this conversation carries the result.
-    delivery = {deliveredAt: now(), via: 'lead-reply', channel: origin.channel, target: origin.target};
+    via = 'lead-reply';
   } else {
     try {
       const send = await loadOutbound(origin.channel);
@@ -132,11 +143,18 @@ export async function deliverGoalResult(options: {
       });
     } catch {
       // Record the failure without the provider text; the code is the only result.
-      await writeEntry(stateDir, {goalId, origin, resultDigest: digest, failedAt: now()});
-      throw new Error('goal_result_delivery_failed');
+      const failed: DeliveryReceipt = {
+        goalId,
+        origin,
+        resultDigest: digest,
+        failure: {failedAt: now(), code: 'goal_result_delivery_failed'},
+      };
+      await writeEntry(stateDir, failed);
+      throw new DeliveryFailure(failed);
     }
-    delivery = {deliveredAt: now(), via: 'outbound', channel: origin.channel, target: origin.target};
+    via = 'outbound';
   }
-  await writeEntry(stateDir, {goalId, origin, resultDigest: digest, delivery});
-  return delivery;
+  const receipt: DeliveryReceipt = {goalId, origin, resultDigest: digest, via, deliveredAt: now()};
+  await writeEntry(stateDir, receipt);
+  return receipt;
 }

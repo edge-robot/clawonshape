@@ -847,7 +847,13 @@ test('T11 result delivery: lead-reply, outbound with a mocked adapter, failure c
       loadOutbound: async () => assert.fail('no outbound for a lead reply'),
       now: h.now,
     });
-    assert.deepEqual(reply, {deliveredAt: h.now(), via: 'lead-reply', ...origin});
+    // §7 step 3 (CR-2): the Lead-side receipt {goalId, origin, resultDigest, deliveredAt | failure, via}.
+    assert.deepEqual(Object.keys(reply).sort(), ['deliveredAt', 'goalId', 'origin', 'resultDigest', 'via']);
+    assert.equal(reply.goalId, goalId);
+    assert.deepEqual(reply.origin, {...origin, accountId: 'default'});
+    assert.match(reply.resultDigest, /^[a-f0-9]{64}$/);
+    assert.equal(reply.via, 'lead-reply');
+    assert.equal(reply.deliveredAt, h.now());
     // Outbound: another conversation; exactly one send to the recorded host-provided target.
     const sends = [];
     const outbound = async (channel) => {
@@ -895,7 +901,8 @@ test('T11 result delivery: lead-reply, outbound with a mocked adapter, failure c
     assert.equal(attempts, 1);
     const entry = await readFile(join(h.root, 'claw-onshape', 'goal-deliveries', `${goalId}.json`), 'utf8');
     assert(!entry.includes('DO-NOT-LEAK'));
-    assert.equal(JSON.parse(entry).failedAt, h.now());
+    assert.deepEqual(JSON.parse(entry).failure, {failedAt: h.now(), code: 'goal_result_delivery_failed'});
+    assert.equal(JSON.parse(entry).deliveredAt, undefined);
     const retried = await deliverGoalResult({...args, loadOutbound: outbound});
     assert.equal(retried.via, 'outbound');
     assert.equal(sends.length, 2);

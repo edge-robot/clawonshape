@@ -11,7 +11,7 @@ import {credentials} from './credentials.ts';
 import type {GoalOrigin} from './delegation.ts';
 import {authorizedBinding, delegateGoalTask, delegationKeySync, leadBinding, verifyTaskEnvelope} from './delegation.ts';
 import type {OutboundLoader} from './goal-delivery.ts';
-import {deliverGoalResult, rememberGoalOrigin, resultText} from './goal-delivery.ts';
+import {DeliveryFailure, deliverGoalResult, rememberGoalOrigin, resultText} from './goal-delivery.ts';
 import type {GoalResult} from './goal-lifecycle.ts';
 import {boundedView, uuidV4} from './goal-lifecycle.ts';
 import type {GoalView} from './goal-lifecycle.ts';
@@ -50,7 +50,26 @@ const reconcileProperties = {
   featureId: {type: 'string'},
   sourceMicroversion: {type: 'string', pattern: '^[a-f0-9]{24}$'},
   admittedAt: {type: 'integer', minimum: 1},
+  // Contract §6/§12.3 CR-5: the unknown-outcome error data merges these fixed fields; the Engineer passes the data
+  // unchanged, so they are accepted with exactly these values and then ignored.
+  outcome: {type: 'string', enum: ['UNKNOWN']},
+  retryAllowed: {type: 'boolean', enum: [false]},
+  reconciliationRequired: {type: 'boolean', enum: [true]},
 };
+
+// onshape_goal_reconcile input: the server error data as delivered (§12.3 CR-5), reduced to the §5 fields.
+export function reconcileToolInput(params: unknown): Record<string, unknown> {
+  const p = onlyKeys(params, Object.keys(reconcileProperties));
+  if (
+    ('outcome' in p && p.outcome !== 'UNKNOWN') ||
+    ('retryAllowed' in p && p.retryAllowed !== false) ||
+    ('reconciliationRequired' in p && p.reconciliationRequired !== true)
+  ) {
+    throw new Error('invalid_arguments');
+  }
+  const {outcome: _outcome, retryAllowed: _retry, reconciliationRequired: _required, ...data} = p;
+  return data;
+}
 
 function ok(details: Record<string, unknown>) {
   return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
@@ -184,7 +203,9 @@ export function registerGoalTools(
       });
       return {...details, goalResultDelivery: delivery, goalResultText: resultText(goalResult)};
     } catch (e) {
-      return {...details, goalResultDelivery: userError(e)};
+      // §7 step 3: the recorded receipt (with its failure) plus the code; never a provider text.
+      const receipt = e instanceof DeliveryFailure ? e.receipt : undefined;
+      return {...details, goalResultDelivery: {...receipt, ...userError(e)}};
     }
   };
 
@@ -343,7 +364,7 @@ export function registerGoalTools(
           }),
           async execute(_id: string, params: unknown) {
             try {
-              const p = onlyKeys(params, Object.keys(reconcileProperties));
+              const p = reconcileToolInput(params);
               const goal = await engineerContext(ctx, initial);
               const view = await reconcileGoal(goal, p);
               goal.guard();
