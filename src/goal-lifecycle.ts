@@ -118,6 +118,18 @@ export type GoalRecord = {
 };
 
 // Server journal summary (onshape-mcp.md §12.7).
+// Server contract 1.2.0 §12.7: the journal entry named by unreconciledSequence. Diagnostic data, not operator-only
+// (goal-1.1.0 §9); it carries no request body, path, token or nonce.
+export type UnreconciledEntry = {
+  sequence: number;
+  grantRevision: number;
+  requestHash: string;
+  featureId: string;
+  sourceMicroversion: string;
+  admittedAt: number;
+  outcome: 'PENDING' | 'UNCERTAIN';
+  httpStatus: number | null;
+};
 export type JournalSummary = {
   goalId: string;
   entries: number;
@@ -126,6 +138,8 @@ export type JournalSummary = {
   unreconciledSequence: number | null;
   lastOutcome: string | null;
   lastAdmittedAt: number | null;
+  // null when nothing is unreconciled, and for a 1.1.0 server that does not send the key.
+  unreconciledEntry: UnreconciledEntry | null;
 };
 export type Capability = 'AVAILABLE' | 'UNSUPPORTED' | 'BLOCKED';
 
@@ -429,6 +443,34 @@ export function validateReconcileInput(value: unknown): ReconcileInput {
   };
 }
 
+// goal-1.1.0 §5: reconcile input taken from the summary's unreconciledEntry (only goalId given).
+export function reconcileInputFromEntry(goalId: string, entry: UnreconciledEntry | null): ReconcileInput {
+  if (!entry) {
+    // Nothing is unreconciled (or a 1.1.0 server cannot name it): there is no input to reconcile.
+    return fail('goal_state_invalid');
+  }
+  return {
+    goalId,
+    sequence: entry.sequence,
+    featureId: entry.featureId,
+    sourceMicroversion: entry.sourceMicroversion,
+    admittedAt: entry.admittedAt,
+  };
+}
+
+// goal-1.1.0 §5: explicit input MUST equal unreconciledEntry when the summary provides one.
+export function assertInputMatchesEntry(input: ReconcileInput, entry: UnreconciledEntry | null): void {
+  if (
+    entry &&
+    (entry.sequence !== input.sequence ||
+      entry.featureId !== input.featureId ||
+      entry.sourceMicroversion !== input.sourceMicroversion ||
+      entry.admittedAt !== input.admittedAt)
+  ) {
+    fail('goal_state_invalid');
+  }
+}
+
 // §5 rules 1–3 (no provider read needed). 'idempotent' = rule 1; 'read' = continue with rule 4.
 export function reconcilePrecheck(
   record: GoalRecord,
@@ -640,6 +682,7 @@ export type GoalView = {
     dispatches: number | null;
     remaining: number | null;
     unreconciledSequence: number | null;
+    unreconciledEntry: UnreconciledEntry | null;
     lastOutcome: string | null;
     lastVerification: Verification | null;
   };
@@ -691,6 +734,8 @@ export function goalView(
       dispatches: usable ? usable.counted : null,
       remaining: usable ? Math.max(0, budget - usable.counted) : null,
       unreconciledSequence: usable ? usable.unreconciledSequence : null,
+      // Mirrors the server entry unchanged; shown to agents too (goal-1.1.0 §9).
+      unreconciledEntry: usable?.unreconciledEntry ? {...usable.unreconciledEntry} : null,
       lastOutcome: usable ? usable.lastOutcome : null,
       lastVerification: record.verifications.at(-1) ?? null,
     },

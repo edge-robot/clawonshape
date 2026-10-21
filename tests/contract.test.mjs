@@ -10,7 +10,8 @@ import {connectionOwner} from '../dist/config.js';
 import {messages, userError} from '../dist/readiness.js';
 import {canonicalJson, goalHash, validateScope} from '../dist/goal-scope.js';
 import {goalView, grantDocument, grantViolations} from '../dist/goal-lifecycle.js';
-import {goalCapability} from '../dist/goal-mcp.js';
+import {goalCapability, validateJournalSummary} from '../dist/goal-mcp.js';
+import {createHash} from 'node:crypto';
 
 // Only the private-file SDK is mocked, as in foundation.test.mjs. This file may load first.
 registerHooks({
@@ -42,8 +43,8 @@ registerHooks({
   },
 });
 
-const CONTRACT_VERSION = '1.1.0-draft';
-const CONTRACT_DIGEST = 'sha256:788b253f9f44fba37d97302933f356655ed0b53539007593982da8432502a68d';
+const CONTRACT_VERSION = '1.2.0-draft';
+const CONTRACT_DIGEST = 'sha256:f60bfa0df9e3d76bb78f6a13e1231f64ac9c15c71d54465287b9ebd54e771cba';
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./contract/${name}`, import.meta.url), 'utf8'));
 
 test('contract fixture copy has the version this plugin implements', async () => {
@@ -385,4 +386,47 @@ test('capability fixtures: goal-grant-v1 listed → AVAILABLE, approval-v2 only 
   // Unknown fields are ignored.
   const extended = {...(await fixture('capabilities/approval-v2-and-goal.json')), future: {x: 1}};
   assert.equal(await goalCapability(serve(extended)), 'AVAILABLE');
+});
+
+// Server contract 1.2.0 §12.7: journal summary with unreconciledEntry (fixture goal-grant/journal-summary/uncertain.json).
+test('journal summary parser: uncertain fixture, 1.1.0 server without the key, malformed entries fail closed', async () => {
+  const sample = await fixture('goal-grant/journal-summary/uncertain.json');
+  const request = await fixture('goal-grant/requests/update-depth.request.json');
+  const requestHash = createHash('sha256')
+    .update(canonicalJson({path: request.path, body: request.body}))
+    .digest('hex');
+  const computed = {...sample, unreconciledEntry: {...sample.unreconciledEntry, requestHash}};
+  const parsed = validateJournalSummary(computed, sample.goalId);
+  assert.deepEqual(parsed, computed);
+  assert.deepEqual(Object.keys(parsed.unreconciledEntry), Object.keys(sample.unreconciledEntry));
+  // The placeholder hash is not a sha256 hex string: the strict parser rejects it.
+  assert.equal(validateJournalSummary(sample, sample.goalId), null);
+  // A 1.1.0 server does not send the key: the entry is null, the rest stays usable.
+  const {unreconciledEntry: _entry, ...legacy} = computed;
+  assert.deepEqual(validateJournalSummary(legacy, sample.goalId), {...legacy, unreconciledEntry: null});
+  assert.equal(
+    validateJournalSummary({...computed, unreconciledSequence: null, unreconciledEntry: null}, sample.goalId)
+      .unreconciledEntry,
+    null,
+  );
+  const entry = computed.unreconciledEntry;
+  const {httpStatus: _status, ...sevenKeys} = entry;
+  for (const [name, bad] of [
+    ['extra key', {...entry, body: {}}],
+    ['missing key', sevenKeys],
+    ['outcome', {...entry, outcome: 'OK'}],
+    ['sequence type', {...entry, sequence: '1'}],
+    ['grantRevision', {...entry, grantRevision: 0}],
+    ['featureId', {...entry, featureId: 'bad id'}],
+    ['sourceMicroversion', {...entry, sourceMicroversion: 'A'.repeat(24)}],
+    ['admittedAt', {...entry, admittedAt: -1}],
+    ['httpStatus', {...entry, httpStatus: '503'}],
+    ['other sequence', {...entry, sequence: 2}],
+    ['not an object', 'entry'],
+  ]) {
+    assert.equal(validateJournalSummary({...computed, unreconciledEntry: bad}, sample.goalId), null, name);
+  }
+  // Entry and unreconciledSequence must agree.
+  assert.equal(validateJournalSummary({...computed, unreconciledEntry: null}, sample.goalId), null);
+  assert.equal(validateJournalSummary({...computed, unreconciledSequence: null}, sample.goalId), null);
 });

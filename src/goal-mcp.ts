@@ -1,8 +1,9 @@
 // Capability and journal-summary probes of onshape-mcp (contract §12.7). Egress only to MCP_URL, fixed 2 000 ms
 // timeout, redirect: 'error', bounded bodies. No retries. Failures map to UNSUPPORTED/BLOCKED or null (unknown).
 import {MCP_URL} from './mcp.ts';
-import type {Capability, JournalSummary} from './goal-lifecycle.ts';
+import type {Capability, JournalSummary, UnreconciledEntry} from './goal-lifecycle.ts';
 import {uuidV4} from './goal-lifecycle.ts';
+import {GOAL_FEATURE_ID, hex24} from './goal-scope.ts';
 
 export const GOAL_PROBE_TIMEOUT_MS = 2000;
 const MAX_PROBE_BYTES = 16 * 1024;
@@ -73,6 +74,50 @@ export async function goalCapability(fetcher: typeof fetch = fetch): Promise<Cap
   }
 }
 
+const ENTRY_KEYS = [
+  'sequence',
+  'grantRevision',
+  'requestHash',
+  'featureId',
+  'sourceMicroversion',
+  'admittedAt',
+  'outcome',
+  'httpStatus',
+];
+
+// Exactly the eight keys and types of §12.7 (1.2.0). Anything else makes the whole summary unavailable.
+function validateEntry(value: unknown): UnreconciledEntry | undefined {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).length !== ENTRY_KEYS.length ||
+    !ENTRY_KEYS.every((key) => Object.hasOwn(value, key)) ||
+    !count(value.sequence) ||
+    value.sequence < 1 ||
+    !count(value.grantRevision) ||
+    value.grantRevision < 1 ||
+    typeof value.requestHash !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(value.requestHash) ||
+    typeof value.featureId !== 'string' ||
+    !GOAL_FEATURE_ID.test(value.featureId) ||
+    !hex24(value.sourceMicroversion) ||
+    !count(value.admittedAt) ||
+    (value.outcome !== 'PENDING' && value.outcome !== 'UNCERTAIN') ||
+    !(value.httpStatus === null || (count(value.httpStatus) && value.httpStatus <= 999))
+  ) {
+    return undefined;
+  }
+  return {
+    sequence: value.sequence,
+    grantRevision: value.grantRevision,
+    requestHash: value.requestHash,
+    featureId: value.featureId,
+    sourceMicroversion: value.sourceMicroversion,
+    admittedAt: value.admittedAt,
+    outcome: value.outcome,
+    httpStatus: value.httpStatus,
+  };
+}
+
 export function validateJournalSummary(value: unknown, goalId: string): JournalSummary | null {
   if (
     !isRecord(value) ||
@@ -87,6 +132,22 @@ export function validateJournalSummary(value: unknown, goalId: string): JournalS
   ) {
     return null;
   }
+  // A 1.1.0 server does not send the key: null. When present, it is null exactly when nothing is unreconciled and
+  // otherwise names the same sequence.
+  let unreconciledEntry: UnreconciledEntry | null = null;
+  if (Object.hasOwn(value, 'unreconciledEntry')) {
+    if (value.unreconciledEntry === null) {
+      if (value.unreconciledSequence !== null) {
+        return null;
+      }
+    } else {
+      const entry = validateEntry(value.unreconciledEntry);
+      if (!entry || entry.sequence !== value.unreconciledSequence) {
+        return null;
+      }
+      unreconciledEntry = entry;
+    }
+  }
   return {
     goalId,
     entries: value.entries,
@@ -95,6 +156,7 @@ export function validateJournalSummary(value: unknown, goalId: string): JournalS
     unreconciledSequence: value.unreconciledSequence,
     lastOutcome: value.lastOutcome,
     lastAdmittedAt: value.lastAdmittedAt,
+    unreconciledEntry,
   };
 }
 
