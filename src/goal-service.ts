@@ -247,8 +247,6 @@ function lifetime(value: unknown): number {
   return value * 60_000;
 }
 
-const sameScopeIgnoringTarget = (a: GoalScope, b: GoalScope) => goalHash({...a, target: b.target}) === goalHash(b);
-
 export async function proposeGoal(
   ctx: GoalContext,
   envelope: {workflow: unknown; goalId?: unknown; origin?: unknown},
@@ -304,8 +302,10 @@ export async function proposeGoal(
       const candidate: GoalScope['candidate'] = existing.candidateWorkspaceId
         ? {mode: 'reuse', workspaceId: existing.candidateWorkspaceId}
         : {mode: 'create', workspaceId: null};
+      // renew = the confirmed scope unchanged: same target (base microversion) and same Candidate plan.
+      const unchanged = draft(existing.scope.target.baseMicroversion, existing.scope.candidate);
       const fresh = draft(primary.microversionId, candidate);
-      if (sameScopeIgnoringTarget(fresh, existing.scope)) {
+      if (goalHash(unchanged) === existing.goalHash) {
         // renew: unchanged scope, new nonce (§3).
         assertEvent(existing, 'renew');
         return commit(
@@ -448,7 +448,9 @@ async function ensureCandidate(
   let record = initial;
   const scope = record.scope;
   if (record.candidateWorkspaceId) {
-    if (scope.candidate.mode !== 'reuse' || scope.candidate.workspaceId !== record.candidateWorkspaceId) {
+    // Either the Candidate this scope created (mode create, resumed by renew) or the declared reused Candidate.
+    const declared = scope.candidate.mode === 'create' || scope.candidate.workspaceId === record.candidateWorkspaceId;
+    if (!declared) {
       return fail('goal_candidate_mismatch');
     }
     if (!(await ctx.client.goalCandidateExists(ctx.binding, record.candidateWorkspaceId))) {
