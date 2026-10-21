@@ -6,7 +6,7 @@ issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#18
 architecture-ref: clawonshape/docs/interface/goal-workflow.md#9-normalized-status-model-goalview
 contract-version: goal-1.0.0-draft (amended); server contract 1.1.0-draft (amended)
 base-commit: 287feb8   # goal backend incl. CR-1/CR-3 accepted
-status: issued
+status: done
 addressee: Codex onshape-architekt (top-down). Delegate the implementation to openclaw-dev and review it yourself.
 ---
 # Cockpit: wire the goal panel to the goal backend and fix F8

@@ -84,12 +84,82 @@ const connectionText = (code) =>
     live_reads_disabled: 'Live-Lesen deaktiviert · Operator kontaktieren',
     oauth_configuration_required: 'Onshape-Einrichtung fehlt · Operator kontaktieren',
   })[code] ?? 'Status unbekannt · Diagnose prüfen und aktualisieren';
+const knownCount = (value) => (Number.isSafeInteger(value) && value >= 0 ? String(value) : 'unbekannt');
+// A missing summary projects null counters as well as a null sequence. Null sequence alone is not clearance.
+export const journalKnown = (progress) =>
+  progress &&
+  Number.isSafeInteger(progress.dispatches) &&
+  progress.dispatches >= 0 &&
+  Number.isSafeInteger(progress.remaining) &&
+  progress.remaining >= 0 &&
+  Object.hasOwn(progress, 'unreconciledSequence');
+const reviewComplete = (goal) =>
+  typeof goal.goalText === 'string' &&
+  goal.goalText.length > 0 &&
+  Array.isArray(goal.goalConditions) &&
+  goal.goalConditions.length > 0 &&
+  Array.isArray(goal.preservationConditions) &&
+  [...goal.goalConditions, ...goal.preservationConditions].every((c) => typeof c.text === 'string' && c.id && c.kind) &&
+  Array.isArray(goal.scope?.featureIds) &&
+  goal.scope.featureIds.length > 0 &&
+  Array.isArray(goal.scope.operations) &&
+  goal.scope.operations.length > 0 &&
+  Number.isSafeInteger(goal.scope.maxDispatches) &&
+  goal.scope.maxDispatches > 0 &&
+  Number.isSafeInteger(goal.scope.lifetimeMs) &&
+  goal.scope.lifetimeMs > 0 &&
+  ['documentId', 'elementId', 'primaryWorkspaceId', 'baseMicroversion'].every((key) => validId(goal.target?.[key])) &&
+  (goal.target.candidateWorkspaceId === null ||
+    (validId(goal.target.candidateWorkspaceId) &&
+      goal.target.candidateWorkspaceId !== goal.target.primaryWorkspaceId)) &&
+  /^[a-f0-9]{64}$/.test(goal.goalHash ?? '') &&
+  Number.isFinite(goal.confirmation?.expiresAt);
+export function goalLabel(goal) {
+  if (goal.state === 'COMPLETED') {
+    return goal.progress?.lastVerification?.passed === true
+      ? '✓ Ziel erreicht · geprüft'
+      : 'Zielabschluss nicht belegt · Prüfnachweis fehlt';
+  }
+  return (
+    {
+      AWAITING_CONFIRMATION: 'Ziel wartet auf Bestätigung',
+      ACTIVE: 'Ziel freigegeben · Engineer arbeitet',
+      RECONCILING: 'Ausgang unklar · Abgleich läuft',
+      BLOCKED: 'Ziel blockiert',
+      STOPPED: 'Ziel gestoppt',
+      EXPIRED: 'Zielfreigabe abgelaufen',
+      FAILED: 'Ziel fehlgeschlagen',
+      CLOSED: 'Ziel abgeschlossen · Änderungen bleiben erhalten',
+    }[goal.state] ?? 'Zielstatus unbekannt'
+  );
+}
+export function goalRevisionLink(goal) {
+  const raw = goal.result?.revisionUrl;
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const match =
+    /^https:\/\/cad\.onshape\.com\/documents\/([a-f0-9]{24})\/w\/([a-f0-9]{24})\/m\/([a-f0-9]{24})\/e\/([a-f0-9]{24})$/.exec(
+      raw,
+    );
+  if (
+    !match ||
+    match[1] !== goal.target?.documentId ||
+    match[2] !== goal.target?.candidateWorkspaceId ||
+    match[4] !== goal.target?.elementId
+  ) {
+    return undefined;
+  }
+  return raw;
+}
+
 const css = `
 .coc{color:#e3ebf4;background:#0c141e;font:14px/1.55 system-ui,sans-serif;border:1px solid #28394a;border-radius:12px;overflow:hidden;min-width:0;color-scheme:dark}.coc *{box-sizing:border-box}.coc h1,.coc h2,.coc h3,.coc p{margin:0 0 12px}.coc h1,.coc .coc-candidate strong{overflow-wrap:anywhere}.coc h1{font-size:27px;line-height:1.25}.coc h2{font-size:17px}.coc h3{font-size:15px}.coc button,.coc select,.coc a.coc-action{font:inherit;border:1px solid #3c5669;border-radius:8px;padding:9px 13px;background:#203141;color:#e3ebf4;cursor:pointer;max-width:100%}.coc button:hover,.coc a.coc-action:hover{background:#294351}.coc button:disabled{opacity:.5;cursor:wait}.coc :focus-visible{outline:3px solid #69e5de;outline-offset:3px}.coc a{color:#68dbd5;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}.coc .coc-muted{color:#a2b5c6}.coc .coc-eyebrow{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#a2b5c6}.coc .coc-top{padding:20px 26px;border-bottom:1px solid #28394a;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}.coc .coc-top strong{font-size:18px}.coc .coc-shell{display:grid;grid-template-columns:180px minmax(0,1fr)}.coc .coc-rail{padding:24px 16px;background:#0b131d;border-right:1px solid #28394a}.coc .coc-rail a{display:block;padding:10px 8px;margin-bottom:8px;text-decoration:none}.coc .coc-rail a:first-of-type{background:#19323d;border-radius:8px}.coc .coc-rail .coc-tools{border-top:1px solid #28394a;margin-top:25px;padding-top:24px}.coc .coc-rail p{font-size:12px}.coc .coc-main{padding:26px;min-width:0}.coc .coc-context p{overflow-wrap:anywhere}.coc .coc-context{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:20px;flex-wrap:wrap}.coc .coc-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:0 0 20px}.coc .coc-candidate{text-align:left;background:#141f2c;min-height:105px;display:flex;flex-direction:column;gap:6px}.coc .coc-candidate[aria-pressed=true]{border-color:#55d4d0;box-shadow:inset 0 0 0 1px #55d4d0;background:#18313b}.coc .coc-candidate strong{font-size:16px}.coc .coc-body{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.coc .coc-panel{background:#141f2c;border:1px solid #28394a;border-radius:12px;padding:20px;min-width:0}.coc .coc-viewer{padding:0;overflow:hidden}.coc .coc-viewhead{padding:16px 20px;background:#192633;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}.coc .coc-modes{display:flex;gap:5px;flex-wrap:wrap}.coc .coc-modes button{padding:5px 10px;font-size:12px}.coc .coc-modes button[aria-pressed=true]{background:#2c4854;color:#68dbd5}.coc .coc-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:radial-gradient(ellipse at center,#1a2d3a,#0f1b26);min-height:330px}.coc .coc-stage.coc-single{grid-template-columns:1fr}.coc figure{margin:0;padding:20px;min-width:0;display:flex;flex-direction:column;gap:14px}.coc figure+figure{border-left:1px dashed #385061}.coc .coc-empty-image{flex:1;min-height:200px;display:grid;place-content:center;text-align:center;padding:24px;color:#a2b5c6;background-image:linear-gradient(#8da9bd08 1px,transparent 1px),linear-gradient(90deg,#8da9bd08 1px,transparent 1px);background-size:28px 28px}.coc figcaption{font-size:12px;overflow-wrap:anywhere}.coc .coc-lower{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-top:18px}.coc .coc-steps{list-style:none;padding:0;margin:20px 0}.coc .coc-steps li{padding:0 0 18px 18px;border-left:2px solid #3d5668}.coc .coc-steps strong,.coc .coc-steps span{display:block}.coc .coc-steps span{font-size:12px;color:#a2b5c6}.coc .coc-next{border:1px solid #315956;background:#17312f;border-radius:8px;padding:14px;margin-top:18px}.coc .coc-notice{padding:12px 16px;border:1px solid #826c43;background:#2b281f;border-radius:8px;margin-bottom:18px;color:#f2d399}.coc dl{margin:0}.coc dt{font-size:12px;color:#a2b5c6;margin-top:12px}.coc dd{margin:3px 0;overflow-wrap:anywhere}.coc pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;font-size:12px}.coc details{margin-top:18px}.coc summary{cursor:pointer;font-weight:600;padding:8px 0}.coc .coc-controls{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.coc .coc-foot{font-size:12px;color:#a2b5c6;margin-top:16px}.coc .coc-badge{color:#68dbd5}.coc .coc-revision{font-family:monospace;font-size:12px;overflow-wrap:anywhere}.coc .coc-parameter{padding:10px 0;border-bottom:1px solid #28394a}.coc .coc-parameter strong{color:#68dbd5}.coc img{width:100%;height:auto;max-height:440px;object-fit:contain}.coc [hidden]{display:none!important}@media(max-width:1250px){.coc .coc-shell{grid-template-columns:1fr}.coc .coc-rail{display:none}.coc .coc-body{grid-template-columns:minmax(0,1fr) 280px}.coc .coc-main{padding:20px}.coc .coc-lower{grid-template-columns:1fr}}@media(max-width:850px){.coc .coc-body{grid-template-columns:1fr}.coc .coc-stage{grid-template-columns:1fr}.coc figure+figure{border-left:0;border-top:1px dashed #385061}.coc .coc-main{padding:14px}.coc h1{font-size:23px}}
 .coc .coc-navigation{display:flex;flex-direction:column;gap:10px}.coc .coc-navigation button{text-align:left;border:0;background:transparent}.coc .coc-navigation button[aria-current=page]{background:#19343f;color:#68dbd5;border-left:3px solid #68dbd5}.coc .coc-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0}.coc .coc-cad-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px}.coc .coc-cad-work{min-width:0}.coc .coc-branches .coc-cards{grid-template-columns:1fr}.coc .coc-cad-work>.coc-panel{margin-bottom:18px}.coc .coc-body{grid-template-columns:minmax(0,1fr) 245px}.coc .coc-lower{grid-template-columns:1fr}.coc h3{overflow-wrap:anywhere}.coc .coc-panel+.coc-panel{margin-top:18px}.coc button:disabled{cursor:not-allowed}.coc .coc-tool-grid>.coc-panel{margin-top:0}
 @media(max-width:1250px){.coc .coc-rail{display:block;padding:10px;border-right:0;border-bottom:1px solid #28394a}.coc .coc-rail>.coc-eyebrow,.coc .coc-rail>.coc-tools{display:none}.coc .coc-navigation{flex-direction:row;flex-wrap:wrap}.coc .coc-cad-layout{grid-template-columns:200px minmax(0,1fr)}.coc .coc-body{grid-template-columns:1fr}}
 @media(max-width:850px){.coc .coc-cad-layout,.coc .coc-tool-grid{grid-template-columns:1fr}.coc .coc-branches .coc-cards{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}.coc .coc-top{padding:16px}.coc .coc-stage{min-height:260px}}
 
+.coc .coc-goal-context{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,3fr);gap:4px 14px}.coc .coc-goal-context dt,.coc .coc-goal-context dd{margin:0}.coc .coc-goal-review{overflow-wrap:anywhere}.coc .coc-goal-progress{font-size:16px;color:#68dbd5;margin-top:16px}.coc #coc-goal ul{padding-left:20px;overflow-wrap:anywhere}@media(max-width:850px){.coc .coc-goal-context{grid-template-columns:1fr}}
 `;
 export default {
   id: 'claw-onshape',
@@ -269,6 +339,419 @@ export default {
           root.setAttribute('aria-busy', String(busy));
         };
         const canAdmin = () => context.host.connection?.canAdmin === true;
+        // Goal status has its own request fence. Legacy payloads never supply goal evidence.
+        let goalSnapshot,
+          goalLoading = false,
+          goalError,
+          goalActionMessage,
+          goalRequest = 0,
+          goalPending,
+          closeReview,
+          payloadHistoryOpen = false,
+          goalHistoryOpen = false;
+        const sameGoalContext = (g, ref, request) => active(g) && ref === select.value && request === goalRequest;
+        const goalTargetMatches = (goal) =>
+          snapshot &&
+          ['documentId', 'elementId', 'primaryWorkspaceId'].every(
+            (key) => validId(goal?.target?.[key]) && goal.target[key] === snapshot.target?.[key],
+          );
+        const invalidateGoal = () => {
+          goalRequest++;
+          goalSnapshot = undefined;
+          goalLoading = false;
+          goalError = undefined;
+          goalActionMessage = undefined;
+          closeReview = undefined;
+        };
+        const readGoals = async (g, ref) => {
+          const request = ++goalRequest;
+          goalLoading = true;
+          closeReview = undefined;
+          render();
+          try {
+            const result = await call('goal-status', ref);
+            if (!sameGoalContext(g, ref, request)) {
+              return;
+            }
+            if (
+              result.ok !== true ||
+              !Array.isArray(result.history) ||
+              !(result.goal === null || result.goal?.goalId)
+            ) {
+              goalSnapshot = undefined;
+              goalError = {
+                message: result.message ?? 'Zielstatus nicht verfügbar. Bitte aktualisieren.',
+                code: result.code ?? 'goal_status_invalid',
+              };
+            } else {
+              goalSnapshot = result;
+              goalError = undefined;
+            }
+          } catch {
+            if (sameGoalContext(g, ref, request)) {
+              goalSnapshot = undefined;
+              goalError = {
+                message: 'Zielstatus nicht verfügbar. Verbindung prüfen und aktualisieren.',
+                code: 'plugin_unavailable',
+              };
+            }
+          } finally {
+            if (sameGoalContext(g, ref, request)) {
+              goalLoading = false;
+              render();
+            }
+          }
+        };
+        const goalAllowed = (action, goal) => {
+          if (
+            !canAdmin() ||
+            goalPending ||
+            goalLoading ||
+            goalError ||
+            goal !== goalSnapshot?.goal ||
+            !goalTargetMatches(goal)
+          ) {
+            return false;
+          }
+          if (action === 'goal-confirm') {
+            return (
+              goal.state === 'AWAITING_CONFIRMATION' &&
+              goal.capability === 'AVAILABLE' &&
+              /^[a-f0-9]{32}$/.test(goal.confirmation?.nonce ?? '') &&
+              reviewComplete(goal) &&
+              goal.confirmation.expiresAt > Date.now()
+            );
+          }
+          if (action === 'goal-stop') {
+            return ['AWAITING_CONFIRMATION', 'ACTIVE', 'RECONCILING', 'BLOCKED'].includes(goal.state);
+          }
+          return (
+            action === 'goal-close' &&
+            ['STOPPED', 'EXPIRED', 'BLOCKED'].includes(goal.state) &&
+            goal.capability === 'AVAILABLE' &&
+            journalKnown(goal.progress) &&
+            goal.progress.unreconciledSequence === null
+          );
+        };
+        const runGoal = async (action, goal, g, ref) => {
+          if (!active(g) || ref !== select.value || !goalAllowed(action, goal)) {
+            return;
+          }
+          if (action === 'goal-close' && closeReview !== goal) {
+            return;
+          }
+          const pending = {};
+          goalPending = pending;
+          const request = ++goalRequest;
+          closeReview = undefined;
+          goalActionMessage = 'Aktion läuft …';
+          render();
+          try {
+            const result = await call(action, ref, {
+              goalId: goal.goalId,
+              ...(action === 'goal-confirm' ? {nonce: goal.confirmation.nonce, expectedGoalHash: goal.goalHash} : {}),
+            });
+            if (!sameGoalContext(g, ref, request)) {
+              return;
+            }
+            if (result.ok !== true) {
+              goalError = {
+                message: result.message ?? 'Zielaktion fehlgeschlagen. Status prüfen.',
+                code: result.code ?? 'goal_action_failed',
+              };
+              goalActionMessage = undefined;
+            } else {
+              goalError = undefined;
+              goalActionMessage = 'Aktion bestätigt.';
+            }
+            // One explicit attempt; the follow-up is read-only, including after a rejection.
+          } catch {
+            if (sameGoalContext(g, ref, request)) {
+              goalError = {
+                message: 'Ausgang der Zielaktion unklar. Status prüfen; nicht erneut ausführen.',
+                code: 'plugin_unavailable',
+              };
+              goalActionMessage = undefined;
+            }
+          } finally {
+            if (sameGoalContext(g, ref, request)) {
+              const actionError = goalError;
+              await readGoals(g, ref);
+              if (active(g) && ref === select.value && actionError) {
+                goalError = actionError;
+              }
+            }
+            if (goalPending === pending) {
+              goalPending = undefined;
+            }
+            if (!disposed && !context.signal.aborted) {
+              render();
+            }
+          }
+        };
+        const renderGoalDetails = (node, goal) => {
+          const verification = goal.progress?.lastVerification;
+          const list = (title, entries) => {
+            node.append(el('h3', title));
+            const ul = el('ul');
+            for (const entry of entries) {
+              ul.append(el('li', entry));
+            }
+            node.append(ul);
+          };
+          if (goal.result?.summary) {
+            node.append(el('p', goal.result.summary));
+          }
+          if (verification) {
+            node.append(
+              el(
+                'p',
+                `Prüfung: ${verification.passed === true ? 'bestanden' : 'nicht bestanden / unvollständig'} · ${date(verification.verifiedAt)}`,
+              ),
+            );
+            list(
+              'Prüfergebnisse',
+              (verification.checks ?? []).map(
+                (check) =>
+                  `${check.conditionId}: ${{pass: 'bestanden', fail: 'nicht bestanden', unverifiable: 'nicht prüfbar'}[check.result] ?? 'unbekannt'}${check.observed === undefined ? '' : ` · ${JSON.stringify(check.observed)}`}`,
+              ),
+            );
+          } else {
+            node.append(el('p', 'Kein erfolgreicher Zielprüfnachweis verfügbar.'));
+          }
+          const limits = [
+            ...new Set([
+              ...(goal.goalConditions ?? []).filter((c) => c.kind === 'note').map((c) => c.text),
+              ...(goal.preservationConditions ?? []).filter((c) => c.kind === 'note').map((c) => c.text),
+              ...(verification?.openLimits ?? []),
+              ...(goal.result?.openLimits ?? []),
+            ]),
+          ];
+          list('Offene Prüfgrenzen', limits.length ? limits : ['Keine zusätzlichen Prüfgrenzen gemeldet.']);
+          const url = goalRevisionLink(goal);
+          if (url) {
+            node.append(anchor('Geprüften Candidate-Stand in Onshape öffnen ↗', url));
+          } else if (goal.result?.revisionUrl) {
+            node.append(el('p', 'Revisionslink nicht eindeutig dem Ziel zugeordnet.'));
+          }
+        };
+        const renderGoalPanel = () => {
+          const node = panel('Feature-Ziel & Iteration');
+          node.id = 'coc-goal';
+          if (goalLoading) {
+            node.append(el('p', 'Zielstatus wird geladen …', 'muted'));
+          }
+          if (goalError) {
+            node.append(el('p', goalError.message, 'notice'));
+            const details = el('details');
+            details.append(el('summary', 'Technische Zieldiagnose'), el('pre', goalError.code));
+            node.append(details);
+          }
+          if (goalActionMessage) {
+            const message = el('p', goalActionMessage);
+            message.setAttribute('role', 'status');
+            node.append(message);
+          }
+          const goal = goalSnapshot?.goal;
+          if (!goal) {
+            node.append(el('p', 'Kein aktuelles Ziel. Änderungswunsch mit dem Robotics Lead klären.'));
+          } else {
+            node.append(el('p', goalLabel(goal), 'badge'), el('h3', goal.goalText));
+            if (goal.capability !== 'AVAILABLE') {
+              node.append(
+                el(
+                  'p',
+                  'Zieliteration blockiert · Fähigkeit nicht verfügbar oder unbekannt. Operator kontaktieren.',
+                  'notice',
+                ),
+              );
+            }
+            if (!goalTargetMatches(goal)) {
+              node.append(
+                el('p', 'Zielzuordnung nicht bestätigt. Verbindung und Arbeitsbereich aktualisieren.', 'notice'),
+              );
+            }
+            node.append(el('p', `Verbindung: ${select.value} · Ziel ${goal.goalId}`, 'revision'));
+            const review = goal.state === 'AWAITING_CONFIRMATION' ? el('div') : el('details');
+            if (goal.state !== 'AWAITING_CONFIRMATION') {
+              review.append(el('summary', 'Bestätigter Zielrahmen'));
+            }
+            review.className = 'coc-goal-review';
+            for (const [heading, conditions] of [
+              ['Zielbedingungen', goal.goalConditions],
+              ['Erhaltungsbedingungen', goal.preservationConditions],
+            ]) {
+              review.append(el('h3', heading));
+              for (const condition of conditions ?? []) {
+                review.append(el('p', `${condition.kind === 'note' ? 'Offene Prüfgrenze: ' : ''}${condition.text}`));
+                const fields = [
+                  ['id', 'Bedingung'],
+                  ['kind', 'Prüfart'],
+                  ['featureId', 'Feature'],
+                  ['parameterId', 'Parameter'],
+                  ['expression', 'Sollwert'],
+                  ['state', 'Sollstatus'],
+                ];
+                review.append(
+                  el(
+                    'p',
+                    fields
+                      .filter(([key]) => condition[key] !== undefined)
+                      .map(([key, label]) => `${label}: ${condition[key]}`)
+                      .join(' · '),
+                    'revision',
+                  ),
+                );
+              }
+            }
+            const t = goal.target ?? {};
+            const dl = el('dl', undefined, 'goal-context');
+            for (const [label, value] of [
+              ['Dokument', t.documentId],
+              ['Element', t.elementId],
+              ['Geschützter Primary', t.primaryWorkspaceId],
+              ['Ausgangsrevision', t.baseMicroversion],
+              [
+                'Candidate-Plan',
+                t.candidateWorkspaceId === null
+                  ? `Neuer Candidate aus Primary bei ${t.baseMicroversion}`
+                  : t.candidateWorkspaceId,
+              ],
+              ['Zulässige Features', goal.scope?.featureIds?.join(', ')],
+              ['Zulässige Operationen', goal.scope?.operations?.join(', ')],
+              ['Maximale Schritte', goal.scope?.maxDispatches],
+              [
+                'Laufzeit',
+                Number.isFinite(goal.scope?.lifetimeMs) ? `${goal.scope.lifetimeMs / 60000} Minuten` : undefined,
+              ],
+              ['Bestätigung gültig bis', date(goal.confirmation?.expiresAt)],
+              ['Zielkennung (Hash)', goal.goalHash],
+            ]) {
+              dl.append(el('dt', label), el('dd', value == null ? 'unbekannt' : String(value)));
+            }
+            review.append(dl);
+            node.append(review);
+            const progress = goal.progress;
+            node.append(
+              el(
+                'p',
+                `Schritte: ${knownCount(progress?.dispatches)} · verbleibend: ${knownCount(progress?.remaining)}`,
+                'goal-progress',
+              ),
+            );
+            node.append(
+              el(
+                'p',
+                `Letzter Ausgang: ${progress?.lastOutcome ?? 'unbekannt'} · Status vom ${date(goal.observedAt)}`,
+                'muted',
+              ),
+            );
+            if (goal.grant) {
+              node.append(
+                el(
+                  'p',
+                  `Freigabe gültig bis ${date(goal.grant.expiresAt)} · verbleibende Zeit bei Anzeige: ${Math.max(0, Math.ceil((goal.grant.expiresAt - Date.now()) / 60000))} Minuten`,
+                ),
+              );
+            }
+            if (!journalKnown(progress)) {
+              node.append(el('p', 'Journalstatus unbekannt · Abschluss gesperrt. Status aktualisieren.', 'muted'));
+            }
+            if (Number.isSafeInteger(progress?.unreconciledSequence) && progress.unreconciledSequence > 0) {
+              node.append(el('p', `Ausgang von Schritt ${progress.unreconciledSequence} abgleichen.`, 'notice'));
+              const reconcile = button('Ausgang abgleichen', () => {
+                // GoalView has no complete reconciliation tuple; this disabled control performs no action.
+              });
+              reconcile.disabled = true;
+              node.append(
+                reconcile,
+                el(
+                  'p',
+                  'Der Engineer gleicht mit den vollständigen Server-Fehlerdaten ab. Diese Ansicht enthält nur die Schrittnummer, nicht alle erforderlichen Angaben. Keine Wiederholung auslösen.',
+                ),
+              );
+            }
+            const g = generation,
+              ref = select.value;
+            const actions = el('div', undefined, 'controls');
+            if (goal.state === 'AWAITING_CONFIRMATION') {
+              node.append(
+                el('p', 'Du erlaubst notwendige Iterationen innerhalb dieses Zielrahmens. Primary bleibt geschützt.'),
+              );
+              const confirm = button('Ziel bestätigen & Iteration erlauben', () =>
+                runGoal('goal-confirm', goal, g, ref),
+              );
+              confirm.disabled = !goalAllowed('goal-confirm', goal);
+              actions.append(confirm);
+              if (!reviewComplete(goal)) {
+                node.append(el('p', 'Zielrahmen unvollständig · Bestätigung gesperrt.'));
+              }
+            }
+            if (['AWAITING_CONFIRMATION', 'ACTIVE', 'RECONCILING', 'BLOCKED'].includes(goal.state)) {
+              const stop = button('Iteration stoppen', () => runGoal('goal-stop', goal, g, ref));
+              stop.disabled = !goalAllowed('goal-stop', goal);
+              actions.append(stop);
+            }
+            if (['STOPPED', 'EXPIRED', 'BLOCKED'].includes(goal.state)) {
+              const close = button('Ziel abschließen …', () => {
+                if (active(g) && ref === select.value && goalAllowed('goal-close', goal)) {
+                  closeReview = goal;
+                  render();
+                }
+              });
+              close.disabled = !goalAllowed('goal-close', goal);
+              actions.append(close);
+              node.append(el('p', 'Fortsetzen nach Stop oder Ablauf benötigt eine neue Bestätigung über den Lead.'));
+            }
+            node.append(actions);
+            if (closeReview === goal) {
+              const confirmation = el('section', undefined, 'notice');
+              confirmation.setAttribute('aria-label', 'Zielabschluss bestätigen');
+              confirmation.append(
+                el(
+                  'p',
+                  'Ziel abschließen? Ausgeführte Änderungen und der Candidate bleiben erhalten. Danach kann ein neues Ziel beginnen.',
+                ),
+              );
+              const yes = button('Ziel abschließen', () => runGoal('goal-close', goal, g, ref));
+              yes.disabled = !goalAllowed('goal-close', goal);
+              confirmation.append(
+                yes,
+                button('Abbrechen', () => {
+                  closeReview = undefined;
+                  render();
+                }),
+              );
+              node.append(confirmation);
+            }
+            if (!canAdmin()) {
+              node.append(
+                el('p', 'Administratorrecht fehlt oder ist unbekannt. Zielaktionen bleiben gesperrt.', 'muted'),
+              );
+            }
+            renderGoalDetails(node, goal);
+          }
+          const history = el('details');
+          history.id = 'coc-goal-history';
+          history.open = goalHistoryOpen;
+          history.ontoggle = () => {
+            if (history.isConnected !== false) {
+              goalHistoryOpen = history.open;
+            }
+          };
+          history.append(el('summary', 'Abgeschlossene Ziele & Nachweise'));
+          for (const item of (goalSnapshot?.history ?? [])
+            .filter((h) => ['COMPLETED', 'FAILED', 'CLOSED'].includes(h.state))
+            .slice(-10)) {
+            const entry = el('section', undefined, 'panel');
+            entry.append(el('h3', item.goalText), el('p', goalLabel(item)), el('p', `Ziel ${item.goalId}`, 'revision'));
+            renderGoalDetails(entry, item);
+            history.append(entry);
+          }
+          node.append(history, el('p', 'Payload-Vorschläge sind keine Zielautorisierung.', 'muted'));
+          return node;
+        };
+
         const operatorAllowed = (actionId, p) => {
           if (!canAdmin() || operatorBusy || !snapshot) {
             return false;
@@ -507,6 +990,7 @@ export default {
           const choices = candidateChoices(snapshot),
             t = snapshot?.target;
           if (!choices.length) {
+            content.append(renderGoalPanel());
             content.append(
               el('p', 'Kein Workspace zugeordnet. Der Operator muss Dokument, Workspace und Bauteil prüfen.', 'notice'),
             );
@@ -595,25 +1079,7 @@ export default {
             ),
           );
           const work = el('div', undefined, 'cad-work');
-          const goal = panel('Feature-Ziel & Iteration');
-          goal.id = 'coc-goal';
-          goal.append(
-            el('p', 'Blockiert · Zieliteration noch nicht verfügbar', 'notice'),
-            el('p', 'Ein Ziel kann hier noch nicht verbindlich bestätigt oder zur Iteration freigegeben werden.'),
-            el(
-              'p',
-              `Arbeitsbereich: ${selected.primary ? 'Primary · geschützt' : 'zugeordneter Candidate'} · ${names?.documentName ?? short(t.documentId)} / ${selected.workspaceId === t.workspaceId ? (names?.elementName ?? short(t.elementId)) : short(t.elementId)}`,
-            ),
-            el(
-              'p',
-              'Payload-Vorschläge sind keine Zielautorisierung. Bis der Ziel-Freigabeweg verfügbar ist, gelten die bestehenden einzelnen Operator-Freigaben.',
-              'muted',
-            ),
-          );
-          const aggregate = el('p');
-          aggregate.textContent = `Gespeicherte Payload-Belege im ausgewählten Workspace: ${selected.proposals.length} · ${selected.proposals.filter((p) => p.status === 'VERIFIED').length} mit Status VERIFIED · ${selected.proposals.filter((p) => p.status === 'UNKNOWN').length} mit unklarem Ausgang. Kein Nachweis einer erreichten Zieliteration.`;
-          goal.append(aggregate);
-          work.append(goal);
+          work.append(renderGoalPanel());
           const cadLayout = el('div', undefined, 'cad-layout');
           cadLayout.append(branches, work);
           content.append(header, cadLayout);
@@ -818,6 +1284,12 @@ export default {
           lower.append(changes, reuse);
           left.append(lower);
           const history = el('details', undefined, 'panel');
+          history.open = payloadHistoryOpen;
+          history.ontoggle = () => {
+            if (history.isConnected !== false) {
+              payloadHistoryOpen = history.open;
+            }
+          };
           history.append(el('summary', 'Payload-Vorschläge & technische Nachweise'));
           const evidence = el('section');
           evidence.append(el('h2', 'Auftrag & Nachweise'));
@@ -834,6 +1306,7 @@ export default {
             releases.onchange = () => {
               clearImage();
               selectedProposal = releases.value;
+              payloadHistoryOpen = true;
               render();
               content.querySelector?.('[aria-label="Vorschlag auswählen"]')?.focus();
             };
@@ -886,7 +1359,7 @@ export default {
           evidence.append(el('p', `Daten geladen: ${date(loadedAt)} · kein Live-Abgleich des CAD-Stands`, 'foot'));
           const nextPanel = panel('Nächster Schritt');
           nextPanel.append(
-            el('p', 'Zieliteration blockiert. Vorhandene Payload-Belege prüfen; UNKNOWN zuerst abgleichen.'),
+            el('p', 'Zielstatus und Freigaben oben prüfen. Payload-Belege sind separate Nachweise.'),
             el('p', state.next, 'muted'),
           );
           history.append(evidence);
@@ -1030,6 +1503,7 @@ export default {
           }
         };
         const load = async (keepOperatorResult = false) => {
+          invalidateGoal();
           candidateAttempted = false;
           if (!keepOperatorResult) {
             operatorResult.textContent = '';
@@ -1107,12 +1581,12 @@ export default {
                 render();
               }
             }, 300000);
-            if (status.code === 'connected' || status.code === 'ready') {
-              await loadWorkspaceContext(g, data.target, select.value);
-            } else {
-              metadataState = 'unavailable';
-              render();
-            }
+            await Promise.all([
+              status.code === 'connected' || status.code === 'ready'
+                ? loadWorkspaceContext(g, data.target, select.value)
+                : Promise.resolve(),
+              readGoals(g, select.value),
+            ]);
           } catch (error) {
             if (!active(g)) {
               return;
@@ -1140,6 +1614,7 @@ export default {
           }
         };
         const connectionAction = async (actionId, write = false) => {
+          invalidateGoal();
           clearImage();
           observedNames = undefined;
           namesKey = undefined;

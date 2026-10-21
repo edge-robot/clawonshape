@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ui, {candidateChoices, proposalState, cadLink} from '../ui/control-ui.js';
-import {target, data, status, proposal, workspaceContext} from './fixtures/cockpit.mjs';
+import {target, data, status, proposal, workspaceContext, goalFixture} from './fixtures/cockpit.mjs';
 import {pngFixture} from './fixtures/png.mjs';
 import {imageHash} from '../dist/render.js';
 
@@ -29,7 +29,16 @@ class Element {
 }
 const nodes = (e) => [e, ...e.children.flatMap(nodes)];
 const tick = () => new Promise((r) => setImmediate(r));
-async function mounted(run, {canAdmin = true, initial = data, actionResponse = status, destination = 'cad'} = {}) {
+async function mounted(
+  run,
+  {
+    canAdmin = true,
+    initial = data,
+    actionResponse = status,
+    destination = 'cad',
+    goalResponse = {ok: true, goal: null, history: []},
+  } = {},
+) {
   const original = globalThis.document;
   globalThis.document = {createElement: (tag) => new Element(tag)};
   let page, view;
@@ -46,7 +55,8 @@ async function mounted(run, {canAdmin = true, initial = data, actionResponse = s
       requests = [];
     let response = initial,
       contextResponse = workspaceContext,
-      statusResponse = status;
+      statusResponse = status,
+      goals = goalResponse;
     view = page.mount(container, {
       signal: {aborted: false},
       host: {
@@ -60,9 +70,11 @@ async function mounted(run, {canAdmin = true, initial = data, actionResponse = s
                 ? await response
                 : args.actionId === 'status'
                   ? statusResponse
-                  : args.actionId === 'workspace-context'
-                    ? await contextResponse
-                    : await (typeof actionResponse === 'function' ? actionResponse(args) : actionResponse),
+                  : args.actionId === 'goal-status'
+                    ? await goals
+                    : args.actionId === 'workspace-context'
+                      ? await contextResponse
+                      : await (typeof actionResponse === 'function' ? actionResponse(args) : actionResponse),
           };
         },
       },
@@ -76,6 +88,9 @@ async function mounted(run, {canAdmin = true, initial = data, actionResponse = s
     await run({
       container,
       requests,
+      setGoals(value) {
+        goals = value;
+      },
       setContext(value) {
         contextResponse = value;
       },
@@ -135,7 +150,7 @@ test('native page auto-loads read-only data, selects Primary and proposals consi
   await mounted(async ({all, text, requests}) => {
     assert.deepEqual(
       requests.map((r) => r.actionId),
-      ['status', 'mutation-status', 'workspace-context'],
+      ['status', 'mutation-status', 'workspace-context', 'goal-status'],
     );
     assert.match(text(), /Engineering Cockpit/);
     assert.equal(all().find((e) => e.id === 'coc-operator-actions').open, undefined);
@@ -148,7 +163,7 @@ test('native page auto-loads read-only data, selects Primary and proposals consi
     );
     primary.onclick();
     assert.match(text(), /Kein gespeicherter Auftrag/);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 4);
   });
 });
 test('refresh clears old cards on error; late response after dispose cannot render', async () => {
@@ -181,7 +196,11 @@ test('read/write consent remains an explicit connection action', async () => {
       .find((e) => e.textContent === 'Lese-/Schreibzugriff verbinden')
       .onclick();
     assert(requests.some((r) => r.actionId === 'connect' && r.payload.requestRestWriteAccess === true));
-    assert(requests.every((r) => ['status', 'mutation-status', 'workspace-context', 'connect'].includes(r.actionId)));
+    assert(
+      requests.every((r) =>
+        ['status', 'mutation-status', 'workspace-context', 'goal-status', 'connect'].includes(r.actionId),
+      ),
+    );
   });
 });
 
@@ -208,7 +227,7 @@ test('operator section is collapsed; exact payload precedes approval; no actions
     assert.equal(card.children[3].children[0].textContent, 'Approve this Candidate update');
     assert.deepEqual(
       requests.map((r) => r.actionId),
-      ['status', 'mutation-status', 'workspace-context'],
+      ['status', 'mutation-status', 'workspace-context', 'goal-status'],
     );
   });
 });
@@ -344,7 +363,7 @@ test('admin absence prevents handler dispatch; successful Candidate response is 
         .onclick();
       assert.deepEqual(
         requests.map((r) => r.actionId),
-        ['status', 'mutation-status', 'workspace-context'],
+        ['status', 'mutation-status', 'workspace-context', 'goal-status'],
       );
     },
     {canAdmin: false, initial: {...data, oauthWrite: true}},
@@ -391,7 +410,7 @@ test('three real destinations start on Workspace, keep technical sections closed
       assert(!all().some((e) => e.tag === 'input'));
       assert.deepEqual(
         requests.map((r) => r.actionId),
-        ['status', 'mutation-status', 'workspace-context'],
+        ['status', 'mutation-status', 'workspace-context', 'goal-status'],
       );
       nav[0].onclick();
       assert.match(text(), /Dein Engineering-Workspace/);
@@ -554,5 +573,406 @@ test('validated PNG and current names stay separate through image decoder failur
       assert(!text().includes(`CAD-Stand ${result.microversionId}`));
     },
     {actionResponse: () => imageResult},
+  );
+});
+
+const goalNodes = (all) => nodes(all().find((e) => e.id === 'coc-goal'));
+const goalText = (all) =>
+  goalNodes(all)
+    .map((e) => e.textContent)
+    .join('\n');
+const goalButton = (all, name) => goalNodes(all).find((e) => e.tag === 'button' && e.textContent === name);
+const confirmedLabel = 'Ziel bestätigen & Iteration erlauben';
+const goalResponse = (goal, history = []) => ({ok: true, goal, history});
+
+test('F8 selecting VERIFIED keeps payload history open and exposes execution evidence after rerender', async () => {
+  await mounted(async ({all}) => {
+    const history = all().find(
+      (e) => e.tag === 'details' && e.children[0]?.textContent === 'Payload-Vorschläge & technische Nachweise',
+    );
+    assert(!history.open);
+    history.open = true;
+    history.ontoggle?.();
+    const selection = all().find((e) => e.attrs['aria-label'] === 'Vorschlag auswählen');
+    selection.value = 'fixture-VERIFIED';
+    selection.onchange();
+    const rendered = all().find(
+      (e) => e.tag === 'details' && e.children[0]?.textContent === 'Payload-Vorschläge & technische Nachweise',
+    );
+    assert.equal(rendered.open, true, 'selected proof stays visible, not merely present in a collapsed subtree');
+    assert(nodes(rendered).some((e) => e.textContent === 'Änderung durch Abgleich belegt'));
+  });
+});
+
+test('U2 full goal review precedes exact confirmation; one pending click means one attempt', async () => {
+  const goal = goalFixture();
+  let resolve;
+  await mounted(
+    async ({all, requests, setGoals}) => {
+      const text = goalText(all);
+      for (const value of [
+        goal.goalText,
+        goal.goalHash,
+        ...Object.values(goal.target).filter(Boolean),
+        ...goal.scope.featureIds,
+        ...goal.scope.operations,
+        '10',
+        '120 Minuten',
+        ...goal.goalConditions.map((c) => c.text),
+        ...goal.preservationConditions.map((c) => c.text),
+      ]) {
+        assert(text.includes(value), `review contains ${value}`);
+      }
+      assert.match(text, /Neuer Candidate aus Primary/);
+      assert.match(text, /Bestätigung gültig bis/);
+      assert(
+        requests.every((r) => ['status', 'mutation-status', 'workspace-context', 'goal-status'].includes(r.actionId)),
+      );
+      const button = goalButton(all, confirmedLabel);
+      assert.equal(button.disabled, false);
+      const pending = button.onclick();
+      await tick();
+      assert.equal(goalButton(all, confirmedLabel).disabled, true);
+      await button.onclick(); // stale handler must also respect the lock
+      assert.equal(requests.filter((r) => r.actionId === 'goal-confirm').length, 1);
+      assert.deepEqual(requests.find((r) => r.actionId === 'goal-confirm').payload, {
+        connectionRef: 'owner-rest',
+        goalId: goal.goalId,
+        nonce: goal.confirmation.nonce,
+        expectedGoalHash: goal.goalHash,
+      });
+      setGoals(goalResponse(goalFixture('ACTIVE')));
+      resolve({ok: true, goal: goalFixture('ACTIVE')});
+      await pending;
+      assert.match(goalText(all), /Engineer arbeitet/);
+      assert.equal(requests.filter((r) => r.actionId === 'goal-status').length, 2);
+      assert(!requests.some((r) => r.actionId === 'render'));
+    },
+    {
+      goalResponse: goalResponse(goal),
+      actionResponse: () =>
+        new Promise((r) => {
+          resolve = r;
+        }),
+    },
+  );
+});
+
+test('U2 confirmation enablement rejects missing admin, nonce, capability, expired or incomplete review', async () => {
+  for (const canAdmin of [true, false, null]) {
+    for (const capability of ['AVAILABLE', 'BLOCKED', 'UNSUPPORTED', undefined]) {
+      for (const nonce of ['b'.repeat(32), null, undefined]) {
+        const goal = goalFixture('AWAITING_CONFIRMATION', {capability});
+        goal.confirmation.nonce = nonce;
+        await mounted(
+          async ({all}) => {
+            assert.equal(
+              goalButton(all, confirmedLabel).disabled,
+              !(canAdmin === true && capability === 'AVAILABLE' && nonce),
+            );
+          },
+          {canAdmin, goalResponse: goalResponse(goal)},
+        );
+      }
+    }
+  }
+  for (const mutate of [
+    (g) => {
+      g.confirmation.expiresAt = 1;
+    },
+    (g) => {
+      delete g.goalHash;
+    },
+    (g) => {
+      g.goalConditions = [];
+    },
+    (g) => {
+      delete g.scope.maxDispatches;
+    },
+    (g) => {
+      g.target.documentId = '9'.repeat(24);
+    },
+    (g) => {
+      delete g.target.baseMicroversion;
+    },
+  ]) {
+    const goal = goalFixture();
+    mutate(goal);
+    await mounted(
+      async ({all}) => {
+        assert.equal(goalButton(all, confirmedLabel).disabled, true);
+      },
+      {goalResponse: goalResponse(goal)},
+    );
+  }
+});
+
+test('U3 all goal states have text labels; completed requires passed verification and notes remain open', async () => {
+  const states = {
+    AWAITING_CONFIRMATION: 'wartet auf Bestätigung',
+    ACTIVE: 'Engineer arbeitet',
+    RECONCILING: 'Abgleich läuft',
+    BLOCKED: 'Ziel blockiert',
+    STOPPED: 'Ziel gestoppt',
+    EXPIRED: 'Zielfreigabe abgelaufen',
+    COMPLETED: 'Ziel erreicht · geprüft',
+    FAILED: 'Ziel fehlgeschlagen',
+    CLOSED: 'Änderungen bleiben erhalten',
+  };
+  for (const [state, label] of Object.entries(states)) {
+    await mounted(
+      async ({all}) => {
+        assert(goalText(all).includes(label));
+        assert.match(goalText(all), /Offene Prüfgrenzen/);
+        assert.match(goalText(all), /Mechanische Eignung muss fachlich beurteilt werden/);
+        if (state !== 'AWAITING_CONFIRMATION') {
+          assert(!goalButton(all, confirmedLabel));
+        }
+      },
+      {goalResponse: goalResponse(goalFixture(state))},
+    );
+  }
+  for (const lastVerification of [null, {passed: false, checks: [], openLimits: []}]) {
+    const goal = goalFixture('COMPLETED');
+    goal.progress.lastVerification = lastVerification;
+    await mounted(
+      async ({all}) => {
+        assert.match(goalText(all), /Zielabschluss nicht belegt/);
+        assert(!goalText(all).includes('Ziel erreicht · geprüft'));
+      },
+      {goalResponse: goalResponse(goal)},
+    );
+  }
+  const goal = goalFixture('ACTIVE', {
+    progress: {
+      dispatches: null,
+      remaining: null,
+      unreconciledSequence: null,
+      lastOutcome: null,
+      lastVerification: null,
+    },
+    capability: 'BLOCKED',
+  });
+  await mounted(
+    async ({all}) => {
+      assert.match(goalText(all), /Schritte: unbekannt · verbleibend: unbekannt/);
+      assert.match(goalText(all), /Zieliteration blockiert/);
+      assert(!goalText(all).includes('Schritte: 0'));
+    },
+    {goalResponse: goalResponse(goal)},
+  );
+});
+
+test('U4 STOP state/admin matrix and reconcile guidance never invent error data', async () => {
+  for (const state of [
+    'AWAITING_CONFIRMATION',
+    'ACTIVE',
+    'RECONCILING',
+    'BLOCKED',
+    'STOPPED',
+    'EXPIRED',
+    'COMPLETED',
+    'FAILED',
+    'CLOSED',
+  ]) {
+    for (const canAdmin of [true, false, null]) {
+      await mounted(
+        async ({all, requests}) => {
+          const stop = goalButton(all, 'Iteration stoppen');
+          if (['AWAITING_CONFIRMATION', 'ACTIVE', 'RECONCILING', 'BLOCKED'].includes(state)) {
+            assert.equal(stop.disabled, canAdmin !== true);
+          } else {
+            assert.equal(stop, undefined);
+          }
+          if (state === 'RECONCILING') {
+            assert.equal(goalButton(all, 'Ausgang abgleichen').disabled, true);
+            assert.match(goalText(all), /Engineer gleicht mit den vollständigen Server-Fehlerdaten/);
+          }
+          assert(!requests.some((r) => r.actionId === 'goal-reconcile'));
+        },
+        {canAdmin, goalResponse: goalResponse(goalFixture(state))},
+      );
+    }
+  }
+  await mounted(
+    async ({all, requests, setGoals}) => {
+      setGoals(goalResponse(goalFixture('STOPPED')));
+      await goalButton(all, 'Iteration stoppen').onclick();
+      assert.deepEqual(requests.find((r) => r.actionId === 'goal-stop').payload, {
+        connectionRef: 'owner-rest',
+        goalId: goalFixture().goalId,
+      });
+    },
+    {
+      goalResponse: goalResponse(goalFixture('ACTIVE', {capability: 'BLOCKED'})),
+      actionResponse: {ok: true, goal: goalFixture('STOPPED')},
+    },
+  );
+});
+
+test('U4 close needs a known clear journal and explicit second confirmation; history cannot act', async () => {
+  for (const state of ['STOPPED', 'EXPIRED', 'BLOCKED']) {
+    for (const progress of [
+      undefined,
+      {},
+      {dispatches: null, remaining: null, unreconciledSequence: null},
+      {dispatches: 1, remaining: 9},
+      {dispatches: 1, remaining: 9, unreconciledSequence: 1},
+    ]) {
+      await mounted(
+        async ({all}) => {
+          assert.equal(goalButton(all, 'Ziel abschließen …').disabled, true);
+        },
+        {goalResponse: goalResponse(goalFixture(state, {progress}))},
+      );
+    }
+    await mounted(
+      async ({all, requests, setGoals}) => {
+        const start = goalButton(all, 'Ziel abschließen …');
+        assert.equal(start.disabled, false);
+        start.onclick();
+        assert(!requests.some((r) => r.actionId === 'goal-close'));
+        assert.match(goalText(all), /Ausgeführte Änderungen und der Candidate bleiben erhalten/);
+        goalButton(all, 'Abbrechen').onclick();
+        assert(!goalButton(all, 'Ziel abschließen'));
+        goalButton(all, 'Ziel abschließen …').onclick();
+        setGoals(goalResponse(null, [goalFixture('CLOSED')]));
+        await goalButton(all, 'Ziel abschließen').onclick();
+        assert.deepEqual(requests.find((r) => r.actionId === 'goal-close').payload, {
+          connectionRef: 'owner-rest',
+          goalId: goalFixture().goalId,
+        });
+        const history = all().find((e) => e.id === 'coc-goal-history');
+        assert.equal(history.open, false);
+        assert(!nodes(history).some((e) => e.tag === 'button'));
+        assert(!goalButton(all, 'Ziel abschließen …'));
+      },
+      {goalResponse: goalResponse(goalFixture(state)), actionResponse: {ok: true, goal: goalFixture('CLOSED')}},
+    );
+  }
+  for (const canAdmin of [false, null]) {
+    await mounted(
+      async ({all}) => {
+        assert.equal(goalButton(all, 'Ziel abschließen …').disabled, true);
+      },
+      {canAdmin, goalResponse: goalResponse(goalFixture('STOPPED'))},
+    );
+  }
+});
+
+test('goal action failure shows human message and technical code, reads status once and never retries', async () => {
+  await mounted(
+    async ({all, requests}) => {
+      await goalButton(all, confirmedLabel).onclick();
+      assert.match(goalText(all), /Bitte Ziel erneut prüfen/);
+      const details = goalNodes(all).find(
+        (e) => e.tag === 'details' && e.children[0]?.textContent === 'Technische Zieldiagnose',
+      );
+      assert(nodes(details).some((e) => e.textContent === 'goal_hash_mismatch'));
+      assert.equal(requests.filter((r) => r.actionId === 'goal-confirm').length, 1);
+      assert.equal(requests.filter((r) => r.actionId === 'goal-status').length, 2);
+      assert.equal(goalButton(all, confirmedLabel).disabled, true);
+    },
+    {
+      goalResponse: goalResponse(goalFixture()),
+      actionResponse: {ok: false, code: 'goal_hash_mismatch', message: 'Bitte Ziel erneut prüfen.'},
+    },
+  );
+});
+
+test('stale goal status and action responses cannot replace a refreshed or switched connection', async () => {
+  await mounted(
+    async ({all, setGoals, setStatus}) => {
+      let resolve;
+      setGoals(
+        new Promise((r) => {
+          resolve = r;
+        }),
+      );
+      const old = all()
+        .find((e) => e.textContent === 'Aktualisieren')
+        .onclick();
+      await tick();
+      setGoals(goalResponse(goalFixture('ACTIVE', {goalText: 'New goal'})));
+      await all()
+        .find((e) => e.textContent === 'Aktualisieren')
+        .onclick();
+      resolve(goalResponse(goalFixture('COMPLETED', {goalText: 'Obsolete goal'})));
+      await old;
+      assert(goalText(all).includes('New goal'));
+      assert(!goalText(all).includes('Obsolete goal'));
+      setStatus({...status, connections: ['owner-rest', 'other']});
+      setGoals(
+        new Promise((r) => {
+          resolve = r;
+        }),
+      );
+      const stale = all()
+        .find((e) => e.textContent === 'Aktualisieren')
+        .onclick();
+      await tick();
+      const select = all().find((e) => e.attrs['aria-label'] === 'Onshape-Verbindung');
+      setGoals(goalResponse(goalFixture('STOPPED', {goalText: 'Other connection'})));
+      select.value = 'other';
+      await select.onchange();
+      resolve(goalResponse(goalFixture('ACTIVE', {goalText: 'Old connection'})));
+      await stale;
+      assert.match(goalText(all), /Other connection/);
+      assert(!goalText(all).includes('Old connection'));
+    },
+    {goalResponse: goalResponse(goalFixture())},
+  );
+  let resolve;
+  await mounted(
+    async ({all, setGoals, setStatus}) => {
+      const pending = goalButton(all, confirmedLabel).onclick();
+      await tick();
+      setStatus({...status, connections: ['owner-rest', 'other']});
+      setGoals(goalResponse(goalFixture('ACTIVE', {goalText: 'New connection goal'})));
+      await all()
+        .find((e) => e.textContent === 'Aktualisieren')
+        .onclick();
+      const select = all().find((e) => e.attrs['aria-label'] === 'Onshape-Verbindung');
+      select.value = 'other';
+      await select.onchange();
+      resolve({ok: false, message: 'Old action error', code: 'old'});
+      await pending;
+      assert.match(goalText(all), /New connection goal/);
+      assert(!goalText(all).includes('Old action error'));
+    },
+    {
+      goalResponse: goalResponse(goalFixture()),
+      actionResponse: () =>
+        new Promise((r) => {
+          resolve = r;
+        }),
+    },
+  );
+});
+
+test('goal text stays text; result links must match goal document Candidate and element', async () => {
+  for (const url of [
+    'javascript:alert(1)',
+    'https://foreign.test/',
+    `https://cad.onshape.com/documents/${'9'.repeat(24)}/w/${target.workspaceId}/m/${'1'.repeat(24)}/e/${target.elementId}`,
+  ]) {
+    const goal = goalFixture('COMPLETED', {goalText: '<img src=x onerror=alert(1)>'});
+    goal.result.revisionUrl = url;
+    await mounted(
+      async ({all}) => {
+        assert(goalText(all).includes('<img src=x onerror=alert(1)>'));
+        assert(!goalNodes(all).some((e) => e.tag === 'img'));
+        assert(!goalNodes(all).some((e) => e.tag === 'a'));
+      },
+      {goalResponse: goalResponse(goal)},
+    );
+  }
+  await mounted(
+    async ({all}) => {
+      const link = goalNodes(all).find((e) => e.tag === 'a');
+      assert.equal(link.href, goalFixture('COMPLETED').result.revisionUrl);
+      assert.equal(link.rel, 'noopener noreferrer');
+    },
+    {goalResponse: goalResponse(goalFixture('COMPLETED'))},
   );
 });

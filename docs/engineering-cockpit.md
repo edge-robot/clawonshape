@@ -4,7 +4,7 @@ Open the authenticated **Mechanical Engineer dashboard** at `http://localhost:19
 and select **Claw-Onshape**. The native page has exactly three destinations:
 **Workspace** (initial view), **CAD** and **3D Print**. The navigation remains visible
 on narrow screens and supports keyboard activation and visible focus. The cockpit
-provides a read-only overview and review. Team/project names are not assumed;
+provides an overview with explicit goal actions. Team/project names are not assumed;
 only the assigned Onshape context is shown.
 The separate, collapsed **"Operator-Aktionen (Übergang bis Discord-Freigabe)"**
 (Operator actions, interim path until Discord approval) section preserves the existing
@@ -30,11 +30,39 @@ the missing ancestry is stated explicitly. Select the workspace card, then open
 evidence) to select a stored payload proposal. Only configured workspaces appear,
 not a complete Onshape directory.
 
-**Goal iteration.** **"Feature-Ziel & Iteration"** (feature goal and iteration)
-shows a blocked state. No goal can be saved, confirmed, started or stopped here
-until the reviewed server-side goal authorization and execution interface exists.
-Stored payload approvals and parameter checks are not goal authorization or proof
-of goal completion. Aggregate counts refer only to stored payload receipts.
+**Goal iteration.** The panel reads `goal-status` on load, explicit refresh and
+following an action; there is no background goal polling. Ask the Robotics Lead
+to prepare a goal. Before **"Ziel bestätigen & Iteration erlauben"**, review every
+goal/preservation condition, allowed features/operations, target, Candidate plan,
+budget, lifetime, confirmation deadline and displayed goal hash. The explicit
+operator confirmation sends that hash and its nonce unchanged. It requires admin
+rights, an available capability and an awaiting, unexpired confirmation. Pending
+calls disable goal actions; each click makes one attempt, with no automatic retry.
+
+Per [ADR D1](ADR.md#adr-2026-10-21-goal-scoped-mutation-authorization), dashboard
+confirmation is the interim "Verify Candidate" act until a credential verifier
+provides the decision. It permits only the displayed bounded goal. The UI creates
+no proposals and performs no CAD writes itself.
+
+Progress uses the server's goal counters; missing counters mean unknown. A
+completed state needs a passed goal verification before displaying success.
+Checks, observed values, open limits and a target-validated Candidate revision
+link remain visible; `note` conditions always remain open limits. Payload receipts
+do not establish goal success. **"Abgeschlossene Ziele & Nachweise"** is a collapsed,
+read-only terminal-goal history and cannot supply actions for the current goal.
+
+**"Iteration stoppen"** is available to admins in awaiting, active, reconciling
+and blocked states. An uncertain step shows reconciliation guidance: the Engineer
+must use the complete server error data. The current `GoalView` lacks the full
+tuple, so the UI does not manufacture a `goal-reconcile` request.
+
+**"Ziel abschließen …"** requires a paused state (stopped, expired or blocked),
+admin rights, available capability and a known clear journal. Null counters or a
+missing sequence field block closure; a null sequence alone is insufficient.
+A second explicit **"Ziel abschließen"** confirms that executed changes and the
+Candidate stay. Cancel makes no request. Resume after stop/expiry needs renewed
+confirmation via the Lead. Errors show the human message and a code under
+**"Technische Zieldiagnose"**; refresh before deciding on another action.
 
 **Load and compare views.** Use **"CAD-Ansicht laden / erneuern"** to explicitly
 load the current configured Part Studio state. Image, revision and render time
@@ -53,7 +81,8 @@ Live image retrieval is not enabled for an unconfigured Primary.
 | "Parameter geprüft" (parameters checked) | Result was compared with the approved feature parameters. Geometry, positions and outer dimensions have not been fully checked by this. |
 
 **Find evidence.** The collapsed payload history shows four separate steps, the task and
-**"Nächster Schritt"** (next step). **"Beleg & Freigabezuordnung"** (receipt and
+**"Nächster Schritt"** (next step). Selecting another payload retains the open
+history and its visible execution evidence (F8). **"Beleg & Freigabezuordnung"** (receipt and
 approval mapping) contains the stored evidence with payload hash and CAD states.
 Missing approver identity, execution time or channel delivery are not filled in.
 Bambu Studio, production approval and print preparation are not integrated.
@@ -80,7 +109,8 @@ the links were identical.
 
 **Current working tree, not deployed:** The 2026-10-21 top-down implementation
 removes the previous image/name coupling; local tests cover independent names,
-refresh, failed images and target/auth races. Browser and live acceptance remain
+refresh, failed images and target/auth races. Goal actions are wired to the accepted
+backend contract. Fixture browser checks are separate from live acceptance, which remains
 open. Next, jointly check separate approval /
 execution / verification evidence, an empty / error / stale state and refresh.
 Historical comparison images remain outside the current render contract.
@@ -94,7 +124,9 @@ Chromium executable (`/usr/bin/chromium`, or set `CHROMIUM_PATH`). It uses inter
 data and no CAD provider requests. Requested artifacts are written under
 `docs/product/dashboard-workflow-2026-10-21/implementation/` only when Chromium
 can actually launch. Each view is checked at 1440×900, 1366×768 and 390×844;
-blocked goal/print views do not simulate authorization or slicing. Browser screenshots are fixture evidence, not live acceptance.
+the goal confirmation/active/completed screenshots use synthetic responses and the
+print view remains blocked. New artifacts use the `goal-ui-` prefix to preserve
+earlier evidence. Browser screenshots are fixture evidence, not live acceptance.
 
 **3D Print prerequisites.** The view is blocked: no supported Bambu adapter,
 validated STL/unit mapping, complete printer/nozzle/material/process profile,
