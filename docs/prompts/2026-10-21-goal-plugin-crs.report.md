@@ -1,0 +1,148 @@
+---
+prompt: docs/prompts/2026-10-21-goal-plugin-crs.md
+branch: feat/18-goal-authorization
+commits: ddbffdd..5d3403d
+status: done
+contract-version: 1.1.0-draft
+e2e-request: required
+---
+# Report: Goal plugin follow-up: confirmation nonce, goal-close, fixture digest (#18)
+
+## Summary
+
+All three accepted change requests are implemented against the amended contract (`297512c`, fixture digest
+`sha256:788b253f…`):
+
+- **CR-1:** `GoalView.confirmation.nonce` is `null` in every projection. Only the dashboard `goal-status`
+  view of the current goal carries it, and only while the goal is `AWAITING_CONFIRMATION`
+  (`operatorNonceView`). A real dashboard end-to-end test runs propose → `goal-status` → `goal-confirm`
+  against a stubbed Onshape REST `fetch`, with no network.
+- **CR-3:** The new `goal-close` dashboard action (`operator.admin`) moves a goal from `STOPPED`,
+  `EXPIRED` or `BLOCKED` to the terminal state `CLOSED` and resets the grant to `null`.
+  - It is guarded by the journal summary: an unreconciled entry gives `goal_reconciliation_required`.
+  - An unavailable summary fails closed with `mcp_discovery_failed`, the same code as §5 rule 2.
+  - After `CLOSED`, a new goal for the same binding can be proposed and gets its own Candidate.
+- **CR-2:** I reshaped the Lead receipt to the §7 step 3 wording: `{goalId, origin, resultDigest,
+  deliveredAt | failure, via}`. It is returned as `goalResultDelivery`, now also on failure, together
+  with `code` and `message`.
+
+Two further changes:
+
+- **Server error data (§12.3 CR-5).** I fixed a bug that the prompt asked me to check.
+  - The unknown-outcome `data` merges the §6 object (`outcome`, `retryAllowed`, `reconciliationRequired`).
+    onshape-mcp `goal_behaviour.rs` `uncertain` at `39815f8` asserts this shape.
+  - `onshape_goal_reconcile` rejected that data with `invalid_arguments`, although the skill says to pass
+    it unchanged.
+  - It now accepts these three fields with exactly the values the server sends and ignores them. Any
+    other value or key is still rejected.
+- **Manifest version.** The `openclaw.plugin.json` version is now `0.2.10`, the same as `package.json`.
+  This is in its own commit.
+
+No new error codes were needed.
+
+## Changed files
+
+`git diff --stat dbba3a6..5d3403d`: 10 files, +530 / −31.
+
+| File | Purpose |
+|---|---|
+| `src/goal-lifecycle.ts` | State `CLOSED` (terminal), event `close`, `confirmation.nonce: null` in `goalView`, `operatorNonceView` |
+| `src/goal-service.ts` | `goalStatus(..., {operatorNonce})` and `closeGoal` (journal guard, record before grant `null`) |
+| `src/dashboard.ts` | `goal-status` with the operator nonce; new action `goal-close` |
+| `src/goal-delivery.ts` | §7 receipt shape; `DeliveryFailure` carries the recorded receipt |
+| `src/goal-tools.ts` | `goalResultDelivery` on failure includes the receipt; `reconcileToolInput` accepts the server data unchanged |
+| `openclaw.plugin.json` | `version` changed from `0.2.8` to `0.2.10` (no other change) |
+| `tests/contract.test.mjs` | Fixture digest `788b253f…` (the GoalView fixture test now checks `nonce: null`) |
+| `tests/mcp-readiness.test.mjs` | The action registry also contains `goal-close` |
+| `tests/goal-workflow.test.mjs` | T11 asserts the §7 receipt fields |
+| `tests/goal-crs.test.mjs` (new) | Tests for CR-1, CR-3, CR-5 and the manifest version |
+
+## Checks
+
+| Command | Before (`dbba3a6`, with the new digest) | After (`5d3403d`) |
+|---|---|---|
+| `npm ci` | pass | pass |
+| `npm run typecheck` | pass | pass |
+| `npm test` | 174 tests, 173 pass, 1 fail (GoalView fixture without `confirmation.nonce`, expected) | **183 tests, 183 pass** |
+| `npm run test:native-files` | — | `"status":"PASS"` |
+| `npm pack --dry-run` | — | pass, 173 files, including `skills/onshape-goal-iteration/SKILL.md`. No `tests/`, `state/` or `.env`. |
+| `npx biome ci .` | — | pass (64 files, no fixes) |
+
+## Acceptance criteria
+
+| # | Criterion | Result | Evidence |
+|---|---|---|---|
+| A1 | The nonce is reachable for the operator and never for agents | met | `CR-1 the nonce is in the operator goal-status view only while AWAITING_CONFIRMATION` covers: AWAITING visible; ACTIVE, STOPPED and goal-stop responses `null`; a renew gives a new nonce; the signed report part has no `confirmation`. `CR-1 agent tools never see the nonce (Engineer onshape_goal_status through the registered plugin)` covers the agent tool. `GoalView … exactly the fixture keys and types` checks `nonce: null`. |
+| A2 | Confirm path end to end through `goal-status` → `goal-confirm` | met | `CR-1 end to end: propose → dashboard goal-status nonce → dashboard goal-confirm creates the Candidate once`. It runs the real dashboard actions, the existing candidate path and goal reads against a stubbed REST `fetch`; it checks exactly one POST and grant revision 1, and that a replay gives `goal_state_invalid` without provider I/O. |
+| A3 | `goal-close` rules and the new-goal-after-close behaviour | met | `CR-3 goal-close from STOPPED, EXPIRED and BLOCKED ends the goal and resets the grant to null`; `CR-3 goal-close is rejected from ACTIVE, RECONCILING, AWAITING_CONFIRMATION and every terminal state`; `CR-3 goal-close waits for reconciliation and fails closed without a journal summary`; `CR-3 after CLOSED a new goal for the same binding can be proposed and gets a new Candidate` (also covers dashboard admin-only and strict input); registry: `operator scope is checked before native reads; …` |
+| A4 | Lead-side receipt matches §7 | met | `T11 result delivery: lead-reply, outbound with a mocked adapter, failure code without a loop` asserts the receipt keys `{deliveredAt, goalId, origin, resultDigest, via}` and the `failure: {failedAt, code}` record. Code: `DeliveryReceipt` in `src/goal-delivery.ts` and `goalResultDelivery` in `src/goal-tools.ts`. |
+| A5 | typecheck, `npm test` (≥ 174), `biome ci` and `npm pack --dry-run` pass | met | Checks table (183 tests) |
+
+The fix started with a failing test: `§12.3 CR-5: the unknown-outcome error data is accepted unchanged by
+onshape_goal_reconcile`.
+
+## Contract deviations and change requests
+
+None. Interpretations within the amended text:
+
+- **`goal-close` on a missing summary** returns `mcp_discovery_failed`, as in §5 rule 2. The prompt only
+  says "fails closed".
+- **`CLOSED` keeps the existing `result`** of the stop, expiry or block. §7 does not list `CLOSED`, so no
+  new result is created for delivery.
+- **The dashboard `goal-reconcile` input stays strict** (the contract §4.1 field list). The tolerance for
+  the §6 fields applies only to the agent tool, which receives the raw MCP error data.
+
+## Live E2E request
+
+Same preconditions as in `2026-10-21-goal-authorization-plugin.report.md`. CR-1 no longer blocks.
+
+1. `goal-status` shows `confirmation.nonce` while the goal is `AWAITING_CONFIRMATION`. The cockpit sends it
+   together with the displayed `goalHash` to `goal-confirm`. Expected: exactly one Candidate and
+   grant revision 1. Then `nonce` is `null`.
+2. Engineer `onshape_goal_status` and the Lead report never contain the nonce. Check the session logs.
+3. An unknown outcome (for example a provider timeout): the Engineer passes the MCP error `data` unchanged
+   to `onshape_goal_reconcile`. Expected: accepted, with no `invalid_arguments`.
+4. STOP, then `goal-close`. Expected: `goal-grant.json` is `null`, and a new goal can be proposed. Its
+   confirmation creates a new Candidate.
+5. Result delivery from another conversation. Expected: the Lead tool result contains
+   `goalResultDelivery` with `via: "outbound"`, and the receipt file is in the Lead state under
+   `claw-onshape/goal-deliveries/`.
+
+## Updated UI notes (cockpit, #17)
+
+- **`goal-status`** (`operator.read`, `{connectionRef?}`): returns `{ok: true, goal: GoalView | null,
+  history: GoalView[≤10]}`.
+  - New: `goal.confirmation.nonce` (32 hex characters) while `goal.state === "AWAITING_CONFIRMATION"`,
+    otherwise `null`.
+  - History entries always have `null`.
+- **`goal-confirm`** (`operator.admin`): input `{connectionRef?, goalId, nonce, expectedGoalHash}`.
+  - `nonce` and `expectedGoalHash` must be the values shown by `goal-status`.
+  - A newer `goal-status` (after a renew or revise) has a new nonce, and the old one gives
+    `goal_state_invalid`.
+- **`goal-close`** (`operator.admin`): input `{connectionRef?, goalId}`, response `{ok: true, goal}` with
+  `goal.state === "CLOSED"` and `goal.grant === null`.
+  - Offer it only for `STOPPED`, `EXPIRED` or `BLOCKED`.
+  - Errors: `goal_state_invalid` (wrong state), `goal_reconciliation_required` (show "reconcile first"),
+    `mcp_discovery_failed` (journal summary unavailable).
+  - After closing, the goal appears in `history` and the current slot is free.
+- The new state `CLOSED` is terminal. Render it like `COMPLETED` and `FAILED` in the history.
+
+## Open points and risks
+
+- `CLOSED` keeps the Candidate workspace. Cleaning up Candidates is not part of the contract.
+- The live E2E items from the previous report still apply (GW3, GW4, the `sendText` target from the tool
+  context).
+- The working tree still contains foreign uncommitted changes (`README.md`, `spec.md`,
+  `docs/product/**`). I did not touch them.
+
+## Out-of-scope findings
+
+None new.
+
+## Commits (trailers `Refs: edge-robot/clawonshape#18`, `Prompt: docs/prompts/2026-10-21-goal-plugin-crs.md`, `Agent: ts-plugin-dev`, `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`)
+
+- `ddbffdd` feat: ✨ confirmation nonce in the operator goal-status view and goal-close with CLOSED
+- `095a955` fix: 🐛 Lead delivery receipt in the §7 shape and reconcile accepts the server error data
+- `080b8d9` fix: 🔧 manifest version 0.2.10 to match package.json
+- `5d3403d` test: 🧪 CR-1 nonce visibility, dashboard confirm end to end, CR-3 goal-close rules
+- followed by the commit of this report
