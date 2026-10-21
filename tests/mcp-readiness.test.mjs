@@ -188,6 +188,7 @@ test('operator scope is checked before native reads; no native metadata enters s
       ['goal-confirm', ['operator.admin']],
       ['goal-stop', ['operator.admin']],
       ['goal-reconcile', ['operator.admin']],
+      ['goal-close', ['operator.admin']],
     ],
   );
   for (const scopes of [[], ['operator.write'], ['agent']]) {

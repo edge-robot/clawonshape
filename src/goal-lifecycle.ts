@@ -13,7 +13,8 @@ export type GoalState =
   | 'STOPPED'
   | 'EXPIRED'
   | 'COMPLETED'
-  | 'FAILED';
+  | 'FAILED'
+  | 'CLOSED';
 export const GOAL_STATES: readonly GoalState[] = [
   'AWAITING_CONFIRMATION',
   'ACTIVE',
@@ -23,8 +24,10 @@ export const GOAL_STATES: readonly GoalState[] = [
   'EXPIRED',
   'COMPLETED',
   'FAILED',
+  'CLOSED',
 ];
-export const TERMINAL_STATES: readonly GoalState[] = ['COMPLETED', 'FAILED'];
+// CLOSED (CR-3): an operator ended a paused goal so that a new goal can start for the binding.
+export const TERMINAL_STATES: readonly GoalState[] = ['COMPLETED', 'FAILED', 'CLOSED'];
 export const isTerminal = (state: GoalState) => TERMINAL_STATES.includes(state);
 // §1: the legacy approval is blocked while a goal holds live authority.
 export const AUTHORITY_STATES: readonly GoalState[] = ['ACTIVE', 'RECONCILING'];
@@ -303,7 +306,7 @@ export function nextGrant(record: GoalRecord, change: Partial<Omit<GrantMirror, 
 // §3: the grant may be reset to null only for a terminal or paused goal whose journal has no unreconciled entry.
 export function grantReleasable(record: GoalRecord, summary: JournalSummary | null): boolean {
   return (
-    ['COMPLETED', 'FAILED', 'STOPPED', 'EXPIRED', 'BLOCKED'].includes(record.state) &&
+    ['COMPLETED', 'FAILED', 'CLOSED', 'STOPPED', 'EXPIRED', 'BLOCKED'].includes(record.state) &&
     summary !== null &&
     summary.goalId === record.goalId &&
     summary.unreconciledSequence === null
@@ -311,7 +314,7 @@ export function grantReleasable(record: GoalRecord, summary: JournalSummary | nu
 }
 
 // §3 transition table, as data. The service applies guards; this answers "is the event allowed in this state".
-export type GoalEvent = 'revise' | 'renew' | 'confirm' | 'reconcile' | 'verify' | 'stop' | 'expire' | 'fail';
+export type GoalEvent = 'revise' | 'renew' | 'confirm' | 'reconcile' | 'verify' | 'stop' | 'expire' | 'fail' | 'close';
 const ALLOWED: Record<GoalEvent, readonly GoalState[]> = {
   revise: ['AWAITING_CONFIRMATION', 'STOPPED', 'EXPIRED', 'BLOCKED'],
   renew: ['STOPPED', 'EXPIRED', 'BLOCKED'],
@@ -322,6 +325,7 @@ const ALLOWED: Record<GoalEvent, readonly GoalState[]> = {
   stop: ['ACTIVE', 'RECONCILING', 'AWAITING_CONFIRMATION', 'BLOCKED'],
   expire: ['AWAITING_CONFIRMATION', 'ACTIVE', 'RECONCILING'],
   fail: ['AWAITING_CONFIRMATION', 'ACTIVE', 'RECONCILING', 'BLOCKED', 'STOPPED', 'EXPIRED'],
+  close: ['STOPPED', 'EXPIRED', 'BLOCKED'],
 };
 export function eventAllowed(state: GoalState, event: GoalEvent): boolean {
   return ALLOWED[event].includes(state);
@@ -640,7 +644,13 @@ export type GoalView = {
     lastVerification: Verification | null;
   };
   grant: {revision: number; state: 'ACTIVE' | 'STOPPED'; expiresAt: number} | null;
-  confirmation: {expiresAt: number; confirmedAt: number | null; confirmedBy: ConfirmedBy | null};
+  confirmation: {
+    expiresAt: number;
+    confirmedAt: number | null;
+    confirmedBy: ConfirmedBy | null;
+    // CR-1: non-null only in the operator goal-status view while AWAITING_CONFIRMATION (operatorNonceView).
+    nonce: string | null;
+  };
   result: GoalResult | null;
   capability: Capability;
   observedAt: number;
@@ -691,6 +701,8 @@ export function goalView(
       expiresAt: record.confirmation.expiresAt,
       confirmedAt: record.confirmation.confirmedAt ?? null,
       confirmedBy: record.confirmation.confirmedBy ?? null,
+      // Agents, signed reports and every other projection never see the nonce (§9, CR-1).
+      nonce: null,
     },
     result: record.result,
     capability,
@@ -777,4 +789,14 @@ export function reportView(view: GoalView) {
     result,
     capability: view.capability,
   };
+}
+
+// §9 CR-1: the only projection that carries the confirmation nonce. Used solely by the dashboard goal-status action
+// (operator.read) for the current goal; any state other than AWAITING_CONFIRMATION yields null.
+export function operatorNonceView(view: GoalView, record: GoalRecord): GoalView {
+  const nonce =
+    record.goalId === view.goalId && record.state === 'AWAITING_CONFIRMATION' && view.state === 'AWAITING_CONFIRMATION'
+      ? record.confirmation.nonce
+      : null;
+  return {...view, confirmation: {...view.confirmation, nonce}};
 }

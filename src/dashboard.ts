@@ -6,7 +6,7 @@ import {RestClient, validatedDisplayNames} from './rest.ts';
 import {operatorCandidateAuthorization, operatorGoalCandidateAuthorization} from './candidate-authorization.ts';
 import {candidateAttempts} from './candidate-attempts.ts';
 import {goalAuthorityActive} from './goal-store.ts';
-import {confirmGoal, goalStatus, reconcileGoal, stopGoal} from './goal-service.ts';
+import {closeGoal, confirmGoal, goalStatus, reconcileGoal, stopGoal} from './goal-service.ts';
 import {boundedView} from './goal-lifecycle.ts';
 import type {GoalView} from './goal-lifecycle.ts';
 
@@ -373,6 +373,7 @@ const GOAL_ACTION_KEYS = {
   'goal-confirm': ['connectionRef', 'goalId', 'nonce', 'expectedGoalHash'],
   'goal-stop': ['connectionRef', 'goalId'],
   'goal-reconcile': ['connectionRef', 'goalId', 'sequence', 'featureId', 'sourceMicroversion', 'admittedAt'],
+  'goal-close': ['connectionRef', 'goalId'],
 } as const;
 
 // goal-workflow.md §4.1. Every response is {ok: true, goal: GoalView} (goal-status also carries history) or
@@ -383,7 +384,7 @@ function registerGoalActions(
   goalFetcher: typeof fetch,
   now: () => number,
 ) {
-  for (const actionId of ['goal-status', 'goal-confirm', 'goal-stop', 'goal-reconcile'] as const) {
+  for (const actionId of ['goal-status', 'goal-confirm', 'goal-stop', 'goal-reconcile', 'goal-close'] as const) {
     const required = actionId === 'goal-status' ? 'operator.read' : 'operator.admin';
     api.session.controls.registerSessionAction({
       id: actionId,
@@ -458,13 +459,17 @@ function registerGoalActions(
             guard: assertOperator,
           };
           if (actionId === 'goal-status') {
-            const {goal, history} = await goalStatus(ctx);
+            // CR-1: the operator view of the current goal carries the confirmation nonce while it awaits confirmation.
+            const {goal, history} = await goalStatus(ctx, undefined, {operatorNonce: true});
             assertOperator();
             return response({
               ok: true,
               goal: goal ? boundedGoal(goal) : null,
               history: history.map((view) => boundedView(view, GOAL_HISTORY_VIEW_MAX_BYTES)),
             });
+          }
+          if (actionId === 'goal-close') {
+            return response({ok: true, goal: boundedGoal(await closeGoal(ctx, input.goalId))});
           }
           if (actionId === 'goal-stop') {
             return response({

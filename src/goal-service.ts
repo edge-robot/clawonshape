@@ -31,6 +31,7 @@ import {
   isTerminal,
   MAX_VERIFICATIONS,
   nextGrant,
+  operatorNonceView,
   reconcileOutcome,
   reconcilePrecheck,
   sameGoalBinding,
@@ -385,6 +386,8 @@ export function execution(view: GoalView, record: GoalRecord): Execution | undef
 export async function goalStatus(
   ctx: GoalContext,
   goalId?: unknown,
+  // CR-1: only the dashboard goal-status action (operator.read) sets this; agent tools never do.
+  options: {operatorNonce?: boolean} = {},
 ): Promise<{goal: GoalView | null; history: GoalView[]; execution?: Execution}> {
   const capability = await gate(ctx, false);
   const store = await goalStore(ctx.stateDir);
@@ -407,7 +410,8 @@ export async function goalStatus(
   if (!current) {
     return {goal: null, history};
   }
-  const view = await viewOf(ctx, current, capability);
+  const projected = await viewOf(ctx, current, capability);
+  const view = options.operatorNonce === true ? operatorNonceView(projected, current) : projected;
   const exec = execution(view, current);
   return exec ? {goal: view, history, execution: exec} : {goal: view, history};
 }
@@ -709,6 +713,27 @@ export async function verifyGoal(ctx: GoalContext, goalId: unknown): Promise<Goa
     return fail('goal_verification_incomplete');
   }
   return viewOf(ctx, record, capability);
+}
+
+// §3 close (CR-3, dashboard goal-close): ends a STOPPED, EXPIRED or BLOCKED goal so that a new goal can start for the
+// binding. Executed changes and the Candidate stay. Guarded by the journal summary; an unavailable summary fails closed.
+export async function closeGoal(ctx: GoalContext, goalId: unknown): Promise<GoalView> {
+  approvalDirectory(ctx.config);
+  const store = await goalStore(ctx.stateDir);
+  const record = await store.exclusive(async () => {
+    const record = await sweep(store, ctx, await readOwned(store, ctx, goalId));
+    assertEvent(record, 'close');
+    const summary = await journalSummary(record.goalId, ctx.fetcher);
+    if (!summary) {
+      return fail('mcp_discovery_failed');
+    }
+    if (summary.unreconciledSequence !== null) {
+      return fail('goal_reconciliation_required');
+    }
+    // The §7 result of the STOP, expiry or block stays; CLOSED adds no new result to deliver.
+    return commit(store, ctx, {...record, state: 'CLOSED'}, record.grant ? null : 'unchanged');
+  });
+  return viewOf(ctx, record, await goalCapability(ctx.fetcher));
 }
 
 // Read-only view for onshape_complete_task (goalId field) and the result delivery.

@@ -43,7 +43,7 @@ registerHooks({
 });
 
 const CONTRACT_VERSION = '1.1.0-draft';
-const CONTRACT_DIGEST = 'sha256:37aca6a4323ae2c26b5826539ef2d607e532773ae1f7caf44d7d92c8020ae341';
+const CONTRACT_DIGEST = 'sha256:788b253f9f44fba37d97302933f356655ed0b53539007593982da8432502a68d';
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./contract/${name}`, import.meta.url), 'utf8'));
 
 test('contract fixture copy has the version this plugin implements', async () => {
