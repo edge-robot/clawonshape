@@ -1,13 +1,14 @@
 // Goal workflow test harness: a fake Onshape (REST reads, candidate creation), a minimal stand-in for the server
 // goal admission (§12.3 subset: grant file, scope, journal, budget) and the MCP probe endpoints. No network.
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {createHash, randomUUID} from 'node:crypto';
 import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {registerHooks} from 'node:module';
 import {parseConfig} from '../../dist/config.js';
 import {grantViolations} from '../../dist/goal-lifecycle.js';
+import {canonicalJson} from '../../dist/goal-scope.js';
 import {goalStore} from '../../dist/goal-store.js';
 import {proposeGoal} from '../../dist/goal-service.js';
 
@@ -80,7 +81,8 @@ export async function goalHarness(options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'goal-workflow-'));
   const approvalDirectory = join(root, 'approval');
   const before = (await featuresFixture()).before;
-  let clock = 4102444000000;
+  // Tests that drive registered tools (which use the real clock) start in the recent past instead.
+  let clock = options.clock ?? 4102444000000;
   let mvCounter = 0;
   const nextMicroversion = () => (++mvCounter).toString(16).padStart(24, 'b');
   // Workspace state: Primary at BASE; Candidates are copies created at the requested microversion.
@@ -139,7 +141,8 @@ export async function goalHarness(options = {}) {
   };
   // Server stand-in: journal per goal, grant file on disk, §12.3 subset and §12.7 summary.
   const journal = new Map();
-  const server = {capability: 'goal', journalDown: false, outcome: 'OK'};
+  // summaryVersion '1.1' omits unreconciledEntry (a pre-1.2.0 server); malformedEntry corrupts it.
+  const server = {capability: 'goal', journalDown: false, outcome: 'OK', summaryVersion: '1.2', malformedEntry: false};
   const grantPath = join(approvalDirectory, 'goal-grant.json');
   const readGrant = async () => {
     try {
@@ -154,7 +157,7 @@ export async function goalHarness(options = {}) {
     const reconciledThrough = grant?.goalId === goalId ? grant.reconciledThrough : 0;
     const uncertain = entries.find((e) => e.outcome === 'UNCERTAIN' && e.sequence > reconciledThrough);
     const counted = entries.filter((e) => e.outcome !== 'NOT_DISPATCHED');
-    return {
+    const summary = {
       goalId,
       entries: entries.length,
       counted: counted.length,
@@ -163,6 +166,23 @@ export async function goalHarness(options = {}) {
       lastOutcome: entries.at(-1)?.outcome ?? null,
       lastAdmittedAt: entries.at(-1)?.admittedAt ?? null,
     };
+    if (server.summaryVersion === '1.1') {
+      return summary;
+    }
+    // §12.7 (1.2.0): the serialized journal entry; never the request body.
+    const entry = uncertain
+      ? {
+          sequence: uncertain.sequence,
+          grantRevision: uncertain.grantRevision,
+          requestHash: uncertain.requestHash,
+          featureId: uncertain.featureId,
+          sourceMicroversion: uncertain.sourceMicroversion,
+          admittedAt: uncertain.admittedAt,
+          outcome: 'UNCERTAIN',
+          httpStatus: uncertain.httpStatus,
+        }
+      : null;
+    return {...summary, unreconciledEntry: server.malformedEntry && entry ? {...entry, body: {}} : entry};
   };
   const fetcher = async (url, init) => {
     assert.equal(init.redirect, 'error');
@@ -235,7 +255,18 @@ export async function goalHarness(options = {}) {
       if (server.outcome === 'UNCERTAIN_APPLIED') {
         apply();
       }
-      entries.push({sequence, outcome: 'UNCERTAIN', admittedAt: clock});
+      entries.push({
+        sequence,
+        outcome: 'UNCERTAIN',
+        admittedAt: clock,
+        grantRevision: grant.grantRevision,
+        requestHash: createHash('sha256')
+          .update(canonicalJson({path: request.path, body: request.body}))
+          .digest('hex'),
+        featureId: m[4],
+        sourceMicroversion: request.body.sourceMicroversion,
+        httpStatus: 503,
+      });
       return {
         code: 'mutation_outcome_unknown_reconcile_required',
         data: {
