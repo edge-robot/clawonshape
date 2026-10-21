@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/goal-workflow.md
 contract-version: 1.1.0-draft   # amended 297512c; plugin-facing goal-1.0.0-draft amended
 foreign-repo-commit: 39815f8    # onshape-mcp, branch feat/5-goal-grant (server accepted at 7182e7a)
 base-commit: 297512c
-status: issued
+status: done
 ---
 # Goal plugin follow-up: confirmation nonce, goal-close, fixture digest (#18)
 
