@@ -354,12 +354,13 @@ export function registerGoalTools(
           label: 'Reconcile an uncertain goal dispatch',
           description:
             'After mutation_outcome_unknown_reconcile_required or goal_reconciliation_required, pass the error data ' +
-            '(goalId, sequence, featureId, sourceMicroversion, admittedAt) unchanged. Never retry the update blindly; ' +
+            '(goalId, sequence, featureId, sourceMicroversion, admittedAt) unchanged. If the error data is lost, pass ' +
+            'only goalId: the server journal summary names the unreconciled entry. Never retry the update blindly; ' +
             'on mutation_outcome_unknown wait and reconcile again.',
           parameters: schema({
             type: 'object',
             properties: reconcileProperties,
-            required: ['goalId', 'sequence', 'featureId', 'sourceMicroversion', 'admittedAt'],
+            required: ['goalId'],
             additionalProperties: false,
           }),
           async execute(_id: string, params: unknown) {

@@ -50,7 +50,8 @@ Repeat, one update at a time:
 5. On `mutation_outcome_unknown_reconcile_required` or
    `goal_reconciliation_required`: call `onshape_goal_reconcile` with the error
    `data` (`goalId`, `sequence`, `featureId`, `sourceMicroversion`,
-   `admittedAt`) unchanged. Never resend the same update blindly. On
+   `admittedAt`) unchanged. If the error data is lost, call
+   `onshape_goal_reconcile` with `goalId` only. Never resend the same update blindly. On
    `mutation_outcome_unknown` wait and reconcile again later. Continue only when
    the goal is `ACTIVE` again, and always build the next update on a fresh read.
 6. On `revision_policy_denied` or `goal_dispatch_duplicate`: re-read and build a

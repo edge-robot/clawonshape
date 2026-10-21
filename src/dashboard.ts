@@ -479,7 +479,9 @@ function registerGoalActions(
           }
           if (actionId === 'goal-reconcile') {
             readGuard();
-            return response({ok: true, goal: boundedGoal(await reconcileGoal(ctx, input))});
+            // connectionRef selects the binding only; {goalId} alone reconciles from the summary entry (goal-1.1.0).
+            const {connectionRef: _ref, ...data} = input;
+            return response({ok: true, goal: boundedGoal(await reconcileGoal(ctx, data))});
           }
           readGuard();
           // The Candidate is created from Primary through the existing candidate path (REST OAuth2Write).

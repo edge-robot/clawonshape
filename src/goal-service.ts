@@ -17,6 +17,7 @@ import type {
   GoalView,
   GrantMirror,
   JournalSummary,
+  ReconcileInput,
 } from './goal-lifecycle.ts';
 import {
   assertEvent,
@@ -30,8 +31,10 @@ import {
   grantReleasable,
   isTerminal,
   MAX_VERIFICATIONS,
+  assertInputMatchesEntry,
   nextGrant,
   operatorNonceView,
+  reconcileInputFromEntry,
   reconcileOutcome,
   reconcilePrecheck,
   sameGoalBinding,
@@ -596,17 +599,46 @@ export async function stopGoal(ctx: GoalContext, goalId: unknown, reason: unknow
   return viewOf(ctx, record, await goalCapability(ctx.fetcher));
 }
 
+// goal-1.1.0 §4/§5: {goalId} alone takes the input from the summary's unreconciledEntry.
+const RECONCILE_FIELDS = ['sequence', 'featureId', 'sourceMicroversion', 'admittedAt'];
+function goalIdOnly(data: unknown): data is {goalId: unknown} {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    // Checked to be a plain object above; only the presence of the four explicit fields is read.
+    RECONCILE_FIELDS.every((key) => (data as Record<string, unknown>)[key] === undefined)
+  );
+}
+
 export async function reconcileGoal(ctx: GoalContext, data: unknown): Promise<GoalView> {
   const capability = await gate(ctx, true);
-  const input = validateReconcileInput(data);
+  const byGoalId = goalIdOnly(data);
+  const explicit = byGoalId ? undefined : validateReconcileInput(data);
+  const goalId = byGoalId ? data.goalId : explicit?.goalId;
   const store = await goalStore(ctx.stateDir);
   const record = await store.exclusive(async () => {
-    let record = await sweep(store, ctx, await readOwned(store, ctx, input.goalId));
+    let record = await sweep(store, ctx, await readOwned(store, ctx, goalId));
     assertEvent(record, 'reconcile');
+    let summary: JournalSummary | null = null;
+    let input: ReconcileInput;
+    if (explicit) {
+      input = explicit;
+    } else {
+      // No state change before the summary names an entry: an unavailable summary or no entry leaves the goal as is.
+      summary = await journalSummary(record.goalId, ctx.fetcher);
+      if (!summary) {
+        return fail('mcp_discovery_failed');
+      }
+      input = reconcileInputFromEntry(record.goalId, summary.unreconciledEntry);
+    }
     if (record.state === 'ACTIVE') {
       record = await commit(store, ctx, {...record, state: 'RECONCILING'}, 'unchanged');
     }
-    const summary = await journalSummary(record.goalId, ctx.fetcher);
+    if (explicit) {
+      summary = await journalSummary(record.goalId, ctx.fetcher);
+      assertInputMatchesEntry(input, summary?.unreconciledEntry ?? null);
+    }
     if (reconcilePrecheck(record, input, summary, ctx.now()) === 'idempotent') {
       return record.state === 'RECONCILING' ? commit(store, ctx, {...record, state: 'ACTIVE'}, 'unchanged') : record;
     }
