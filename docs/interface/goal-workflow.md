@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Contract-Version | `goal-1.0.0-draft` (requires server contract `onshape-mcp.md` ≥ `1.1.0-draft`, §12) |
+| Contract-Version | `goal-1.1.0-draft` (requires server contract `onshape-mcp.md` ≥ `1.2.0-draft`, §12) |
 | Status | **draft**: contract-first, not implemented |
 | Owner | onshape-architekt (only the architect edits this file and `fixtures/goal-workflow/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-2026-10-21: Goal-scoped mutation authorization" |
@@ -120,7 +120,7 @@ from §8 or server §6 unchanged. No action retries a provider write.
 | `goal-status` | `operator.read` | `{connectionRef?}` | current goal (or `null`) and the last 10 terminal goals as `GoalView`; reads the journal summary (server §12.7); no provider write |
 | `goal-confirm` ("Verify Candidate") | `operator.admin` | `{connectionRef?, goalId, nonce, expectedGoalHash}` | runs the **verification core** `verifyGoalConfirmation({record, nonce, expectedGoalHash, confirmer, now})` (pure function: nonce equal in constant time, `now < confirmation.expiresAt`, `goalHash` recomputed from `scope` equals `expectedGoalHash` and the record, state `AWAITING_CONFIRMATION`, binding current, confirmer has authority); then creates the Candidate from Primary at `scope.target.baseMicroversion` (mode `create`, REST `OAuth2Write`, existing candidate path) or checks the reused Candidate; records `baseline` on first confirmation; writes the grant `ACTIVE`; state `ACTIVE`. `confirmedBy = {kind: "dashboard-operator", clientId?}` ⚠️ GW2 |
 | `goal-stop` | `operator.admin` | `{connectionRef?, goalId}` | §3 `stop` |
-| `goal-reconcile` | `operator.admin` | `{connectionRef?, goalId, sequence, featureId, sourceMicroversion, admittedAt}` | §5 |
+| `goal-reconcile` | `operator.admin` | `{connectionRef?, goalId}` or `{connectionRef?, goalId, sequence, featureId, sourceMicroversion, admittedAt}` | §5; with only `goalId`, the input is taken from the server's `unreconciledEntry` (goal-1.1.0) |
 | `goal-close` | `operator.admin` | `{connectionRef?, goalId}` | §3 `close`: ends a `STOPPED`, `EXPIRED` or `BLOCKED` goal so that a new goal can start for the binding; executed changes and the Candidate stay; fails with `goal_reconciliation_required` while an entry is unreconciled (CR-3, 2026-10-21) |
 
 The dashboard MUST show `goalText`, every condition, `featureIds`, budget, lifetime, target and
@@ -135,7 +135,7 @@ depend on the dashboard.
 |---|---|---|---|
 | `onshape_goal_propose` | Engineer | `{request (signed Lead context), goalText, goalConditions, preservationConditions?, featureIds, maxDispatches?, lifetimeMinutes?, goalId? (revise/renew)}` | reads Primary `baseMicroversion` and the features (REST, read); every `featureId` MUST exist in the Part Studio, else `invalid_arguments`; builds `scope`, `goalHash`, nonce; state `AWAITING_CONFIRMATION`; returns `GoalView` with `confirmationRequired: true`. Never confirms. |
 | `onshape_goal_status` | Lead, Engineer | `{goalId?}` | `GoalView`; for the Engineer also `execution: {candidateWorkspaceId, featureIds, operation, remaining, grantExpiresAt}` when `ACTIVE` |
-| `onshape_goal_reconcile` | Engineer | `{goalId, sequence, featureId, sourceMicroversion, admittedAt}` (copied from the server error `data`) | §5 |
+| `onshape_goal_reconcile` | Engineer | `{goalId}` or `{goalId, sequence, featureId, sourceMicroversion, admittedAt}` (copied from the server error `data`) | §5; with only `goalId`, the input is taken from `unreconciledEntry` |
 | `onshape_goal_verify` | Engineer | `{goalId}` | §6; may transition to `COMPLETED` or `BLOCKED` |
 | `onshape_goal_stop` | Lead, Engineer | `{goalId, reason (1..500)}` | §3 `stop`; STOP is always permitted for the bound agents because it only narrows authority |
 
@@ -149,7 +149,7 @@ repeat → `onshape_goal_verify` → `onshape_complete_task` with `goalId`. On `
 
 ## 5. Reconciliation
 
-Input from the server error data (server §12.4). In this order:
+Input from the server error data (server §12.4) or, if only `goalId` is given, from the journal summary's `unreconciledEntry` (server §12.7, 1.2.0). Explicit input MUST equal `unreconciledEntry` when the summary provides one (else `goal_state_invalid`). In this order:
 
 1. `sequence` ≤ the current `grant.reconciledThrough` → idempotent success, no grant change.
 2. Journal summary `unreconciledSequence` ≠ `sequence` → `goal_state_invalid` (the agent passed stale
@@ -232,7 +232,7 @@ derives state itself.
   "goalHash": "sha256", "confirmationRequired": false,
   "target": {"documentId": "…", "elementId": "…", "primaryWorkspaceId": "…", "candidateWorkspaceId": "… | null", "baseMicroversion": "…"},
   "scope": {"featureIds": [], "operations": ["updatePartStudioFeature"], "maxDispatches": 10, "lifetimeMs": 7200000},
-  "progress": {"dispatches": 0, "remaining": 10, "unreconciledSequence": null, "lastOutcome": null, "lastVerification": null},
+  "progress": {"dispatches": 0, "remaining": 10, "unreconciledSequence": null, "unreconciledEntry": null, "lastOutcome": null, "lastVerification": null},
   "grant": {"revision": 1, "state": "ACTIVE", "expiresAt": 0} ,
   "confirmation": {"expiresAt": 0, "confirmedAt": null, "confirmedBy": null, "nonce": null},
   "result": null,
@@ -247,7 +247,11 @@ every other projection MUST emit `null`. The nonce binds the confirmation to one
 is not a secret against the operator, but it never reaches an agent, so that a VC verifier can later
 bind its presentation to it.
 
-`progress` comes from the server journal summary (authoritative), never from agent claims. If the
+`progress` comes from the server journal summary (authoritative), never from agent claims.
+`progress.unreconciledEntry` (goal-1.1.0) mirrors the server's `unreconciledEntry` unchanged. Unlike the
+nonce it is **not** operator-only: it is diagnostic data that the Engineer and the Lead may pass on, for
+example into an OpenClaw session or the planned dashboard event log (see §12 GW5). It contains no request
+body and no credential. If the
 summary is unavailable, `progress.dispatches` is `null` and the dashboard shows "unknown".
 Fixture: `fixtures/goal-workflow/goal-view/active.json`.
 
@@ -292,6 +296,7 @@ Server-side negative tests (scope, Primary, budget, duplicate, uncertain, restar
 | GW1 | Conversation target (`origin`) availability in the tool context | ts-plugin-dev verifies against `node_modules/openclaw` SDK types; fallback: origin from the signed delegation context set by the Lead's `onshape_delegate_task` |
 | GW2 | Dashboard confirmer identity: which client identity the gateway exposes to plugin actions | verify in the SDK; record whatever is available, at minimum `kind` |
 | GW3 | Volatile fields of the features response for the canonical feature hash | fixed by a recorded response in plugin tests |
+| GW5 | Dashboard event log with hand-off of diagnostic entries (e.g. `unreconciledEntry`) to an OpenClaw session | separate issue (clawonshape); OpenClaw session/hand-off API unverified |
 | GW4 | A2A delegation timeout vs. long goal iterations | measure in the live E2E; the goal state is durable, so a timed-out delegation can be resumed with `workflow: "goal"` and the same `goalId` |
 
 ## Accepted interpretations (ts-plugin-dev report 2026-10-21)
@@ -313,6 +318,10 @@ Server-side negative tests (scope, Primary, budget, duplicate, uncertain, restar
   unresolved attempt blocks the confirmation (fail closed).
 
 ## Changelog
+
+- `goal-1.1.0-draft` (2026-10-21): additive. `progress.unreconciledEntry` in `GoalView`; `goal-reconcile` and
+  `onshape_goal_reconcile` accept `{goalId}` alone and take the input from the server summary (requires
+  server contract 1.2.0-draft). Fixture `goal-view/active.json` gains `progress.unreconciledEntry: null`. GW5.
 
 - `goal-1.0.0-draft` amended (2026-10-21): CR-1 `confirmation.nonce` in the operator `goal-status` view
   (fixture `goal-view/active.json` gets `"nonce": null`); CR-2 delivery receipt on the Lead side; CR-3

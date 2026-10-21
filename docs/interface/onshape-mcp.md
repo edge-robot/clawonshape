@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Contract-Version | `1.1.0-draft` |
+| Contract-Version | `1.2.0-draft` |
 | Status | **draft**: derived from code, not yet accepted |
 | Owner | onshape-architekt (only the architect edits this file and `fixtures/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-review-2026-10-15"; [edge-robot/clawonshape#2](https://github.com/edge-robot/clawonshape/issues/2); gap issues in §11; [edge-robot/clawonshape#5](https://github.com/edge-robot/clawonshape/issues/5), [#10](https://github.com/edge-robot/clawonshape/issues/10) (0.3.0); [#12](https://github.com/edge-robot/clawonshape/issues/12) (0.4.0); [#14](https://github.com/edge-robot/clawonshape/issues/14) (1.0.0, ADR-2026-10-16); [#18](https://github.com/edge-robot/clawonshape/issues/18), [edge-robot/onshape-mcp#5](https://github.com/edge-robot/onshape-mcp/issues/5) (1.1.0, ADR-2026-10-21) |
@@ -468,11 +468,13 @@ While a non-`null` grant whose target lies within the static bounds exists and `
 | Probe | Contract |
 |---|---|
 | `GET /capabilities` | server; no auth, no provider I/O; `200` `{"contractVersion": "1.1.0", "mutationAuthorities": string[]}` where the list contains `"approval-v2"` when `mutation_approval_file` is configured and `"goal-grant-v1"` when `goal_grant_file` and `dispatch_journal_dir` are configured and the journal directory passes the private-file checks. Unknown fields MUST be ignored by the plugin. |
-| `GET /goals/{goalId}/journal-summary` | server; no auth (private network, G8), no provider I/O, `goalId` uuid-v4 else `404`. `200` `{"goalId", "entries": integer, "counted": integer, "maxSequence": integer, "unreconciledSequence": integer \| null, "lastOutcome": string \| null, "lastAdmittedAt": integer \| null}` computed from the journal against the current grant's `reconciledThrough`; unknown goal → `200` with zeros and `null`s; unreadable journal → `503` `dispatch_journal_unavailable`. Authoritative source for budget and progress in the plugin. |
+| `GET /goals/{goalId}/journal-summary` | server; no auth (private network, G8), no provider I/O, `goalId` uuid-v4 else `404`. `200` `{"goalId", "entries": integer, "counted": integer, "maxSequence": integer, "unreconciledSequence": integer \| null, "lastOutcome": string \| null, "lastAdmittedAt": integer \| null, "unreconciledEntry": {"sequence", "grantRevision", "requestHash", "featureId", "sourceMicroversion", "admittedAt", "outcome": "PENDING" \| "UNCERTAIN", "httpStatus": integer \| null} \| null}` (**1.2.0**: `unreconciledEntry` is the journal entry named by `unreconciledSequence`, last line per sequence; never request bodies or tokens) computed from the journal against the current grant's `reconciledThrough`; unknown goal → `200` with zeros and `null`s; unreadable journal → `503` `dispatch_journal_unavailable`. Authoritative source for budget and progress in the plugin. |
 | Journal summary details (CR-4) | `404` also when the server has no goal configuration; the `503` body is `{"code":"dispatch_journal_unavailable"}`; `lastOutcome` is the stored outcome (may be `PENDING`); `reconciledThrough` comes from the current grant if it is structurally valid (expiry ignored) and names the same `goalId`, else 0. |
 | Plugin | probes `/capabilities` with the §5 liveness rules (2 000 ms, `redirect: 'error'`). The goal path is `AVAILABLE` only if `goal-grant-v1` is listed **and** the plugin config enables goals; otherwise `UNSUPPORTED`. A `404` (pre-1.1.0 server) means `UNSUPPORTED`. |
 
 ## Changelog
+
+- `1.2.0-draft` (2026-10-21): **minor, additive**. §12.7 journal summary gains `unreconciledEntry` (the unreconciled journal entry: sequence, grant revision, request hash, feature, source microversion, admission time, outcome, HTTP status), so that operators and agents can reconcile without the original MCP error data. Fixture `goal-grant/journal-summary/uncertain.json`, expectations `journalSummaryUncertain`; `goal-workflow.md` → `goal-1.1.0-draft` (§5 input, §9 `progress.unreconciledEntry`). clawonshape#18, onshape-mcp#5.
 
 - `1.1.0-draft` amended (2026-10-21, wording and one fixture field): §12.3 clarifications CR-1..CR-3, CR-5..CR-7 and §12.7 CR-4 from the onshape-mcp#5 report; plugin-facing `goal-workflow.md` amended (CR-1 nonce, CR-2, CR-3). Fixture `goal-workflow/goal-view/active.json` gains `confirmation.nonce: null`. No server behaviour change.
 
