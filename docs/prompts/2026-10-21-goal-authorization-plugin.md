@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/goal-workflow.md
 contract-version: 1.1.0-draft   # server contract; plugin-facing contract goal-1.0.0-draft
 foreign-repo-commit: c8beefe    # onshape-mcp, branch feat/5-goal-grant (read-only mount); server implementation runs in parallel
 base-commit: f937771
-status: issued
+status: issued   # report c4b2271 returned blocked (CR-1); follow-up 2026-10-21-goal-plugin-crs.md
 ---
 # Goal-scoped mutation authorization in the plugin (#18)
 

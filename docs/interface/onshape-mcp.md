@@ -408,6 +408,27 @@ reads only the local token file).
 `requestHash` = SHA-256 hex of the canonical JSON (sorted keys, no whitespace) of
 `{"path": <path>, "body": <body>}`.
 
+**Clarifications accepted from the onshape-mcp#5 report (2026-10-21, CR-1..CR-7):**
+
+- *Pins (CR-1):* configured expand-step pins (§2.5) also bound goal admission: `workspace_id` ≠ grant
+  workspace → step 6 `target_policy_denied`; `feature_id` ≠ `{fid}` → step 7 `goal_scope_denied`;
+  `expected_microversion` ≠ `sourceMicroversion` → step 8 `revision_policy_denied`.
+- *Active approval (CR-2):* an approval file is active if it passes the private-file rules and holds a
+  non-`null` value with an integer `expiresAt > now`, whatever its version; an unreadable or insecure
+  approval file counts as no approval.
+- *Step 11 re-read (CR-3):* evaluated with the full step-4 validation incl. expiry; a grant that expires
+  between steps 9 and 11 yields `NOT_DISPATCHED` + `goal_grant_stopped`.
+- *Error data (CR-5):* `goal_reconciliation_required` and `goal_dispatch_duplicate` carry the referenced
+  journal entry's `sequence`, `featureId`, `sourceMicroversion`, `admittedAt`; other step 9–10 errors carry
+  the request's `goalId`, `featureId`, `sourceMicroversion`; step-11 and unknown-outcome errors carry the
+  new `sequence` and `admittedAt`; unknown-outcome `data` = the §6 object merged with these fields.
+- *Unrecorded outcome (CR-6):* if the outcome line cannot be appended, the call returns
+  `mutation_outcome_unknown_reconcile_required` regardless of the provider status; a failed
+  `NOT_DISPATCHED` append still returns `goal_grant_stopped` and the remaining `PENDING` blocks the goal.
+- *Strictness (CR-7):* `goalId` is a **lowercase** uuid-v4; `goal_grant_file` and `dispatch_journal_dir` are
+  absolute without empty, `.` or `..` segments and without a trailing slash, else startup fails with
+  `external_token_configuration_invalid`; journal files over 4 MiB are corrupt (`dispatch_journal_unavailable`).
+
 ### 12.4 Dispatch journal (server-owned)
 
 | Item | Contract |
@@ -448,9 +469,12 @@ While a non-`null` grant whose target lies within the static bounds exists and `
 |---|---|
 | `GET /capabilities` | server; no auth, no provider I/O; `200` `{"contractVersion": "1.1.0", "mutationAuthorities": string[]}` where the list contains `"approval-v2"` when `mutation_approval_file` is configured and `"goal-grant-v1"` when `goal_grant_file` and `dispatch_journal_dir` are configured and the journal directory passes the private-file checks. Unknown fields MUST be ignored by the plugin. |
 | `GET /goals/{goalId}/journal-summary` | server; no auth (private network, G8), no provider I/O, `goalId` uuid-v4 else `404`. `200` `{"goalId", "entries": integer, "counted": integer, "maxSequence": integer, "unreconciledSequence": integer \| null, "lastOutcome": string \| null, "lastAdmittedAt": integer \| null}` computed from the journal against the current grant's `reconciledThrough`; unknown goal → `200` with zeros and `null`s; unreadable journal → `503` `dispatch_journal_unavailable`. Authoritative source for budget and progress in the plugin. |
+| Journal summary details (CR-4) | `404` also when the server has no goal configuration; the `503` body is `{"code":"dispatch_journal_unavailable"}`; `lastOutcome` is the stored outcome (may be `PENDING`); `reconciledThrough` comes from the current grant if it is structurally valid (expiry ignored) and names the same `goalId`, else 0. |
 | Plugin | probes `/capabilities` with the §5 liveness rules (2 000 ms, `redirect: 'error'`). The goal path is `AVAILABLE` only if `goal-grant-v1` is listed **and** the plugin config enables goals; otherwise `UNSUPPORTED`. A `404` (pre-1.1.0 server) means `UNSUPPORTED`. |
 
 ## Changelog
+
+- `1.1.0-draft` amended (2026-10-21, wording and one fixture field): §12.3 clarifications CR-1..CR-3, CR-5..CR-7 and §12.7 CR-4 from the onshape-mcp#5 report; plugin-facing `goal-workflow.md` amended (CR-1 nonce, CR-2, CR-3). Fixture `goal-workflow/goal-view/active.json` gains `confirmation.nonce: null`. No server behaviour change.
 
 - `1.1.0-draft` (2026-10-21): **minor, additive**. New §12 goal authorization (ADR-2026-10-21): goal grant file in channel C, server config `goal_grant_file` + `dispatch_journal_dir`, goal admission order, durable dispatch journal, STOP/expiry/reconciliation rules, goal-grant reads, `GET /capabilities`. New server codes `goal_grant_unavailable`, `mutation_authority_conflict`, `goal_grant_invalid`, `goal_grant_stopped`, `goal_scope_denied`, `goal_budget_exhausted`, `goal_reconciliation_required`, `goal_dispatch_duplicate`, `dispatch_journal_unavailable`. §0, §1, §6, §7, §8.10, §10. Fixtures `goal-grant/`, `capabilities/`, `expectations.json` `goal-grant` + `boundsGoal`. Plugin-facing goal model in `goal-workflow.md`. Approval v2 unchanged. clawonshape#18, onshape-mcp#5.
 

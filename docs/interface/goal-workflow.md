@@ -84,7 +84,7 @@ before hashing). Test vector: `fixtures/goal-workflow/goal-hash/vector.json`.
 ## 3. Lifecycle
 
 States: `AWAITING_CONFIRMATION`, `ACTIVE`, `RECONCILING`, `BLOCKED`, `STOPPED`, `EXPIRED`,
-`COMPLETED`, `FAILED`. Terminal: `COMPLETED`, `FAILED`. `STOPPED` and `EXPIRED` are resumable only
+`COMPLETED`, `FAILED`, `CLOSED`. Terminal: `COMPLETED`, `FAILED`, `CLOSED`. `STOPPED` and `EXPIRED` are resumable only
 through a new confirmation (D4).
 
 | From | Event (actor) | Guard | To | Grant effect |
@@ -100,6 +100,7 @@ through a new confirmation (D4).
 | `ACTIVE` | `verify` fails and `counted ≥ maxDispatches` | — | `BLOCKED` | revision `STOPPED` |
 | `ACTIVE`, `RECONCILING`, `AWAITING_CONFIRMATION`, `BLOCKED` | `stop` (dashboard or any bound agent) | — | `STOPPED` | revision `STOPPED` (written **before** the record state changes to `STOPPED` is reported) |
 | `ACTIVE`, `RECONCILING` | grant expiry | `now ≥ grant.expiresAt` | `EXPIRED` | revision `STOPPED` |
+| `STOPPED`, `EXPIRED`, `BLOCKED` | `close` (dashboard `goal-close`) | journal summary reports `unreconciledSequence: null` | `CLOSED` | `null` |
 | any non-terminal | binding/Candidate lost (Candidate deleted, binding changed, Primary target changed) | — | `FAILED` | `null` |
 
 `stop` during `RECONCILING` writes `STOPPED` immediately; reconciliation still completes and is
@@ -120,6 +121,7 @@ from §8 or server §6 unchanged. No action retries a provider write.
 | `goal-confirm` ("Verify Candidate") | `operator.admin` | `{connectionRef?, goalId, nonce, expectedGoalHash}` | runs the **verification core** `verifyGoalConfirmation({record, nonce, expectedGoalHash, confirmer, now})` (pure function: nonce equal in constant time, `now < confirmation.expiresAt`, `goalHash` recomputed from `scope` equals `expectedGoalHash` and the record, state `AWAITING_CONFIRMATION`, binding current, confirmer has authority); then creates the Candidate from Primary at `scope.target.baseMicroversion` (mode `create`, REST `OAuth2Write`, existing candidate path) or checks the reused Candidate; records `baseline` on first confirmation; writes the grant `ACTIVE`; state `ACTIVE`. `confirmedBy = {kind: "dashboard-operator", clientId?}` ⚠️ GW2 |
 | `goal-stop` | `operator.admin` | `{connectionRef?, goalId}` | §3 `stop` |
 | `goal-reconcile` | `operator.admin` | `{connectionRef?, goalId, sequence, featureId, sourceMicroversion, admittedAt}` | §5 |
+| `goal-close` | `operator.admin` | `{connectionRef?, goalId}` | §3 `close`: ends a `STOPPED`, `EXPIRED` or `BLOCKED` goal so that a new goal can start for the binding; executed changes and the Candidate stay; fails with `goal_reconciliation_required` while an entry is unreconciled (CR-3, 2026-10-21) |
 
 The dashboard MUST show `goalText`, every condition, `featureIds`, budget, lifetime, target and
 Candidate plan **before** offering `goal-confirm`, and MUST send the `goalHash` it displayed. It MUST
@@ -192,8 +194,11 @@ Delivery:
    conversation is not `origin`, the Lead plugin sends it to `origin` through
    `api.runtime.channel.outbound.loadAdapter(origin.channel)` → `sendText`, as proven in the
    ADR-2026-10-16 spike (target = the host-provided conversation target, never self-built).
-3. The delivery is recorded in `result.delivery = {deliveredAt, via: "lead-reply" | "outbound", channel, target}`;
-   failure → `goal_result_delivery_failed`, retried only on the next Lead turn, never as a loop.
+3. The delivery is recorded **on the Lead side** (CR-2, 2026-10-21): a durable private delivery receipt
+   `{goalId, origin, resultDigest, deliveredAt | failure, via: "lead-reply" | "outbound"}` in the Lead
+   plugin state, returned as `goalResultDelivery` in the Lead tool result. The Engineer's
+   `result.delivery` stays empty in this version. Failure → `goal_result_delivery_failed`, retried only
+   on the next Lead turn, never as a loop.
 
 ⚠️ GW1: whether a tool context (not a command context) exposes the conversation target needed for
 `origin` is unverified; the plugin task verifies it against the SDK types first.
@@ -207,7 +212,7 @@ Delivery:
 | `goal_active_conflict` | another non-terminal goal exists, or legacy approval attempted while a goal is active |
 | `goal_hash_mismatch` | displayed/expected `goalHash` differs from the record |
 | `goal_confirmation_expired` | `now ≥ confirmation.expiresAt` |
-| `goal_state_invalid` | event not allowed in the current state, or stale reconciliation data |
+| `goal_state_invalid` | event not allowed in the current state, stale reconciliation data, or a confirmation nonce that does not match |
 | `goal_candidate_mismatch` | reused Candidate missing or not derived from the binding's document |
 | `goal_verification_incomplete` | verification could not evaluate a required check |
 | `goal_result_delivery_failed` | result could not be posted to `origin` |
@@ -229,12 +234,18 @@ derives state itself.
   "scope": {"featureIds": [], "operations": ["updatePartStudioFeature"], "maxDispatches": 10, "lifetimeMs": 7200000},
   "progress": {"dispatches": 0, "remaining": 10, "unreconciledSequence": null, "lastOutcome": null, "lastVerification": null},
   "grant": {"revision": 1, "state": "ACTIVE", "expiresAt": 0} ,
-  "confirmation": {"expiresAt": 0, "confirmedAt": null, "confirmedBy": null},
+  "confirmation": {"expiresAt": 0, "confirmedAt": null, "confirmedBy": null, "nonce": null},
   "result": null,
   "capability": "AVAILABLE | UNSUPPORTED | BLOCKED",
   "observedAt": 0
 }
 ```
+
+`confirmation.nonce` (32 hex, CR-1 2026-10-21) is non-`null` **only** in the dashboard `goal-status`
+response (`operator.read`) while the state is `AWAITING_CONFIRMATION`. Agent tools, signed reports and
+every other projection MUST emit `null`. The nonce binds the confirmation to one proposal instance; it
+is not a secret against the operator, but it never reaches an agent, so that a VC verifier can later
+bind its presentation to it.
 
 `progress` comes from the server journal summary (authoritative), never from agent claims. If the
 summary is unavailable, `progress.dispatches` is `null` and the dashboard shows "unknown".
@@ -283,6 +294,28 @@ Server-side negative tests (scope, Primary, budget, duplicate, uncertain, restar
 | GW3 | Volatile fields of the features response for the canonical feature hash | fixed by a recorded response in plugin tests |
 | GW4 | A2A delegation timeout vs. long goal iterations | measure in the live E2E; the goal state is durable, so a timed-out delegation can be resumed with `workflow: "goal"` and the same `goalId` |
 
+## Accepted interpretations (ts-plugin-dev report 2026-10-21)
+
+- Exclusivity is store-wide per plugin instance (one `goal-grant.json`), stricter than per binding.
+- Capability: 5xx, timeout, redirect, reset or malformed body → `BLOCKED`; `404` or missing
+  `goal-grant-v1` → `UNSUPPORTED`. `stop` works without the probe; `goal-status` always returns a view.
+- Incomplete verification is recorded and returns `goal_verification_incomplete`; a definitive failure
+  returns `ok` with `passed: false`.
+- A changed binding is rejected (`authorization_changed` / `goal_not_found`) and does not drive a goal to
+  `FAILED`; `FAILED` is set for a lost Candidate during `verify`.
+- Implicit checks use `kind: "featureUnchanged"` and `conditionId: "implicit:<featureId>"`.
+- `goal-status` returns `{ok, goal, history}`; the signed A2A report carries a bounded goal part
+  (`goalId`, `scopeRevision`, `state`, `goalHash`, `result`, `capability`) because of the 32 768-character
+  A2A limit; oversized views drop passing checks first and keep their keys.
+- Internal record fields `lastGrantRevision` and `candidatePreparation` are allowed; a new grant
+  revision carries `reconciledThrough = max(reconciled sequences)`.
+- The goal confirmation shares the candidate-attempt slot with the legacy `candidate-prepare`; an
+  unresolved attempt blocks the confirmation (fail closed).
+
 ## Changelog
+
+- `goal-1.0.0-draft` amended (2026-10-21): CR-1 `confirmation.nonce` in the operator `goal-status` view
+  (fixture `goal-view/active.json` gets `"nonce": null`); CR-2 delivery receipt on the Lead side; CR-3
+  dashboard `goal-close` and terminal state `CLOSED`; accepted interpretations recorded.
 
 - `goal-1.0.0-draft` (2026-10-21): initial contract-first draft (ADR-2026-10-21, #18).
