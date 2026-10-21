@@ -137,6 +137,33 @@ review above is the evidence that nothing beyond my own changes is in them.
 
 I did not touch, stage or commit `README.md`, `spec.md` or `docs/product/**`.
 
+## Foreign hunks
+
+Per-file findings on the parallel work by Codex openclaw-dev (about 12:20–12:45).
+
+**Limits of my evidence.** I did not take a snapshot of the working tree when this task started; the
+preflight command that would have shown `git status` was denied. I therefore cannot see foreign changes
+directly. My evidence is indirect and has three parts:
+
+1. Each of my scripted edits replaced an exact baseline text and aborts if that text is missing. A
+   successful edit proves that this part of the file still matched `dbba3a6` at that moment.
+2. The tool reported "modified on disk since you last read it" in some cases.
+3. The final diff `dbba3a6..HEAD` contains only hunks that match my edits.
+
+| File | What I found | Decision |
+|---|---|---|
+| `tests/goal-crs.test.mjs` | When I wrote the file, the Write tool reported it as newly *created*. So no file existed at that moment; a foreign copy would have made the tool refuse to write, because I had not read it. The committed file contains exactly my 9 tests. I cannot tell whether a foreign version existed earlier and was deleted, or whether one was written later and then replaced by mine. | Committed content is mine; nothing foreign kept. A foreign version, if any, was not used: dropped. |
+| `src/goal-lifecycle.ts` | My edit script found all six baseline texts it replaces, so those parts were unchanged when I edited. The later "modified" notice came from my own `biome format` run (the tool named that command as the cause). The final diff contains only my CR-1/CR-3 hunks. I cannot tell whether a foreign edit elsewhere in the file was overwritten before my edit or never existed; none is in the result. | Mine kept; no foreign hunk present: nothing kept, nothing rewritten. |
+| `tests/contract.test.mjs` | When I edited the digest, the Edit tool reported that the file had been modified on disk since my last read (last read in the previous session, before my own Biome formatting run). The old digest was still present, so nobody had changed the digest yet. The final diff against `dbba3a6` is only the digest line. **I cannot tell** whether the disk change was foreign or my own earlier formatting. Either way, nothing beyond the digest line is in the result. | Digest line (mine) kept; any other change is not present: dropped or never existed. |
+| `openclaw.plugin.json` | My version script replaces `"version": "0.2.8"` and aborts if that text is missing. It succeeded, so the file still said `0.2.8` when I edited it, and the `0.2.10` the architect mentions was not on disk at that moment. The final diff is only the version line. I cannot tell whether a foreign `0.2.10` edit came earlier and was reverted, or came later and matched mine. | Version line identical to the prompt's requirement; kept as my commit `080b8d9`. |
+| `src/dashboard.ts`, `src/goal-service.ts`, `src/goal-delivery.ts`, `src/goal-tools.ts`, `tests/mcp-readiness.test.mjs`, `tests/goal-workflow.test.mjs` | All my scripted replacements found their exact baseline texts, and the final diff contains only my hunks. I saw no "modified on disk" notice for these files in this task. | No foreign hunk found: nothing kept, rewritten or dropped. |
+| `README.md`, `spec.md`, `docs/product/**` | Uncommitted changes owned by Codex. | Not touched, staged or committed. |
+
+**Summary.** I could not identify any foreign hunk in the committed result. For `tests/contract.test.mjs`
+(the disk-change notice) and for the possible earlier or later foreign versions of `tests/goal-crs.test.mjs`
+and `openclaw.plugin.json`, I cannot tell whether foreign content ever existed. If it did, it was replaced
+by or identical to my changes.
+
 ## Contract deviations and change requests
 
 None. Interpretations within the amended text:
