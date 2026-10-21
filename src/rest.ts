@@ -444,6 +444,70 @@ export class RestClient {
     return response.sourceMicroversion;
   }
 
+  // Goal path (goal-workflow.md §4–§6): read-only v16 features of an explicit workspace of the bound document and
+  // element (Primary at propose, Candidate for baseline and verification). Same API version for every hash.
+  async goalFeatures(binding: Binding, workspaceId: string) {
+    if (!binding.elementId || !id(workspaceId) || !id(binding.documentId)) {
+      throw new Error('target_missing');
+    }
+    const token = await this.accessToken();
+    if (!token || /\s/.test(token)) {
+      throw new Error('reconnect_required');
+    }
+    const response = (await jsonRequest(
+      this.fetcher,
+      `https://cad.onshape.com/api/v16/partstudios/d/${binding.documentId}/w/${workspaceId}/e/${binding.elementId}/features`,
+      {method: 'GET', headers: {Authorization: `Bearer ${token}`, Accept: 'application/json'}},
+      4 * 1024 * 1024,
+    )) as {sourceMicroversion?: unknown; features?: unknown; featureStates?: unknown};
+    const features = response?.features;
+    const featureStates = response?.featureStates ?? {};
+    if (
+      !id(response?.sourceMicroversion) ||
+      !Array.isArray(features) ||
+      features.length > 1000 ||
+      features.some((f) => !f || typeof f !== 'object' || Array.isArray(f)) ||
+      !featureStates ||
+      typeof featureStates !== 'object' ||
+      Array.isArray(featureStates)
+    ) {
+      throw new Error('provider_protocol_error');
+    }
+    return {
+      microversionId: response.sourceMicroversion,
+      // Checked element by element above; JSON objects from the provider response.
+      features: features as Record<string, unknown>[],
+      featureStates: featureStates as Record<string, unknown>,
+    };
+  }
+
+  async goalWorkspaceMicroversion(binding: Binding, workspaceId: string): Promise<string> {
+    if (!id(workspaceId)) {
+      throw new Error('invalid_arguments');
+    }
+    const response = (await this.get(`documents/d/${binding.documentId}/w/${workspaceId}/currentmicroversion`)) as {
+      microversion?: unknown;
+    };
+    if (!id(response?.microversion)) {
+      throw new Error('provider_protocol_error');
+    }
+    return response.microversion;
+  }
+
+  // A reused goal Candidate must still exist in the bound document and must not be Primary (goal_candidate_mismatch).
+  async goalCandidateExists(binding: Binding, workspaceId: string): Promise<boolean> {
+    if (!id(workspaceId) || workspaceId === binding.primaryWorkspaceId) {
+      return false;
+    }
+    const workspaces = await this.get(`documents/d/${binding.documentId}/workspaces`);
+    if (!Array.isArray(workspaces) || workspaces.length > 1000) {
+      throw new Error('provider_protocol_error');
+    }
+    return workspaces.some(
+      (w) => w?.id === workspaceId && (w.documentId === undefined || w.documentId === binding.documentId),
+    );
+  }
+
   async render(binding: Binding) {
     if (!binding.elementId) {
       throw new Error('target_missing');

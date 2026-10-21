@@ -26,7 +26,12 @@
       "onshape_complete_task",
       "onshape_propose_update",
       "onshape_mutation_context",
-      "onshape_reconcile_update"
+      "onshape_reconcile_update",
+      "onshape_goal_propose",
+      "onshape_goal_status",
+      "onshape_goal_reconcile",
+      "onshape_goal_verify",
+      "onshape_goal_stop"
     ]
   },
   "toolMetadata": {
@@ -61,6 +66,21 @@
       "optional": true
     },
     "onshape_reconcile_update": {
+      "optional": true
+    },
+    "onshape_goal_propose": {
+      "optional": true
+    },
+    "onshape_goal_status": {
+      "optional": true
+    },
+    "onshape_goal_reconcile": {
+      "optional": true
+    },
+    "onshape_goal_verify": {
+      "optional": true
+    },
+    "onshape_goal_stop": {
       "optional": true
     }
   },
@@ -101,6 +121,14 @@
     "oauth.applicationPermissions": {
       "label": "Onshape application permission attestations",
       "help": "Record verified settings only. Omitted means unknown; keep unused permissions disabled."
+    },
+    "goals.enabled": {
+      "label": "Enable goal-scoped authorization",
+      "help": "Defaults off. Requires an onshape-mcp server that lists goal-grant-v1."
+    },
+    "goals.approvalDirectory": {
+      "label": "Goal grant directory",
+      "help": "Absolute private directory shared with onshape-mcp; goal-grant.json is written next to approved-update.json."
     }
   },
   "configSchema": {
@@ -277,6 +305,23 @@
           "credentialDirectory": {
             "type": "string",
             "pattern": "^/"
+          }
+        }
+      },
+      "goals": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Goal-scoped mutation authorization (goal-workflow.md §10). Off by default.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "approvalDirectory": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^/[^\\u0000-\\u001f]+$"
           }
         }
       }

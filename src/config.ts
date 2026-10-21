@@ -28,6 +28,8 @@ export type Delegation = Readonly<{
   transportTokenFile?: string;
 }>;
 export type LocalMcp = Readonly<{connectionRef: string; credentialDirectory: string}>;
+// goal-workflow.md §10: goals are off by default; the grant lives in approvalDirectory next to approved-update.json.
+export type Goals = Readonly<{enabled: boolean; approvalDirectory?: string}>;
 export type Config = Readonly<{
   localMcp?: LocalMcp;
   bindings: readonly Binding[];
@@ -40,6 +42,7 @@ export type Config = Readonly<{
   liveReads: boolean;
   engineerAgentId?: string;
   delegation?: Delegation;
+  goals?: Goals;
 }>;
 export const id = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
 export const ref = (value: unknown): value is string =>
@@ -52,7 +55,7 @@ export function parseConfig(value: unknown): Config {
   if (
     !object(value) ||
     Object.keys(value).some(
-      (k) => !['bindings', 'oauth', 'liveReads', 'engineerAgentId', 'delegation', 'localMcp'].includes(k),
+      (k) => !['bindings', 'oauth', 'liveReads', 'engineerAgentId', 'delegation', 'localMcp', 'goals'].includes(k),
     ) ||
     !Array.isArray(value.bindings) ||
     value.bindings.length > 64 ||
@@ -222,8 +225,27 @@ export function parseConfig(value: unknown): Config {
     }
     localMcp = Object.freeze({connectionRef: m.connectionRef, credentialDirectory: m.credentialDirectory});
   }
+  let goals: Goals | undefined;
+  if (value.goals !== undefined) {
+    const g = value.goals;
+    if (
+      !object(g) ||
+      Object.keys(g).some((k) => !['enabled', 'approvalDirectory'].includes(k)) ||
+      (g.enabled !== undefined && typeof g.enabled !== 'boolean') ||
+      (g.approvalDirectory !== undefined &&
+        (!text(g.approvalDirectory) || !g.approvalDirectory.startsWith('/') || g.approvalDirectory.includes('/../'))) ||
+      (g.enabled === true && g.approvalDirectory === undefined)
+    ) {
+      throw new Error('invalid_configuration');
+    }
+    goals = Object.freeze({
+      enabled: g.enabled === true,
+      ...(g.approvalDirectory ? {approvalDirectory: g.approvalDirectory as string} : {}),
+    });
+  }
   return Object.freeze({
     ...(localMcp ? {localMcp} : {}),
+    ...(goals ? {goals} : {}),
     bindings: Object.freeze(bindings),
     oauth,
     liveReads: value.liveReads === true,

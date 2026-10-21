@@ -49,12 +49,25 @@ export function operatorCandidateAuthorization(
   return candidateAuthority(current, undefined, stateDir, assertOperator, Object.freeze({...binding}));
 }
 
+// Goal confirmation (goal-workflow.md §4.1, ADR-2026-10-21 D2): the Candidate is created from Primary. Same operator
+// authority as above; in addition the configured binding may be presented with workspaceId = primaryWorkspaceId,
+// which is how the existing candidate path selects Primary as the source. No other field may differ.
+export function operatorGoalCandidateAuthorization(
+  current: () => Config,
+  binding: Binding,
+  stateDir: string,
+  assertOperator: () => void,
+): CandidateAuthorization {
+  return candidateAuthority(current, undefined, stateDir, assertOperator, Object.freeze({...binding}), true);
+}
+
 function candidateAuthority(
   current: () => Config,
   identity: Identity | undefined,
   stateDir: string,
   assertConsent: () => void,
   operatorBinding?: Binding,
+  primarySource = false,
 ): CandidateAuthorization {
   const initial = current(),
     context = identity
@@ -99,11 +112,10 @@ function candidateAuthority(
     ) {
       return denied('agent_policy_denied');
     }
-    if (
-      !matchesAuthorizationSnapshot(config, snapshot) ||
-      !sameBinding(selected, initialBinding) ||
-      !sameBinding(binding, selected)
-    ) {
+    const presented =
+      sameBinding(binding, selected) ||
+      (primarySource && sameBinding(binding, {...selected, workspaceId: selected.primaryWorkspaceId}));
+    if (!matchesAuthorizationSnapshot(config, snapshot) || !sameBinding(selected, initialBinding) || !presented) {
       return denied('authorization_changed');
     }
     if (!config.liveReads) {

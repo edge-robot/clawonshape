@@ -63,6 +63,9 @@ function validatedConfig(value: Config): Config {
   if (value.localMcp !== undefined) {
     dataRecord(value.localMcp);
   }
+  if (value.goals !== undefined) {
+    dataRecord(value.goals);
+  }
   return parseConfig(value);
 }
 
@@ -126,6 +129,8 @@ export function authorizationSnapshot(value: Config) {
     oauth: oauthValues(c.oauth),
     delegation: delegationValues(c.delegation),
     localMcp: c.localMcp ? Object.freeze([c.localMcp.connectionRef, c.localMcp.credentialDirectory]) : null,
+    // Goal authority depends on both values; a change invalidates every running goal transition.
+    goals: c.goals ? Object.freeze([c.goals.enabled, c.goals.approvalDirectory ?? null]) : null,
   });
 }
 export type AuthorizationSnapshot = ReturnType<typeof authorizationSnapshot>;
