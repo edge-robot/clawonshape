@@ -28,6 +28,14 @@ Call `onshape_goal_propose` with the signed request, `goalText`, the conditions,
 `featureIds`, and optionally `maxDispatches` (default 10, at most 25) and
 `lifetimeMinutes` (default 120, at most 480). Pass `goalId` to revise a goal
 (changed scope) or to renew a stopped, expired or blocked goal (unchanged scope).
+If the operator adopted a part in the dashboard work context, the proposal carries
+it as `target.focus` (part name and Part Studio). The focus is intent only: keep
+goal and preservation conditions feature-based, never claim that only the focused
+part changed, and report effects on other parts of the Part Studio. If propose
+fails with `selection_part_missing`, `selection_part_unsupported` or
+`configuration_unsupported`, stop and report that the operator must choose the
+part again; do not drop the focus yourself.
+
 Then finish with `onshape_complete_task` (status `planned`, the `goalId`) and say
 that the operator must review and confirm the goal in the dashboard. Do not wait
 for the confirmation inside the same task.

@@ -25,6 +25,8 @@ import {registerGoalTools} from './goal-tools.ts';
 import type {OutboundLoader} from './goal-delivery.ts';
 import {goalForReport} from './goal-service.ts';
 import {reportView} from './goal-lifecycle.ts';
+import type {WorkContextView} from './work-context.ts';
+import {workContextStatus} from './work-context-service.ts';
 import path from 'node:path';
 export default {
   id: 'claw-onshape',
@@ -37,6 +39,60 @@ export default {
         throw new Error('authorization_changed');
       }
       return parseConfig(entry.config);
+    };
+    // §6.3 WorkContextView for the Engineer's onshape_status: the selection revalidated with plugin REST reads (R1–R4)
+    // under the tool's authorization; read failures become validity "unverified" with the read code.
+    const engineerWorkContext = async (
+      ctx: OpenClawPluginToolContext<2>,
+      initial: NonNullable<ReturnType<typeof authorizedBinding>>,
+    ): Promise<WorkContextView> => {
+      const binding = initial.binding;
+      const oauth = current().oauth;
+      const guard = () => {
+        ctx.assertInvocationCurrent?.();
+        const c = current();
+        const a = authorizedBinding(c, ctx);
+        if (!a || !sameAuthorizedBinding(a, initial) || !sameOAuth(c.oauth, oauth)) {
+          throw new Error('authorization_changed');
+        }
+      };
+      const readGuard = () => {
+        guard();
+        if (!current().liveReads) {
+          throw new Error('live_reads_disabled');
+        }
+      };
+      const stateDir = api.runtime.state.resolveStateDir();
+      const store = () => {
+        const c = current();
+        return credentials(
+          stateDir,
+          binding.connectionRef,
+          connectionOwner(binding),
+          c.localMcp?.connectionRef === binding.connectionRef ? c.localMcp.credentialDirectory : undefined,
+        );
+      };
+      let usedToken: string | undefined;
+      const client = new RestClient(async () => {
+        usedToken = await accessToken(await store(), oauth, readGuard);
+        readGuard();
+        return usedToken;
+      });
+      return workContextStatus({
+        stateDir,
+        config: current(),
+        binding,
+        client,
+        now: Date.now,
+        guard,
+        readGuard,
+        fence: async () => {
+          guard();
+          if (usedToken !== undefined && (await store()).read().accessToken !== usedToken) {
+            throw new Error('authorization_changed');
+          }
+        },
+      });
     };
     registerCli(api, config);
     // Only the long-running gateway owns access-token.json (edge-robot/clawonshape#16). `openclaw onshape …` CLI
@@ -691,7 +747,8 @@ export default {
             name: 'onshape_status',
             label: 'Claw-Onshape readiness',
             description:
-              'Explain connection readiness and native dashboard onboarding without reading CAD or exposing credentials.',
+              'Explain connection readiness and native dashboard onboarding, and report the adopted work context ' +
+              '(revalidated with part metadata reads only). No geometry read, CAD write or credential exposure.',
             parameters: emptySchema,
             async execute(_id: string, params: unknown) {
               try {
@@ -702,7 +759,10 @@ export default {
                 if (auth && (!selected || !sameAuthorizedBinding(auth, selected))) {
                   throw new Error('authorization_changed');
                 }
-                const details = signedDetails(ctx, await lifecycle.status(selected?.binding.connectionRef));
+                const readiness = await lifecycle.status(selected?.binding.connectionRef);
+                // work-context.md §6.3: the Engineer's status gains workContext (null without a bound element).
+                const workContext = selected?.binding.elementId ? await engineerWorkContext(ctx, selected) : null;
+                const details = signedDetails(ctx, {...readiness, workContext});
                 return {content: [{type: 'text' as const, text: JSON.stringify(details)}], details};
               } catch (e) {
                 const details = userError(e);

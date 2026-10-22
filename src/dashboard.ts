@@ -23,6 +23,14 @@ import path from 'node:path';
 import {state, userError} from './readiness.ts';
 import {mcpReadiness, localMcpReadiness} from './mcp.ts';
 import {imageHash, IMAGE_SIZE} from './render.ts';
+import type {WorkContextDeps} from './work-context-service.ts';
+import {
+  adoptWorkContext,
+  clearWorkContext,
+  workContextCatalog,
+  workContextPreview,
+  workContextStatus,
+} from './work-context-service.ts';
 
 // OpenClaw 2026.9.9 plugin JSON: 65,536 chars/string, 262,144 serialized bytes.
 // Leave metadata/envelope headroom; larger images fail closed, without resizing evidence.
@@ -363,6 +371,7 @@ export function registerDashboard(
     });
   }
   registerGoalActions(api, current, goalFetcher, now);
+  registerWorkContextActions(api, current, now);
   api.registerHttpRoute({path: CALLBACK_PATH, match: 'exact', auth: 'plugin', handler: lifecycle.callback});
   api.lifecycle.registerRuntimeLifecycle({id: 'onshape-consent', dispose: lifecycle.cancel, cleanup: lifecycle.cancel});
   return lifecycle;
@@ -504,6 +513,145 @@ function registerGoalActions(
             },
           );
           return response({ok: true, goal: boundedGoal(goal)});
+        } catch (e) {
+          return response({ok: false, ...userError(e)});
+        }
+      },
+    });
+  }
+}
+
+// work-context.md §4. Input keys are strict (invalid_arguments); connectionRef resolves exactly one binding as in
+// workspace-context. Every response is {ok: true, ...} or {ok: false, code, message}.
+const WORK_CONTEXT_ACTIONS = {
+  'work-context-catalog': {scope: 'operator.read', keys: ['connectionRef']},
+  'work-context-preview': {
+    scope: 'operator.read',
+    keys: ['connectionRef', 'elementId', 'partId', 'observedMicroversion'],
+  },
+  'work-context-status': {scope: 'operator.read', keys: ['connectionRef']},
+  'work-context-adopt': {
+    scope: 'operator.admin',
+    keys: [
+      'connectionRef',
+      'expectedSelectionRevision',
+      'documentId',
+      'workspaceId',
+      'elementId',
+      'partId',
+      'observedMicroversion',
+    ],
+  },
+  'work-context-clear': {scope: 'operator.admin', keys: ['connectionRef', 'expectedSelectionRevision']},
+} as const;
+const WORK_CONTEXT_PROPERTIES: Record<string, Record<string, string | number>> = {
+  connectionRef: {type: 'string', pattern: '^[a-z][a-z0-9_-]{0,63}$'},
+  expectedSelectionRevision: {type: 'integer', minimum: 0},
+  documentId: {type: 'string'},
+  workspaceId: {type: 'string'},
+  elementId: {type: 'string'},
+  partId: {type: 'string'},
+  observedMicroversion: {type: 'string'},
+};
+
+function registerWorkContextActions(api: OpenClawPluginApi, current: () => Config, now: () => number) {
+  for (const actionId of Object.keys(WORK_CONTEXT_ACTIONS) as (keyof typeof WORK_CONTEXT_ACTIONS)[]) {
+    const {scope: required, keys} = WORK_CONTEXT_ACTIONS[actionId];
+    api.session.controls.registerSessionAction({
+      id: actionId,
+      description: `Claw-Onshape ${actionId}`,
+      requiredScopes: [required],
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: Object.fromEntries(keys.map((key) => [key, WORK_CONTEXT_PROPERTIES[key]])),
+      },
+      async handler(action): Promise<PluginSessionActionResult> {
+        const response = (value: unknown) => ({ok: true as const, result: JSON.parse(JSON.stringify(value))});
+        try {
+          const initial = current();
+          const snapshot = authorizationSnapshot(initial);
+          const guard = () => {
+            if (!action.client?.scopes.includes(required) || !matchesAuthorizationSnapshot(current(), snapshot)) {
+              throw new Error('authorization_changed');
+            }
+          };
+          guard();
+          const payload: unknown = action.payload ?? {};
+          if (
+            !payload ||
+            typeof payload !== 'object' ||
+            Array.isArray(payload) ||
+            Object.keys(payload).some((key) => !(keys as readonly string[]).includes(key))
+          ) {
+            throw new Error('invalid_arguments');
+          }
+          // Validated as a plain JSON object with only the listed keys; each value is checked by the service.
+          const input = payload as Record<string, unknown>;
+          const ref = input.connectionRef;
+          if (ref !== undefined && (typeof ref !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(ref))) {
+            throw new Error('invalid_arguments');
+          }
+          const bindings = initial.bindings.filter((b) => ref === undefined || b.connectionRef === ref);
+          if (bindings.length !== 1) {
+            throw new Error('not_configured');
+          }
+          const binding = bindings[0];
+          const stateDir = api.runtime.state.resolveStateDir();
+          const store = await credentials(
+            stateDir,
+            binding.connectionRef,
+            connectionOwner(binding),
+            initial.localMcp?.connectionRef === binding.connectionRef
+              ? initial.localMcp.credentialDirectory
+              : undefined,
+          );
+          const readGuard = () => {
+            guard();
+            if (!current().liveReads) {
+              throw new Error('live_reads_disabled');
+            }
+          };
+          let usedToken: string | undefined;
+          const client = new RestClient(async () => {
+            usedToken = await accessToken(store, initial.oauth, readGuard);
+            readGuard();
+            return usedToken;
+          });
+          const deps: WorkContextDeps = {
+            stateDir,
+            config: initial,
+            binding,
+            client,
+            now,
+            guard,
+            readGuard,
+            // Late-reply fence (§5 step 7): the token the reads used is still the stored one.
+            fence: () => {
+              guard();
+              if (usedToken !== undefined && store.read().accessToken !== usedToken) {
+                throw new Error('authorization_changed');
+              }
+            },
+          };
+          if (actionId === 'work-context-catalog') {
+            return response({ok: true, catalog: await workContextCatalog(deps)});
+          }
+          if (actionId === 'work-context-preview') {
+            return response({ok: true, preview: await workContextPreview(deps, input)});
+          }
+          if (actionId === 'work-context-status') {
+            return response({ok: true, workContext: await workContextStatus(deps)});
+          }
+          if (actionId === 'work-context-clear') {
+            return response({ok: true, workContext: await clearWorkContext(deps, input)});
+          }
+          // Same confirmer identity rule as goal-confirm (goal-workflow GW2).
+          const adoptedBy = {
+            kind: 'dashboard-operator' as const,
+            ...(typeof action.client?.connId === 'string' ? {clientId: action.client.connId} : {}),
+          };
+          return response({ok: true, workContext: await adoptWorkContext(deps, input, adoptedBy)});
         } catch (e) {
           return response({ok: false, ...userError(e)});
         }

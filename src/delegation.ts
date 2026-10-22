@@ -324,7 +324,10 @@ export async function delegateRender(
   if (envelope && (details.requestHash !== envelope.requestHash || details.requestId !== envelope.requestId)) {
     throw new Error('delegation_result_invalid');
   }
-  return inspection || envelope ? {...details, a2aTaskId: taskId} : details;
+  // work-context.md §6.3 ⚠️ WC4: the Lead's projection is unchanged in increment 1. An Engineer onshape_status
+  // fallback carries workContext; it is dropped here, after the signature over the complete result was verified.
+  const {workContext: _workContext, ...visible} = details;
+  return inspection || envelope ? {...visible, a2aTaskId: taskId} : visible;
 }
 
 export type EngineeringTask = {

@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/ADR.md#adr-2026-10-21-task-scoped-onshape-wor
 contract-version: work-context-1.0.0-draft; goal-1.2.0-draft; server contract 1.2.0-draft (unchanged)
 foreign-repo-commit: cc67472   # onshape-mcp feat/5-goal-grant (read-only mount); no server change needed
 base-commit: ae7a05f
-status: issued
+status: done   # accepted 2026-10-22 (report f9bb176); CR-1–CR-8 recorded in work-context.md
 ---
 # Work-context selection backend, increment 1 (#21)
 

@@ -277,6 +277,31 @@ and S9 belongs to #17; synthetic tests establish no live acceptance.
 | WC5 | Task-level ownership, sharing and retention | deferred; increment 2 contract |
 | WC6 | Selection across Part Studios / documents (needs MCP target provisioning) | G3 [#3](https://github.com/edge-robot/clawonshape/issues/3), [onshape-mcp#9](https://github.com/edge-robot/onshape-mcp/issues/9) |
 
+## Accepted interpretations (ts-plugin-dev report 2026-10-22, CR-1–CR-8)
+
+- **CR-1 R0 label reads.** `GET /api/v10/documents/{d}` and `GET /api/v10/documents/d/{d}/workspaces`
+  (the `workspace-context` reads) supply labels only, never identity or revision evidence.
+- **CR-2 Nullable names.** `Catalog.document.name`, `workspaces[].name` and `partStudios[].name` are
+  `string | null` (missing or invalid label). Part names stay strict (`provider_protocol_error`).
+- **CR-3 Preview size.** The preview is a 256×256 PNG in one `dataBase64` string below 65 000
+  characters (OpenClaw plugin JSON string limit); larger → `preview_unavailable`.
+- **CR-4** A bound element that is not a Part Studio at `mv` → `target_not_part_studio` in catalog and
+  adopt; status shows `invalid` / `selection_part_missing`.
+- **CR-5** In the preview an R1 failure keeps its own read code; only R5 failures are `preview_unavailable`.
+- **CR-6** `partStudios` keep the R2 provider order. The Candidate row appears only when the binding's
+  current non-terminal goal has a `candidateWorkspaceId` present in the workspace list.
+- **CR-7** `interlock.goalId` is set only for a goal of the same binding. The store lock does not wait:
+  a concurrent loser may receive `connection_busy_or_state_unavailable` instead of
+  `selection_revision_conflict`; the UI reloads status in both cases.
+- **CR-8** After `work-context-clear` the record keeps `selectionRevision`; `selection`, `adoptedAt`,
+  `adoptedBy` are `null`.
+- Further consumer-visible codes: `target_missing`, `reconnect_required` and other read codes appear
+  as `unverified` reasons; an unreadable selection store yields `validity: "unverified"`,
+  `reason: "goal_state_invalid"`, `selection: null`.
+
 ## Changelog
+
+- `work-context-1.0.0-draft` amended (2026-10-22): accepted interpretations CR-1–CR-8 from the backend
+  report (no MUST changed; fixtures unchanged).
 
 - `work-context-1.0.0-draft` (2026-10-22): initial contract-first draft for increment 1 (#21).

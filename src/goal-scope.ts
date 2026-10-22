@@ -37,7 +37,13 @@ export type GoalScope = {
   lifetimeMs: number;
   requester: {channel: string; senderId: string};
   origin: {channel: string; target: string};
+  // goal-1.2.0 (work-context.md §7): present only for a valid work-context selection; part of goalHash when present.
+  focus?: GoalFocus;
 };
+// Intent, not a containment claim: goal and preservation conditions stay feature-based.
+export type GoalFocus = {partId: string; partName: string; elementId: string; selectionRevision: number};
+// work-context.md §2 ⚠️ WC3 (same pattern as the selection record).
+const FOCUS_PART_ID = /^[A-Za-z0-9_.+-]{1,64}$/;
 
 const HEX24 = /^[a-f0-9]{24}$/;
 export const GOAL_FEATURE_ID = /^[A-Za-z0-9_]{1,64}$/;
@@ -172,7 +178,12 @@ export function validateScope(value: unknown): GoalScope {
     'requester',
     'origin',
   ];
-  if (!isRecord(value) || !onlyKeys(value, keys) || !keys.every((key) => key in value) || value.version !== 1) {
+  if (
+    !isRecord(value) ||
+    !onlyKeys(value, [...keys, 'focus']) ||
+    !keys.every((key) => key in value) ||
+    value.version !== 1
+  ) {
     return invalid();
   }
   if (!boundedText(value.goalText, 2000)) {
@@ -239,6 +250,7 @@ export function validateScope(value: unknown): GoalScope {
   ) {
     return invalid();
   }
+  const focus = 'focus' in value ? validateFocus(value.focus, target.elementId as string) : undefined;
   return {
     version: 1,
     goalText: value.goalText,
@@ -257,6 +269,30 @@ export function validateScope(value: unknown): GoalScope {
     lifetimeMs: value.lifetimeMs as number,
     requester: {channel: requester.channel, senderId: requester.senderId},
     origin: {channel: origin.channel, target: origin.target},
+    // Absent key without a selection: a goal without focus hashes exactly as in goal-1.1.0.
+    ...(focus ? {focus} : {}),
+  };
+}
+
+function validateFocus(value: unknown, elementId: string): GoalFocus {
+  if (
+    !isRecord(value) ||
+    !onlyKeys(value, ['partId', 'partName', 'elementId', 'selectionRevision']) ||
+    typeof value.partId !== 'string' ||
+    !FOCUS_PART_ID.test(value.partId) ||
+    !identifier(value.partName, 200) ||
+    value.partName.trim() !== value.partName ||
+    value.elementId !== elementId ||
+    !Number.isSafeInteger(value.selectionRevision) ||
+    (value.selectionRevision as number) < 1
+  ) {
+    return invalid();
+  }
+  return {
+    partId: value.partId,
+    partName: value.partName,
+    elementId,
+    selectionRevision: value.selectionRevision as number,
   };
 }
 

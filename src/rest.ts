@@ -7,8 +7,13 @@ import type {CandidateAttempt, CandidateAttemptWarning} from './candidate-attemp
 import {checkCandidateAuthorization, candidateDispatchAuthorization} from './candidate-authorization.ts';
 import type {CandidateAuthorization, CandidateAuthorizationCheck} from './candidate-authorization.ts';
 import {decodePng, IMAGE_SIZE, VIEW_MATRIX} from './render.ts';
+import {configured, displayName, projectParts, projectPartStudios, validPartId} from './work-context.ts';
 
 export const REST_BASE = 'https://cad.onshape.com/api/v10/';
+// work-context.md §2 R5: size ≤ 512. 256 px keeps the base64 preview below the 65,536-character string limit of
+// plugin JSON results in typical cases; larger images fail closed as preview_unavailable.
+export const PREVIEW_SIZE = 256;
+const workContextLabel = (raw: unknown) => displayName(raw, 256);
 
 export type FeatureObservation = {microversionId: string; featureId: string; plateWidth: string; featureStatus: string};
 export function validateFeatureObservation(value: unknown): asserts value is FeatureObservation {
@@ -506,6 +511,110 @@ export class RestClient {
     return workspaces.some(
       (w) => w?.id === workspaceId && (w.documentId === undefined || w.documentId === binding.documentId),
     );
+  }
+
+  // Work-context reads (work-context.md §2). GET only; R2–R5 take the microversion of the same request's R1.
+  // Display metadata of the bound document: document name and the workspace list (names are labels only).
+  async workContextNames(binding: Binding) {
+    if (!id(binding.documentId) || !id(binding.primaryWorkspaceId)) {
+      throw new Error('target_missing');
+    }
+    const doc = (await this.get(`documents/${binding.documentId}`)) as {id?: unknown; name?: unknown} | null;
+    if (!doc || typeof doc !== 'object' || doc.id !== binding.documentId) {
+      throw new Error('provider_protocol_error');
+    }
+    const workspaces = await this.get(`documents/d/${binding.documentId}/workspaces`);
+    if (
+      !Array.isArray(workspaces) ||
+      workspaces.length > 1000 ||
+      workspaces.some((w) => !id(w?.id) || (w.documentId !== undefined && w.documentId !== binding.documentId)) ||
+      new Set(workspaces.map((w) => w.id)).size !== workspaces.length ||
+      !workspaces.some((w) => w.id === binding.primaryWorkspaceId)
+    ) {
+      throw new Error('provider_protocol_error');
+    }
+    return {
+      documentName: workContextLabel(doc.name),
+      workspaces: (workspaces as WorkspaceInfo[]).map((w) => ({
+        workspaceId: w.id as string,
+        name: workContextLabel(w.name),
+      })),
+    };
+  }
+
+  // R1: current microversion of the protected Primary.
+  async primaryMicroversion(binding: Binding): Promise<string> {
+    return this.goalWorkspaceMicroversion(binding, binding.primaryWorkspaceId);
+  }
+
+  // R2: Part Studios of the document at microversion mv.
+  async partStudiosAt(binding: Binding, microversionId: string) {
+    if (!id(microversionId)) {
+      throw new Error('invalid_arguments');
+    }
+    return projectPartStudios(
+      await this.get(`documents/d/${binding.documentId}/m/${microversionId}/elements?elementType=PARTSTUDIO`),
+    );
+  }
+
+  // R3 ⚠️ WC1: configuration parameters of the bound element at microversion mv.
+  async configuredAt(binding: Binding, microversionId: string): Promise<boolean> {
+    if (!binding.elementId || !id(microversionId)) {
+      throw new Error('target_missing');
+    }
+    return configured(
+      await this.get(`elements/d/${binding.documentId}/m/${microversionId}/e/${binding.elementId}/configuration`),
+    );
+  }
+
+  // R4: parts of the bound element at microversion mv (no withThumbnails: not supported for microversions).
+  async partsAt(binding: Binding, microversionId: string) {
+    if (!binding.elementId || !id(microversionId)) {
+      throw new Error('target_missing');
+    }
+    return projectParts(
+      await this.get(`parts/d/${binding.documentId}/m/${microversionId}/e/${binding.elementId}`, 4 * 1024 * 1024),
+    );
+  }
+
+  // R5 ⚠️ WC2: one part's shaded view at microversion mv. Any provider or image failure is preview_unavailable; an
+  // authorization failure (token callback, 401) keeps its own code.
+  async partPreview(binding: Binding, microversionId: string, partId: string): Promise<Buffer> {
+    if (!binding.elementId || !id(microversionId) || !validPartId(partId)) {
+      throw new Error('invalid_arguments');
+    }
+    const query = new URLSearchParams({
+      viewMatrix: VIEW_MATRIX,
+      outputWidth: String(PREVIEW_SIZE),
+      outputHeight: String(PREVIEW_SIZE),
+      pixelSize: '0',
+      edges: 'show',
+      useAntiAliasing: 'false',
+    });
+    const token = await this.accessToken();
+    if (!token || /\s/.test(token)) {
+      throw new Error('reconnect_required');
+    }
+    const path =
+      `parts/d/${binding.documentId}/m/${microversionId}/e/${binding.elementId}` +
+      `/partid/${encodeURIComponent(partId)}/shadedviews?${query}`;
+    let response: unknown;
+    try {
+      response = await jsonRequest(
+        this.fetcher,
+        REST_BASE + path,
+        {method: 'GET', headers: {Authorization: `Bearer ${token}`, Accept: 'application/json'}},
+        2_000_000,
+      );
+    } catch (e) {
+      throw new Error(e instanceof Error && e.message === 'reconnect_required' ? e.message : 'preview_unavailable');
+    }
+    try {
+      return decodePng(response, PREVIEW_SIZE);
+    } catch {
+      // Malformed or wrongly sized image data is a provider failure of the preview, never a substitute render.
+      throw new Error('preview_unavailable');
+    }
   }
 
   async render(binding: Binding) {

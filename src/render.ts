@@ -107,7 +107,7 @@ export function validatePng(data: Buffer, size = IMAGE_SIZE): Buffer {
     throw new Error('provider_image_invalid');
   }
 }
-export function decodePng(response: unknown): Buffer {
+export function decodePng(response: unknown, size = IMAGE_SIZE): Buffer {
   const images = (response as {images?: unknown})?.images;
   let encoded: unknown;
   if (Array.isArray(images) && images.length === 1) {
@@ -129,7 +129,7 @@ export function decodePng(response: unknown): Buffer {
   if (bytes.toString('base64') !== encoded) {
     throw new Error('provider_image_invalid');
   }
-  return validatePng(bytes);
+  return validatePng(bytes, size);
 }
 export const imageHash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 // Shared /workspace/artifacts mount is managed by Clawake, not by tool arguments.
