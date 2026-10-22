@@ -1,7 +1,7 @@
 {
   "id": "claw-onshape",
   "name": "Claw-Onshape",
-  "version": "0.3.0-rc.1",
+  "version": "0.3.0-rc.2",
   "description": "Scoped Onshape REST reads and separate OAuth/MCP foundations",
   "enabledByDefault": false,
   "activation": {
