@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Contract-Version | `work-context-1.1.0-draft` (requires `goal-workflow.md` ≥ `goal-1.2.0-draft`; no server contract change) |
-| Status | **draft**: 1.0.0 implemented and deployed (0.3.0-rc.2); §11 browsing (1.1.0) contract-first, not implemented |
+| Status | **draft**: 1.0.0 deployed (0.3.0-rc.2); §11 browsing (1.1.0) implemented (`ea04c3f`), not deployed |
 | Owner | onshape-architekt (only the architect edits this file and `work-context-fixtures/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-2026-10-21: Task-scoped Onshape workspace and part selection", increment 1 |
 | Issues | [edge-robot/clawonshape#21](https://github.com/edge-robot/clawonshape/issues/21) (this contract, backend), [#17](https://github.com/edge-robot/clawonshape/issues/17) (selector UI, consumer), [#18](https://github.com/edge-robot/clawonshape/issues/18) (goal hand-off), [edge-robot/onshape-mcp#9](https://github.com/edge-robot/onshape-mcp/issues/9) (no server change in increment 1) |
@@ -402,6 +402,29 @@ Reused: `provider_rate_limited` (429, "später erneut", no retry loop), `invalid
 | WC10 | 403 vs. 404 for an inaccessible document |
 | WC11 | API call accounting of the ClawOnshape OAuth app (private/counted?) and the plan's annual cap |
 
+### 11.8 Accepted interpretations (ts-plugin-dev report 2026-10-22, CR-15–CR-22)
+
+- **CR-15** Without `filter`, R6 sends no `filter` (provider default); `recent`/`mine`/`shared` → 5/0/2.
+- **CR-16** The pinned bound document takes its label from the R6 page if present, otherwise from the
+  R0 label read (cached with the R6 TTL); `modifiedAt` may be `null`.
+- **CR-17** The `default` role of a non-bound document comes from the cached R6 listing, otherwise
+  from one R0 read.
+- **CR-18** `PartSearch.studios` lists all Part Studios of R2 in provider order, also when narrowed or
+  truncated; only scanned studios contribute hits. The studio list is the UI remedy for
+  `part_search_truncated`.
+- **CR-19** R3 is read only for the bound studio in the bound Primary; a configured bound studio is
+  still enumerated and its hits carry `configuration_unsupported`.
+- **CR-20** Preview: a non-bound `documentId` requires `workspaceId` (`invalid_arguments`); a
+  non-Part-Studio element → `selection_observation_stale`; studio preview has `partId: null`;
+  403/404 → `document_not_accessible` only for non-bound targets; 402 → `provider_quota_exhausted`;
+  the preview reads R2 at `mv` (cached) to check the element.
+- **CR-21** Cache partition = sha256 of authorization snapshot, `bindingKey` and the token hash; a
+  token refresh starts a fresh partition. `catalog`, `status`, `adopt`, `clear` are uncached and not
+  serialized (1.0 behaviour).
+- **CR-22** `document_not_accessible` covers 403/404 on R7, R1, R2 and R0 in the browsing methods;
+  R6 403 stays `provider_forbidden`; R4 keeps its provider codes. The 402 mapping lives inside the
+  browsing methods; `src/http.ts` and other callers are unchanged.
+
 ## Accepted interpretations (ts-plugin-dev report 2026-10-22, CR-1–CR-8)
 
 - **CR-1 R0 label reads.** `GET /api/v10/documents/{d}` and `GET /api/v10/documents/d/{d}/workspaces`
@@ -425,6 +448,9 @@ Reused: `provider_rate_limited` (429, "später erneut", no retry loop), `invalid
   `reason: "goal_state_invalid"`, `selection: null`.
 
 ## Changelog
+
+- `work-context-1.1.0-draft` amended (2026-10-22): §11.8 accepted interpretations CR-15–CR-22 from the
+  browsing backend report (no MUST changed).
 
 - `work-context-1.1.0-draft` (2026-10-22): additive §11 browsing (R6–R8; `work-context-documents`,
   `-workspaces`, `-parts`; extended `-preview`; views, limits, codes, W12–W18, WC7–WC11) from the

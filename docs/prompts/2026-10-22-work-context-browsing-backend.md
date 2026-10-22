@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/work-context.md#11-browsing-documen
 contract-version: work-context-1.1.0-draft
 foreign-repo-commit: cc67472   # onshape-mcp (read-only mount); no server change
 base-commit: 9b535e4
-status: issued
+status: done   # accepted 2026-10-22 (report d9873b1); CR-15–CR-22 recorded in work-context.md §11.8
 ---
 # Work-context browsing backend: documents, workspaces, part search (#21, contract 1.1.0)
 
