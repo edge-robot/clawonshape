@@ -6,7 +6,7 @@ issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#6-normalized-views
 contract-version: work-context-1.0.0-draft; goal-1.2.0-draft
 base-commit: ae7a05f
-status: issued
+status: done   # reviewed 2026-10-22 by onshape-architekt; findings F1–F3 in 2026-10-22-work-context-selector-ui-followup.md
 addressee: Codex onshape-architekt (top-down). Delegate the implementation to openclaw-dev and review it yourself.
 ---
 # Cockpit: work-context selector against the work-context contract (top-down)
