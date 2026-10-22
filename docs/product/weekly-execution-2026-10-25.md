@@ -1,5 +1,9 @@
 # Wochenplan pib Agentic Engineering – bis 25. Oktober 2026
 
+> Historical planning document. [spec.md](../../spec.md) is the sole normative product
+> requirements source; the source pointers and delivery estimates below reflect the
+> planning context and do not redefine product scope or prove runtime availability.
+
 Aktualisiert am 20.10.2026 nach erfolgreichem GitHub-/Board-Abgleich.
 Maßgeblicher neuer Stand: [Board-Review mit allen 29 Karten](github-board-review-2026-10-20.md).
 Die dortigen aktuellen Abschlüsse ersetzen die älteren Statusangaben und bedingten

@@ -1,8 +1,12 @@
 # Claw-Onshape
 
+**[spec.md](spec.md) is the sole normative product requirements source.**
+It defines the intended multi-team CAD-to-print product and bounded goal workflow.
+This README provides installation and operating guidance.
+
 Claw-Onshape is a native OpenClaw 2026.9.9 plugin for reading and rendering Onshape CAD context. The accepted inspection path is Discord → Robotics Lead → signed A2A → Mechanical Engineer → native Onshape MCP. Claw-Onshape owns credentials and independently verifies feature observations; the existing REST render path delivers pinned PNGs.
 
-Current status:
+Repository/status notes (historical observations; not a live runtime check):
 
 - Read/render flow is accepted for one configured owner.
 - Gateway-owned native MCP feature reads pass, including hole diameter inspection. Candidate mutation is implemented but has not yet passed live write acceptance; the deployed target remains read-only.
@@ -20,9 +24,9 @@ Start here:
 - [agents/mechanical-engineer/workspace/AGENTS.md](agents/mechanical-engineer/workspace/AGENTS.md) — engineer role and onboarding
 - [agents/robotics-lead/workspace/AGENTS.md](agents/robotics-lead/workspace/AGENTS.md) — A2A and delegation contract
 - [docs/mcp-dashboard-readiness.md](docs/mcp-dashboard-readiness.md) — dashboard and MCP status
-- [spec.md](spec.md) — broader product specification
+- [spec.md](spec.md) — sole normative product specification
 
-## What is enabled right now
+## Documented operating slice
 
 - `onshape_status`: connection readiness and capability summary
 - `onshape_inspect`: configured document/workspace/element inspection

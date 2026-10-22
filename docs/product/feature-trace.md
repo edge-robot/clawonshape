@@ -1,5 +1,9 @@
 # Feature implementation trace
 
+> Historical implementation assessment dated 2026-10-20. The sole normative product
+> requirements are in [spec.md](../../spec.md); estimates below are dated evidence,
+> not scope limits or current runtime guarantees. Former source documents now redirect there.
+
 Assessment date: 2026-10-20.
 
 Examined ClawOnshape revision:

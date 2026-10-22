@@ -1,5 +1,10 @@
 # Cockpit: zielbezogene CAD-Iteration
 
+> Historical human-confirmed visual/workflow assignment and acceptance checklist.
+> The product direction is consolidated in [spec.md](../../../spec.md#bounded-goal-workflow),
+> the sole normative product requirements source. Assignment, images and evidence
+> below are preserved; their status statements are dated, not current runtime claims.
+
 Stand: 21.10.2026. Task-ID: `COC-GOAL-WORKFLOW-20261021`.
 Gestaltung vom Menschen am 21.10.2026 im Gespräch als Entwicklungsgrundlage bestätigt.
 Übergabe an den bestehenden Architekten ausdrücklich autorisiert; technische
