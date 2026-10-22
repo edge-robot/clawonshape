@@ -7,12 +7,25 @@ import type {CandidateAttempt, CandidateAttemptWarning} from './candidate-attemp
 import {checkCandidateAuthorization, candidateDispatchAuthorization} from './candidate-authorization.ts';
 import type {CandidateAuthorization, CandidateAuthorizationCheck} from './candidate-authorization.ts';
 import {decodePng, IMAGE_SIZE, VIEW_MATRIX} from './render.ts';
-import {configured, displayName, projectParts, projectPartStudios, validPartId} from './work-context.ts';
+import {
+  configured,
+  DOCUMENT_PAGE_SIZE,
+  displayName,
+  documentSummary,
+  projectDocumentPage,
+  projectParts,
+  projectPartRows,
+  projectPartStudios,
+  projectWorkspaces,
+  validPartId,
+} from './work-context.ts';
 
 export const REST_BASE = 'https://cad.onshape.com/api/v10/';
 // work-context.md §2 R5: size ≤ 512. 256 px keeps the base64 preview below the 65,536-character string limit of
 // plugin JSON results in typical cases; larger images fail closed as preview_unavailable.
 export const PREVIEW_SIZE = 256;
+// work-context.md §11.1 R8: Part Studio preview size.
+export const STUDIO_PREVIEW_SIZE = 128;
 const workContextLabel = (raw: unknown) => displayName(raw, 256);
 
 export type FeatureObservation = {microversionId: string; featureId: string; plateWidth: string; featureStatus: string};
@@ -549,12 +562,7 @@ export class RestClient {
 
   // R2: Part Studios of the document at microversion mv.
   async partStudiosAt(binding: Binding, microversionId: string) {
-    if (!id(microversionId)) {
-      throw new Error('invalid_arguments');
-    }
-    return projectPartStudios(
-      await this.get(`documents/d/${binding.documentId}/m/${microversionId}/elements?elementType=PARTSTUDIO`),
-    );
+    return this.studiosAt(binding.documentId, microversionId);
   }
 
   // R3 ⚠️ WC1: configuration parameters of the bound element at microversion mv.
@@ -562,9 +570,7 @@ export class RestClient {
     if (!binding.elementId || !id(microversionId)) {
       throw new Error('target_missing');
     }
-    return configured(
-      await this.get(`elements/d/${binding.documentId}/m/${microversionId}/e/${binding.elementId}/configuration`),
-    );
+    return this.configurationAt(binding.documentId, microversionId, binding.elementId);
   }
 
   // R4: parts of the bound element at microversion mv (no withThumbnails: not supported for microversions).
@@ -572,21 +578,128 @@ export class RestClient {
     if (!binding.elementId || !id(microversionId)) {
       throw new Error('target_missing');
     }
-    return projectParts(
-      await this.get(`parts/d/${binding.documentId}/m/${microversionId}/e/${binding.elementId}`, 4 * 1024 * 1024),
-    );
+    return projectParts(await this.partsResponse(binding.documentId, microversionId, binding.elementId));
   }
 
   // R5 ⚠️ WC2: one part's shaded view at microversion mv. Any provider or image failure is preview_unavailable; an
   // authorization failure (token callback, 401) keeps its own code.
   async partPreview(binding: Binding, microversionId: string, partId: string): Promise<Buffer> {
-    if (!binding.elementId || !id(microversionId) || !validPartId(partId)) {
+    if (!binding.elementId) {
       throw new Error('invalid_arguments');
     }
+    return this.partPreviewAt(binding.documentId, microversionId, binding.elementId, partId);
+  }
+
+  // Work-context browsing reads (work-context.md §11.1). GET only, existing OAuth2Read; any listed document.
+  // R6: one page of the document search (getDocuments), sorted by modifiedAt descending, 20 per page.
+  async documentSearch(query: string, offset: number, filter: number | undefined) {
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset % DOCUMENT_PAGE_SIZE) {
+      throw new Error('invalid_arguments');
+    }
+    const params = new URLSearchParams({q: query});
+    if (filter !== undefined) {
+      params.set('filter', String(filter));
+    }
+    params.set('sortColumn', 'modifiedAt');
+    params.set('sortOrder', 'desc');
+    params.set('offset', String(offset));
+    params.set('limit', String(DOCUMENT_PAGE_SIZE));
+    return projectDocumentPage(await this.get(`documents?${params}`, 1024 * 1024));
+  }
+
+  // R0 label read for any document (name, modifiedAt, default workspace); never identity or revision evidence.
+  async documentLabel(documentId: string) {
+    if (!id(documentId)) {
+      throw new Error('invalid_arguments');
+    }
+    const summary = documentSummary(await this.get(`documents/${documentId}`));
+    if (summary.documentId !== documentId) {
+      throw new Error('provider_protocol_error');
+    }
+    return summary;
+  }
+
+  // R7: workspaces of any listed document.
+  async documentWorkspaces(documentId: string) {
+    if (!id(documentId)) {
+      throw new Error('invalid_arguments');
+    }
+    return projectWorkspaces(await this.get(`documents/d/${documentId}/workspaces`, 1024 * 1024), documentId);
+  }
+
+  // R1 for any listed workspace.
+  async workspaceMicroversion(documentId: string, workspaceId: string): Promise<string> {
+    if (!id(documentId) || !id(workspaceId)) {
+      throw new Error('invalid_arguments');
+    }
+    const response = (await this.get(`documents/d/${documentId}/w/${workspaceId}/currentmicroversion`)) as {
+      microversion?: unknown;
+    } | null;
+    if (!id(response?.microversion)) {
+      throw new Error('provider_protocol_error');
+    }
+    return response.microversion;
+  }
+
+  // R2 for any document at microversion mv.
+  async studiosAt(documentId: string, microversionId: string) {
+    if (!id(documentId) || !id(microversionId)) {
+      throw new Error('invalid_arguments');
+    }
+    return projectPartStudios(
+      await this.get(`documents/d/${documentId}/m/${microversionId}/elements?elementType=PARTSTUDIO`),
+    );
+  }
+
+  // R3 for any Part Studio at microversion mv.
+  async configurationAt(documentId: string, microversionId: string, elementId: string): Promise<boolean> {
+    if (!id(documentId) || !id(microversionId) || !id(elementId)) {
+      throw new Error('invalid_arguments');
+    }
+    return configured(await this.get(`elements/d/${documentId}/m/${microversionId}/e/${elementId}/configuration`));
+  }
+
+  // R4 with part numbers for any Part Studio at microversion mv (§11.3 PartSearch).
+  async partRowsAt(documentId: string, microversionId: string, elementId: string) {
+    return projectPartRows(await this.partsResponse(documentId, microversionId, elementId));
+  }
+
+  private async partsResponse(documentId: string, microversionId: string, elementId: string): Promise<unknown> {
+    if (!id(documentId) || !id(microversionId) || !id(elementId)) {
+      throw new Error('invalid_arguments');
+    }
+    return this.get(`parts/d/${documentId}/m/${microversionId}/e/${elementId}`, 4 * 1024 * 1024);
+  }
+
+  // R5 for any Part Studio at microversion mv.
+  async partPreviewAt(documentId: string, microversionId: string, elementId: string, partId: string) {
+    if (!id(documentId) || !id(microversionId) || !id(elementId) || !validPartId(partId)) {
+      throw new Error('invalid_arguments');
+    }
+    return this.shadedView(
+      `parts/d/${documentId}/m/${microversionId}/e/${elementId}/partid/${encodeURIComponent(partId)}/shadedviews`,
+      PREVIEW_SIZE,
+    );
+  }
+
+  // R8: Part Studio preview at microversion mv, 128 px (work-context.md §11.1).
+  async studioPreviewAt(documentId: string, microversionId: string, elementId: string): Promise<Buffer> {
+    if (!id(documentId) || !id(microversionId) || !id(elementId)) {
+      throw new Error('invalid_arguments');
+    }
+    return this.shadedView(
+      `partstudios/d/${documentId}/m/${microversionId}/e/${elementId}/shadedviews`,
+      STUDIO_PREVIEW_SIZE,
+    );
+  }
+
+  // Shaded view read for previews: any provider or image failure is preview_unavailable; an authorization failure
+  // (token callback, 401) keeps its own code.
+  private async shadedView(route: string, size: number): Promise<Buffer> {
     const query = new URLSearchParams({
       viewMatrix: VIEW_MATRIX,
-      outputWidth: String(PREVIEW_SIZE),
-      outputHeight: String(PREVIEW_SIZE),
+      outputWidth: String(size),
+      outputHeight: String(size),
       pixelSize: '0',
       edges: 'show',
       useAntiAliasing: 'false',
@@ -595,14 +708,11 @@ export class RestClient {
     if (!token || /\s/.test(token)) {
       throw new Error('reconnect_required');
     }
-    const path =
-      `parts/d/${binding.documentId}/m/${microversionId}/e/${binding.elementId}` +
-      `/partid/${encodeURIComponent(partId)}/shadedviews?${query}`;
     let response: unknown;
     try {
       response = await jsonRequest(
         this.fetcher,
-        REST_BASE + path,
+        `${REST_BASE}${route}?${query}`,
         {method: 'GET', headers: {Authorization: `Bearer ${token}`, Accept: 'application/json'}},
         2_000_000,
       );
@@ -610,7 +720,7 @@ export class RestClient {
       throw new Error(e instanceof Error && e.message === 'reconnect_required' ? e.message : 'preview_unavailable');
     }
     try {
-      return decodePng(response, PREVIEW_SIZE);
+      return decodePng(response, size);
     } catch {
       // Malformed or wrongly sized image data is a provider failure of the preview, never a substitute render.
       throw new Error('preview_unavailable');
