@@ -162,6 +162,18 @@ export const messages = {
     'The goal could not be verified completely. Some checks were not evaluable; nothing was marked complete.',
   goal_result_delivery_failed:
     'The goal result could not be posted to the original conversation. It is retried on the next Lead turn.',
+  // work-context.md §8 plugin codes.
+  selection_observation_stale: 'The Primary workspace changed since the catalog was read. Refresh and review again.',
+  selection_part_missing: 'The selected part no longer exists at the current revision. Choose a part again.',
+  selection_part_unsupported:
+    'This part kind is not supported for a work context (only solid, non-mesh, non-flattened parts).',
+  configuration_unsupported:
+    'This Part Studio has configuration parameters. Configured Part Studios are not supported.',
+  element_not_provisioned: 'This Part Studio is outside the provisioned MCP target and is not released for goals.',
+  selection_target_not_allowed:
+    'The selection is outside the bound document, Primary workspace or Part Studio. Nothing was changed.',
+  selection_revision_conflict: 'Another selection was adopted first. Reload the work context and review it.',
+  preview_unavailable: 'The part preview is not available.',
   onshape_unavailable: 'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
   oauth_reconnect_required: 'Onshape authorization did not complete. Choose Connect Onshape to retry.',
   oauth_connect_expired: 'Onshape authorization timed out. Choose Connect Onshape to retry.',
