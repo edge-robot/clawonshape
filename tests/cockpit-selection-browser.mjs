@@ -1,6 +1,7 @@
 // Offline consumer acceptance against contract fixtures read in place. No provider or gateway IO.
 import assert from 'node:assert/strict';
-import {readFile, mkdir} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
+import {createEvidenceCapture} from './cockpit-evidence.mjs';
 import {chromium} from 'playwright-core';
 // Independent user-visible outcomes from work-context.md §8, rather than assertions against UI helpers.
 const expectedReasons = {
@@ -12,6 +13,10 @@ const expectedReasons = {
   element_not_provisioned: /Part Studio nicht für Ziele freigegeben/,
   selection_target_not_allowed: /Auswahl außerhalb der erlaubten Zuordnung/,
   selection_revision_conflict: /Eine andere Auswahl wurde übernommen/,
+  connection_busy_or_state_unavailable: /Gerade belegt/,
+  target_not_part_studio: /Gebundenes Element ist kein Part Studio · Betreiber prüfen/,
+  target_missing: /Gebundenes Element nicht vorhanden · Betreiber prüfen/,
+  reconnect_required: /Verbindung abgelaufen/,
   preview_unavailable: /Vorschau nicht verfügbar/,
   invalid_arguments: /Auswahlanfrage ungültig/,
   authorization_changed: /Zugriff geändert/,
@@ -35,8 +40,8 @@ export async function runSelectionBrowser() {
     fixtures[name] = JSON.parse(await readFile(`docs/interface/work-context-fixtures/${name}.json`, 'utf8'));
   }
   const origin = 'https://selection-fixture.test';
-  const output = 'docs/product/onshape-selection-2026-10-21/implementation';
-  await mkdir(output, {recursive: true});
+  const evidence = await createEvidenceCapture('selector');
+  const output = evidence.directory;
   const html = `<!doctype html><html lang="de"><meta charset="utf-8"><title>Bauteilauswahl · Offline fixture</title>
 <style>body{margin:0;background:#090f17;color:#e3ebf4;font:14px system-ui}#demo{padding:8px 18px;color:#f2d399}#app{max-width:1800px;margin:auto}</style>
 <div id="demo">DEMONSTRATION · synthetische Daten · kein Live-CAD-Nachweis</div><div id="app"></div>
@@ -45,7 +50,7 @@ import ui from '/ui.js';import {data,status,workspaceContext,goalFixture} from '
 window.F=${JSON.stringify(fixtures)};
 // Schematic per-Part PNGs prove response identity, never actual geometry.
 window.pngs=Object.fromEntries(['JHD','JHH','JIF','JIG','JKD'].map((id,index)=>{
- const canvas=document.createElement('canvas');canvas.width=280;canvas.height=180;const c=canvas.getContext('2d');
+ const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;const c=canvas.getContext('2d');c.scale(256/280,256/180);
  c.fillStyle='#0c1823';c.fillRect(0,0,280,180);c.strokeStyle=['#68dbd5','#d9ae70','#97cafa','#c3a5e5','#d78787'][index];c.lineWidth=3;
  c.beginPath();c.moveTo(50+index*4,55);c.lineTo(145,25);c.lineTo(220,65);c.lineTo(220,110);c.lineTo(125,140);c.lineTo(50+index*4,105);c.closePath();c.stroke();
  c.beginPath();c.ellipse(137+index*3,65,23,12,0,0,Math.PI*2);c.stroke();
@@ -131,7 +136,12 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
     await dialog.getByRole('img', {name: new RegExp(` · ${id}$`)}).waitFor();
     await page.waitForFunction((id) => {
       const i = document.querySelector('dialog img');
-      return i?.complete && i.naturalWidth === 280 && i.src === `data:image/png;base64,${window.pngs[id]}`;
+      return (
+        i?.complete &&
+        i.naturalWidth === 256 &&
+        i.naturalHeight === 256 &&
+        i.src === `data:image/png;base64,${window.pngs[id]}`
+      );
     }, id);
   };
   const reset = async () => {
@@ -155,10 +165,10 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
         assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isVisible());
         await dialog.evaluate((d) => (d.scrollTop = 0));
       }
-      await page.screenshot({path: `${output}/${name}-${width}x${height}.png`});
+      await evidence.screenshot(page, `${name}-${width}x${height}.png`);
       if (await dialog.count()) {
         await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).scrollIntoViewIfNeeded();
-        await page.screenshot({path: `${output}/${name}-${width}x${height}-review.png`});
+        await evidence.screenshot(page, `${name}-${width}x${height}-review.png`);
       }
     }
     await page.setViewportSize({width: 1440, height: 900});
@@ -310,8 +320,89 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
     assert.equal(await dialog.getByText('Bauteile nicht geladen.', {exact: true}).count(), 2);
     assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
     await capture('02-configured-studio');
+    // CR-2: missing labels never become names, and their separate IDs remain searchable.
+    for (const [width, height] of [
+      [1440, 900],
+      [1366, 768],
+      [390, 844],
+    ]) {
+      await page.setViewportSize({width, height});
+      await reset();
+      await page.evaluate(() => {
+        window.catalog.document.name = null;
+        window.catalog.workspaces.forEach((w) => {
+          w.name = null;
+        });
+        window.catalog.partStudios.forEach((s) => {
+          s.name = null;
+        });
+        window.view = structuredClone(window.F['view-valid']);
+        window.catalog.selectionRevision = 1;
+        Object.assign(window.view.selection, {documentName: null, workspaceName: null, partStudioName: null});
+      });
+      await refresh();
+      await ready();
+      for (const id of ['01234567', 'eeeeeeee', 'fedcba98']) {
+        assert(
+          await card
+            .locator('.coc-revision')
+            .filter({hasText: new RegExp(` · ${id}$`)})
+            .isVisible(),
+        );
+      }
+      assert.equal(await card.getByText('Name nicht verfügbar', {exact: true}).count(), 3);
+      await change().click();
+      await dialog.getByRole('heading', {name: 'Part Studio: Name nicht verfügbar · fedcba98', exact: true}).waitFor();
+      await dialog.getByRole('img', {name: / · JIF$/}).waitFor();
+      assert.equal(
+        await dialog.locator('.coc-selection-summary').getByText('Name nicht verfügbar', {exact: true}).count(),
+        3,
+      );
+      const columns = dialog.locator('.coc-selection-columns > section');
+      for (const [column, name, id] of [
+        [0, 'Dokument', '01234567'],
+        [1, 'Onshape-Workspace', 'eeeeeeee'],
+        [2, 'Bauteil', 'fedcba98'],
+      ]) {
+        const input = dialog.getByRole('searchbox', {name: `${name} durchsuchen`, exact: true});
+        await input.fill('null');
+        assert(
+          await columns
+            .nth(column)
+            .getByText(/Keine Suchtreffer/)
+            .isVisible(),
+        );
+        await input.fill(id);
+        if (column < 2) {
+          assert.equal(await columns.nth(column).getByRole('button').count(), 1);
+          assert(
+            await columns
+              .nth(column)
+              .locator('.coc-revision')
+              .filter({hasText: ` · ${id}`})
+              .isVisible(),
+          );
+        } else {
+          assert(await part('JIF').isVisible());
+        }
+        await input.fill('');
+      }
+      assert(!/\bnull\b/.test(await dialog.textContent()));
+      assert(await part('JIF').isVisible());
+      assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isEnabled());
+    }
+    await capture('13-null-names');
+    checks.push(
+      'F1 CR-2: nullable names in all columns, compact card and summary; separate short IDs; null is not searchable; Part names unchanged at all three viewports',
+    );
     // Every new/reused code has a separately asserted outcome and preserves the record on failure.
-    for (const code of [...fixtures['error-codes'].plugin, ...fixtures['error-codes'].reused]) {
+    for (const code of [
+      ...fixtures['error-codes'].plugin,
+      ...fixtures['error-codes'].reused,
+      'connection_busy_or_state_unavailable',
+      'target_not_part_studio',
+      'target_missing',
+    ]) {
       await reset();
       await open();
       await selected('JIF');
@@ -327,7 +418,7 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
       } else {
         await page.evaluate((c) => {
           window.errors['work-context-adopt'] = c;
-          if (c === 'selection_revision_conflict') {
+          if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(c)) {
             window.view = structuredClone(window.F['view-valid']);
             window.view.selection.partId = 'JIG';
             window.view.selection.partName = 'Clamp right';
@@ -342,12 +433,21 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
           }
         }, code);
         await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-        if (code === 'selection_revision_conflict') {
+        if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
           await dialog.waitFor({state: 'detached'});
           assert(await card.getByRole('heading', {name: 'Clamp right', exact: true}).isVisible());
-          assert(await card.getByText(/Gewinner geladen/).isVisible());
+          assert(
+            await card
+              .getByText(
+                code === 'connection_busy_or_state_unavailable'
+                  ? 'Gerade belegt · Status neu geladen'
+                  : /Gewinner geladen/,
+                {exact: true},
+              )
+              .isVisible(),
+          );
           assert(await card.getByText(/Auswahlrevision 7/).isVisible());
-          await capture('05-revision-winner');
+          await capture(code === 'connection_busy_or_state_unavailable' ? '12-busy-winner' : '05-revision-winner');
         } else {
           await dialog.getByText(workContextReason(code), {exact: true}).first().waitFor();
           await page.waitForFunction(
@@ -374,7 +474,7 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
           1,
           `${code}: no write retry`,
         );
-        if (code !== 'selection_revision_conflict') {
+        if (!['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
           assert.equal(await page.evaluate(() => window.view.selection), null, `${code}: old record retained`);
         }
       }
@@ -397,6 +497,61 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
     await page.keyboard.press('Escape');
     assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
     checks.push('U3 failed adoption preserves the existing non-empty confirmed record');
+    for (const code of ['target_not_part_studio', 'target_missing']) {
+      await reset();
+      await page.evaluate(() => {
+        window.view = structuredClone(window.F['view-valid']);
+        window.catalog.selectionRevision = 1;
+      });
+      await refresh();
+      await ready();
+      await open();
+      await selected('JIG');
+      await page.evaluate((c) => (window.errors['work-context-adopt'] = c), code);
+      await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
+      await dialog.getByText(workContextReason(code)).first().waitFor();
+      assert.equal(await page.evaluate(() => window.view.selection.partId), 'JIF');
+      assert.equal(
+        await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-adopt').length),
+        1,
+      );
+    }
+    await reset();
+    await open();
+    await selected('JIF');
+    await page.evaluate(() => {
+      window.errors['work-context-adopt'] = 'connection_busy_or_state_unavailable';
+      window.errors['work-context-status'] = 'goal_state_invalid';
+    });
+    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
+    await dialog.getByText(/Status konnte nicht neu geladen werden/).waitFor();
+    assert.equal(await card.getByText('Gerade belegt · Status neu geladen', {exact: true}).count(), 0);
+    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
+    assert.equal(await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-adopt').length), 1);
+    checks.push(
+      'F2 CR-4/CR-7: both target errors preserve non-empty selection; busy loser reloads winner; failed reload cannot claim success; no write retries',
+    );
+    await reset();
+    await page.evaluate(() => {
+      window.catalog.workspaces = window.catalog.workspaces.filter((w) => w.role === 'primary');
+      window.view = {...window.view, selectionRevision: 9};
+      window.catalog.selectionRevision = 9;
+    });
+    await refresh();
+    await ready();
+    await open();
+    assert.equal(await dialog.getByRole('button', {name: /Candidate/}).count(), 0);
+    await selected('JIF');
+    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
+    await dialog.waitFor({state: 'detached'});
+    assert.equal(
+      await page.evaluate(
+        () => window.calls.find((c) => c.actionId === 'work-context-adopt').payload.expectedSelectionRevision,
+      ),
+      9,
+    );
+    assert(await card.getByText(/Auswahlrevision 10/).isVisible());
+    checks.push('CR-6/CR-8: no inferred Candidate row; cleared selection keeps its CAS revision');
     // Catalog stale read retries once, then remains explicit. Reload recovery is a read, never adoption.
     await reset();
     await page.evaluate(() => (window.errors['work-context-catalog'] = 'selection_observation_stale'));
@@ -524,7 +679,13 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
     await capture('11-wrong-preview-reply');
     await dialog.getByRole('button', {name: 'Abbrechen', exact: true}).click();
     // Provider/authorization errors on preview invalidate the draft, unlike a simple unavailable image.
-    for (const code of ['authorization_changed', 'selection_part_missing', 'selection_observation_stale']) {
+    for (const code of [
+      'authorization_changed',
+      'selection_part_missing',
+      'selection_observation_stale',
+      'reconnect_required',
+      'target_missing',
+    ]) {
       await reset();
       await open();
       await page.evaluate((c) => {
@@ -557,6 +718,26 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
     assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
     checks.push(
       'U3/U6 preview access/membership/stale errors invalidate draft; pending adopt blocks dismissal and closes on success',
+    );
+    for (const invalid of ['size', 'dimensions']) {
+      await reset();
+      await open();
+      await page.evaluate(() => (window.delay['work-context-preview'] = true));
+      await part('JIF').click();
+      await page.waitForFunction(() => window.pending.length === 1);
+      await page.evaluate((kind) => {
+        const p = window.pending[0];
+        const c = document.createElement('canvas');
+        c.width = 280;
+        c.height = 180;
+        p.result.preview.dataBase64 = kind === 'size' ? 'A'.repeat(65000) : c.toDataURL('image/png').split(',')[1];
+        p.release();
+      }, invalid);
+      await dialog.getByText(workContextReason('preview_unavailable')).waitFor();
+      assert.equal(await dialog.getByRole('img').count(), 0);
+    }
+    checks.push(
+      'CR-3/CR-5: 256px PNG decoding, 65000-character/wrong-dimension rejection; preview R1 read codes retain their own outcomes',
     );
     // Pending preview cannot survive cancel, refresh, invalid status or disposal.
     for (const action of ['cancel', 'refresh', 'dispose']) {

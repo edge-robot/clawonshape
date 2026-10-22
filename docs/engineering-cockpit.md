@@ -17,8 +17,11 @@ updates through native MCP. Primary promotion and print starts are not triggered
 **Select a work context (increment 1).** The compact **"Arbeitskontext"** card in
 Workspace and CAD reads `work-context-status`. It shows the confirmed Part,
 document, Onshape workspace, Part Studio, selection revision, observed/current
-microversions, check time and an Onshape link. Missing names remain explicitly
-unavailable. A legacy element-only binding has no selected Part; the page never
+microversions, check time and an Onshape link. Missing document/workspace/studio
+names show "Name nicht verfügbar" and a
+separate secondary short ID, never an ID presented as a name. Search matches
+available names and actual IDs; a null label is not the text "null". Part names
+remain strict. A legacy element-only binding has no selected Part; the page never
 chooses one automatically. **"Weiter zu CAD"** only navigates.
 
 **"Auswahl ändern"** opens a modal selector. The sole bound document is preselected;
@@ -29,7 +32,9 @@ studios, unsupported configurations and Part kinds carry an explanation. "Not
 loaded" and "no Parts" are distinct. Same-name Parts retain their secondary Part IDs.
 
 Only selecting a Part requests `work-context-preview` at the catalog's exact
-microversion. This preview is independent of the existing whole-studio CAD render;
+microversion. The amended contract requires a 256×256 PNG below 65,000 base64
+characters; failed revision reads retain their own error codes. This preview is
+independent of the existing whole-studio CAD render;
 it is never substituted by that render. Unavailable/invalid images offer an explicit
 retry and Onshape link. No preview is cached on the compact card. Invalid or
 unverified views retain their server-reported selection and reason without images;
@@ -44,7 +49,12 @@ load, navigation, search, preview or reopening. Preview failure alone does not
 prevent adoption of an otherwise complete, verified catalog choice.
 
 A revision conflict reloads status and shows the winning selection; it never
-retries adoption. A moved observation reloads status and the catalog for another
+retries adoption. A concurrent store-lock loser
+(`connection_busy_or_state_unavailable`) also reloads status and shows the current
+selection with "Gerade belegt · Status neu geladen" only after a successful read.
+A failed reload stays unavailable. Missing targets and non-Part-Studio targets
+have explicit, distinct operator guidance; neither retries adoption. A moved
+observation reloads status and the catalog for another
 review. A stale catalog read retries once, then asks for explicit refresh. Other
 failures explain the distinct recovery step and preserve the confirmed record.
 Uncertain delivery asks for a status check instead of a write retry. Late replies
@@ -165,12 +175,23 @@ demonstrations.
 outside `npm test`. It uses the `playwright-core` dependency currently supplied
 transitively by the pinned OpenClaw development dependency and requires a local
 Chromium executable (`/usr/bin/chromium`, or set `CHROMIUM_PATH`). It uses intercepted page routing without a loopback server, with visibly synthetic
-data and no CAD provider requests. Requested artifacts are written under
-`docs/product/dashboard-workflow-2026-10-21/implementation/` only when Chromium
-can actually launch. Each view is checked at 1440×900, 1366×768 and 390×844;
-the goal confirmation/active/completed screenshots use synthetic responses and the
-print view remains blocked. New artifacts use the `goal-ui-` prefix to preserve
-earlier evidence. Browser screenshots are fixture evidence, not live acceptance.
+data and no CAD provider requests. Both suites write screenshots into fresh temporary
+directories by default and print their paths. Normal runs leave tracked evidence
+and repository status untouched (apart from intended edits and existing build output).
+Each view is checked at 1440×900, 1366×768 and 390×844; evidence remains synthetic.
+
+Refresh repository evidence only by explicit opt-in. `COCKPIT_EVIDENCE_DIR` selects
+the output root; selector images go directly there and regression images go in
+`regression/`. `COCKPIT_EVIDENCE_FILES` restricts writes to a comma-separated list
+of exact relative filenames (regression entries include `regression/`). Without
+that filter an opted-in run writes all captures. Keep the filter limited to images
+whose content changed, to avoid timestamp-only churn. For example:
+
+```sh
+COCKPIT_EVIDENCE_DIR=docs/product/onshape-selection-2026-10-21/implementation \
+COCKPIT_EVIDENCE_FILES=13-null-names-390x844.png \
+npm run test:cockpit
+```
 
 **3D Print prerequisites.** The view is blocked: no supported Bambu adapter,
 validated STL/unit mapping, complete printer/nozzle/material/process profile,

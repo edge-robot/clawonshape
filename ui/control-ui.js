@@ -175,6 +175,9 @@ export const workContextReason = (code) =>
     element_not_provisioned: 'Part Studio nicht für Ziele freigegeben. Zuordnung durch Operator prüfen lassen.',
     selection_target_not_allowed: 'Auswahl außerhalb der erlaubten Zuordnung. Keine Übernahme; Operator kontaktieren.',
     selection_revision_conflict: 'Eine andere Auswahl wurde übernommen. Die gewinnende Auswahl wird neu geladen.',
+    connection_busy_or_state_unavailable: 'Gerade belegt · Status neu laden.',
+    target_not_part_studio: 'Gebundenes Element ist kein Part Studio · Betreiber prüfen.',
+    target_missing: 'Gebundenes Element nicht vorhanden · Betreiber prüfen.',
     preview_unavailable: 'Vorschau nicht verfügbar. Vorschau erneut laden oder Bauteil in Onshape prüfen.',
     invalid_arguments: 'Auswahlanfrage ungültig. Dialog schließen und erneut öffnen.',
     authorization_changed: 'Zugriff geändert. Verbindung prüfen und erneut anmelden.',
@@ -330,7 +333,7 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
         result.preview.observedMicroversion === choice.observedMicroversion &&
         result.preview.mimeType === 'image/png' &&
         typeof result.preview.dataBase64 === 'string' &&
-        result.preview.dataBase64.length <= 1000000 &&
+        result.preview.dataBase64.length < 65000 &&
         /^[A-Za-z0-9+/]+={0,2}$/.test(result.preview.dataBase64)
       ) {
         preview = result.preview;
@@ -442,16 +445,22 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
       message = workContextReason(code);
       clearPreview();
       draft = undefined;
-      if (code === 'selection_revision_conflict') {
+      if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
         await readStatus(g, connection);
-        if (matches(g, connection) && dialog && request === adoptRequest) {
+        if (matches(g, connection) && dialog && request === adoptRequest && view && !statusError) {
           close(false);
           render();
           const note = root.querySelector?.('[data-context-notice]');
           if (note) {
-            note.textContent = `${workContextReason(code)} Gewinner geladen.`;
+            note.textContent =
+              code === 'connection_busy_or_state_unavailable'
+                ? 'Gerade belegt · Status neu geladen'
+                : `${workContextReason(code)} Gewinner geladen.`;
           }
           root.querySelector?.('[data-context-change]')?.focus();
+        } else if (matches(g, connection) && dialog && request === adoptRequest) {
+          message =
+            'Status konnte nicht neu geladen werden. Verbindung prüfen und aktualisieren; nicht erneut übernehmen.';
         }
       } else if (code === 'selection_observation_stale') {
         await readStatus(g, connection);
@@ -477,6 +486,10 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
       }
     }
   };
+  const nameNodes = (name, id) => [
+    el('span', name ?? 'Name nicht verfügbar'),
+    ...(name == null ? [el('span', ` · ${short(id)}`, 'revision')] : []),
+  ];
   const draw = () => {
     if (!dialog) {
       return;
@@ -543,10 +556,11 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
       };
       const contains = (text, key) => text.toLocaleLowerCase('de').includes(filters[key].toLocaleLowerCase('de'));
       const documents = column('Dokument', 'document');
-      if (contains(catalog.document.name, 'document')) {
-        const item = button(`${catalog.document.name} · vorausgewählt`, () => {
+      if (contains([catalog.document.name ?? '', catalog.document.documentId].join(' '), 'document')) {
+        const item = button('', () => {
           // The sole bound document is already selected; no parent switch exists in increment 1.
         });
+        item.append(...nameNodes(catalog.document.name, catalog.document.documentId), el('span', ' · vorausgewählt'));
         item.setAttribute('aria-pressed', 'true');
         documents.append(item);
       } else {
@@ -555,20 +569,21 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
       const workspaces = column('Onshape-Workspace', 'workspace');
       let workspaceCount = 0;
       for (const workspace of catalog.workspaces) {
-        if (!contains(workspace.name, 'workspace')) {
+        if (!contains([workspace.name ?? '', workspace.workspaceId].join(' '), 'workspace')) {
           continue;
         }
         workspaceCount++;
-        const item = button(
-          `${workspace.name} · ${workspace.role === 'primary' ? 'geschützter Primary' : 'Candidate'}`,
-          () => {
-            if (!workspace.selectable || adopting) {
-              return;
-            }
-            draft = undefined;
-            clearPreview();
-            draw();
-          },
+        const item = button('', () => {
+          if (!workspace.selectable || adopting) {
+            return;
+          }
+          draft = undefined;
+          clearPreview();
+          draw();
+        });
+        item.append(
+          ...nameNodes(workspace.name, workspace.workspaceId),
+          el('span', ` · ${workspace.role === 'primary' ? 'geschützter Primary' : 'Candidate'}`),
         );
         item.disabled = !workspace.selectable || adopting;
         item.setAttribute(
@@ -587,7 +602,9 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
       let count = 0;
       for (const studio of catalog.partStudios) {
         const group = el('section', undefined, 'selection-studio');
-        group.append(el('h3', `Part Studio: ${studio.name}`));
+        const studioHeading = el('h3', 'Part Studio: ');
+        studioHeading.append(...nameNodes(studio.name, studio.elementId));
+        group.append(studioHeading);
         if (studio.reason) {
           group.append(el('p', workContextReason(studio.reason), 'muted'));
         }
@@ -597,7 +614,7 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
           group.append(el('p', 'Keine Bauteile in diesem Part Studio.'));
         }
         for (const part of studio.parts ?? []) {
-          if (!contains(`${studio.name} ${part.name} ${part.partId}`, 'part')) {
+          if (!contains([studio.name ?? '', studio.elementId, part.name, part.partId].join(' '), 'part')) {
             continue;
           }
           count++;
@@ -648,15 +665,28 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
     if (draft) {
       const studio = catalog.partStudios.find((s) => s.elementId === draft.elementId);
       const part = studio?.parts?.find((p) => p.partId === draft.partId);
-      summary.append(
-        el('h3', `${part?.name} · ${draft.partId}`),
-        el('p', `${catalog.document.name} / Primary / ${studio?.name}`),
+      const provenance = el('p');
+      const workspace = catalog.workspaces.find((w) => w.workspaceId === draft.workspaceId);
+      provenance.append(
+        ...nameNodes(catalog.document.name, draft.documentId),
+        el('span', ' / '),
+        ...nameNodes(workspace?.name, draft.workspaceId),
+        el('span', ' / '),
+        ...nameNodes(studio?.name, draft.elementId),
       );
+      summary.append(el('h3', `${part?.name} · ${draft.partId}`), provenance);
       if (preview) {
         const image = el('img');
         image.src = `data:image/png;base64,${preview.dataBase64}`;
         image.alt = `Vorschau nur für ${part?.name} · ${draft.partId}`;
         const shown = preview;
+        image.onload = () => {
+          if (preview === shown && (image.naturalWidth !== 256 || image.naturalHeight !== 256)) {
+            clearPreview();
+            previewError = 'preview_unavailable';
+            draw();
+          }
+        };
         image.onerror = () => {
           if (preview === shown) {
             clearPreview();
@@ -781,12 +811,18 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
         ),
       );
       if (s) {
+        const provenance = el('p');
+        provenance.append(
+          el('span', 'Dokument: '),
+          ...nameNodes(s.documentName, s.documentId),
+          el('span', ' · Workspace: '),
+          ...nameNodes(s.workspaceName, s.workspaceId),
+          el('span', ' · Part Studio: '),
+          ...nameNodes(s.partStudioName, s.elementId),
+        );
         node.append(
           el('h3', s.partName ?? 'Bauteilname nicht verfügbar'),
-          el(
-            'p',
-            `Dokument: ${s.documentName ?? 'Name nicht verfügbar'} · Workspace: ${s.workspaceName ?? 'Name nicht verfügbar'} · Part Studio: ${s.partStudioName ?? 'Name nicht verfügbar'}`,
-          ),
+          provenance,
           el(
             'p',
             `Part ${s.partId} · Auswahlrevision ${view.selectionRevision} · ausgewählt bei ${s.observedMicroversion} · aktuell ${s.currentMicroversion ?? 'ungeprüft'}`,

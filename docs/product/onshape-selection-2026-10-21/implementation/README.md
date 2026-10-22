@@ -17,8 +17,9 @@ files show the scrolled summary and adoption controls; the regular files show th
 column headers. Tests check both document and dialog horizontal fit, reachable
 controls, visible keyboard focus, forward focus wrapping and return to the entry.
 [Check output](checks.txt) contains the actual 199-test summary and browser scenario log.
-Existing cockpit regression screenshots go to `/tmp/clawonshape-ui-cockpit-regression`
-so historical product evidence is preserved.
+Both suites now write to fresh temporary directories by default (paths in the console).
+Repository evidence refresh requires `COCKPIT_EVIDENCE_DIR`; use
+`COCKPIT_EVIDENCE_FILES` for exact-file selection. See the follow-up below.
 
 | Prefix | Evidence |
 | --- | --- |
@@ -116,3 +117,28 @@ so historical product evidence is preserved.
 - [11-wrong-preview-reply-1440x900.png](11-wrong-preview-reply-1440x900.png)
 - [11-wrong-preview-reply-390x844-review.png](11-wrong-preview-reply-390x844-review.png)
 - [11-wrong-preview-reply-390x844.png](11-wrong-preview-reply-390x844.png)
+
+## F1–F3 follow-up — 2026-10-22
+
+Task `COC-CONTEXT-SELECTION-UI-FIX-20261022`; architect review PENDING.
+The [follow-up report](../../../prompts/2026-10-22-work-context-selector-ui-followup.report.md)
+records 217 passing tests and 38 selector check groups, the amended contract
+(CR-1–CR-8), and the exact change list. The original checks.txt above is historical.
+The [hash/status audit](followup-evidence-audit.json) proves normal runs preserve
+evidence and lists the exact six refreshed and nine new PNGs. All other committed
+PNGs remain byte-identical; no timestamp-only refresh was performed.
+
+Only the six `02-dialog-*-review.png` and `06-stale-reviewed-*-review.png` files
+were refreshed: they now show the 256×256 preview and actual workspace label in
+the selected-Part provenance. New screenshots below show the concurrent-adoption
+winner and nullable-name fallbacks with secondary short IDs (three viewports).
+
+- [12-busy-winner-1366x768.png](12-busy-winner-1366x768.png)
+- [12-busy-winner-1440x900.png](12-busy-winner-1440x900.png)
+- [12-busy-winner-390x844.png](12-busy-winner-390x844.png)
+- [13-null-names-1366x768-review.png](13-null-names-1366x768-review.png)
+- [13-null-names-1366x768.png](13-null-names-1366x768.png)
+- [13-null-names-1440x900-review.png](13-null-names-1440x900-review.png)
+- [13-null-names-1440x900.png](13-null-names-1440x900.png)
+- [13-null-names-390x844-review.png](13-null-names-390x844-review.png)
+- [13-null-names-390x844.png](13-null-names-390x844.png)

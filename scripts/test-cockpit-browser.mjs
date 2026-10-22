@@ -1,13 +1,15 @@
 // Serverless native page fixture: all requests are intercepted; no Gateway/provider IO.
-import {readFile, mkdir} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {pngFixture} from '../tests/fixtures/png.mjs';
 import {imageHash} from '../dist/render.js';
+import {createEvidenceCapture} from '../tests/cockpit-evidence.mjs';
 import {runSelectionBrowser} from '../tests/cockpit-selection-browser.mjs';
 import {target} from '../tests/fixtures/cockpit.mjs';
 const origin = 'https://cockpit-fixture.test';
-const output = '/tmp/clawonshape-ui-cockpit-regression';
+const evidence = await createEvidenceCapture('regression');
+const output = evidence.directory;
 const png = pngFixture();
 const image = {
   ...target,
@@ -91,7 +93,6 @@ try {
     (await page.evaluate(() => window.calls)).map((c) => c.actionId),
     ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'],
   );
-  await mkdir(output, {recursive: true});
   const capture = async (name) => {
     for (const [width, height] of [
       [1440, 900],
@@ -102,9 +103,9 @@ try {
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name} fits ${width}`);
       assert(await nav.isVisible(), 'navigation remains reachable');
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({path: `${output}/goal-ui-${name}-${width}x${height}.png`});
+      await evidence.screenshot(page, `goal-ui-${name}-${width}x${height}.png`);
       if (['confirm', 'active', 'completed'].includes(name)) {
-        await page.screenshot({path: `${output}/goal-ui-${name}-${width}x${height}-full.png`, fullPage: true});
+        await evidence.screenshot(page, `goal-ui-${name}-${width}x${height}-full.png`, {fullPage: true});
       }
     }
     await page.setViewportSize({width: 1440, height: 900});

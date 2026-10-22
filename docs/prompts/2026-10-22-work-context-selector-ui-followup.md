@@ -6,7 +6,7 @@ issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#accepted-interpretations-ts-plugin-dev-report-2026-10-22-cr-1cr-8
 contract-version: work-context-1.0.0-draft (amended, CR-1–CR-8); goal-1.2.0-draft
 base-commit: ca9d106   # your UI commit 7395e3d + merged, accepted backend 4a9f342
-status: issued
+status: done   # accepted 2026-10-22 by onshape-architekt
 addressee: Codex onshape-architekt (top-down). Delegate to openclaw-dev and review it yourself.
 ---
 # Selector UI follow-up: review findings F1–F3
