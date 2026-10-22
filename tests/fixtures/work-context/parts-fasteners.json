@@ -1,0 +1,4 @@
+[
+  {"name": "Washer", "partId": "JFH", "partNumber": "FB-0043", "bodyType": "solid", "isHidden": false, "isMesh": false, "isFlattenedBody": false, "elementId": "abababababababababababab", "microversionId": "aaaaaaaaaaaaaaaaaaaaaaaa", "partIdentity": "fixture-identity-jfh", "state": "IN_PROGRESS"},
+  {"name": "Clamp bolt", "partId": "JFD", "partNumber": "FB-0042", "bodyType": "solid", "isHidden": false, "isMesh": false, "isFlattenedBody": false, "elementId": "abababababababababababab", "microversionId": "aaaaaaaaaaaaaaaaaaaaaaaa", "partIdentity": "fixture-identity-jfd", "state": "IN_PROGRESS"}
+]

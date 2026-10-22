@@ -174,6 +174,9 @@ export const messages = {
     'The selection is outside the bound document, Primary workspace or Part Studio. Nothing was changed.',
   selection_revision_conflict: 'Another selection was adopted first. Reload the work context and review it.',
   preview_unavailable: 'The part preview is not available.',
+  // work-context.md §11.5 browsing codes.
+  document_not_accessible: 'This Onshape document cannot be read with the connected account.',
+  provider_quota_exhausted: 'The Onshape API call allowance is used up. Ask the operator to check the Onshape plan.',
   onshape_unavailable: 'Claw-Onshape could not complete this request. Ask the operator to inspect the diagnostic code.',
   oauth_reconnect_required: 'Onshape authorization did not complete. Choose Connect Onshape to retry.',
   oauth_connect_expired: 'Onshape authorization timed out. Choose Connect Onshape to retry.',

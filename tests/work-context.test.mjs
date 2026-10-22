@@ -60,7 +60,8 @@ function png(size) {
   ]);
 }
 
-// Fake Onshape REST (GET R1–R5 and the document/workspace labels). Logs every request with its method.
+// Fake Onshape REST (GET R1–R8 and the document/workspace labels). Logs every request with its method.
+const HEX = '[a-f0-9]{24}';
 async function fakeOnshape(h) {
   const data = {
     document: await recorded('document.json'),
@@ -69,41 +70,99 @@ async function fakeOnshape(h) {
     configuration: await recorded('configuration.json'),
     configured: await recorded('configuration-configured.json'),
     parts: new Map([[BASE, await recorded('parts.json')]]),
+    // §11 browsing: R6 page, other documents' labels and workspaces, parts of non-bound Part Studios.
+    search: await recorded('documents-search.json'),
+    documents: new Map(),
+    documentWorkspaces: new Map(),
+    elementParts: new Map([['ab'.repeat(12), await recorded('parts-fasteners.json')]]),
   };
   const state = {
-    // R1 answers: the first entries are consumed one per read; the last one sticks.
+    // R1 answers of the bound Primary: the first entries are consumed one per read; the last one sticks.
     microversions: [BASE],
+    // R1 answers of any other workspace, keyed "documentId/workspaceId"; default BASE.
+    otherMicroversions: new Map(),
     isConfigured: false,
     fail: {},
     image: png(256),
+    studioImage: png(128),
     onRequest: undefined,
+    inFlight: 0,
+    maxInFlight: 0,
   };
   const calls = [];
   const kindOf = (route, search) => {
-    if (route === `documents/${D}`) {
+    if (route === 'documents') {
+      return 'r6';
+    }
+    if (new RegExp(`^documents/${HEX}$`).test(route)) {
       return 'document';
     }
-    if (route === `documents/d/${D}/workspaces`) {
+    if (new RegExp(`^documents/d/${HEX}/workspaces$`).test(route)) {
       return 'workspaces';
     }
-    if (route === `documents/d/${D}/w/${P}/currentmicroversion`) {
+    if (new RegExp(`^documents/d/${HEX}/w/${HEX}/currentmicroversion$`).test(route)) {
       return 'r1';
     }
-    if (/^documents\/d\/[a-f0-9]{24}\/m\/[a-f0-9]{24}\/elements$/.test(route)) {
+    if (new RegExp(`^documents/d/${HEX}/m/${HEX}/elements$`).test(route)) {
       assert.equal(search, '?elementType=PARTSTUDIO');
       return 'r2';
     }
-    if (new RegExp(`^elements/d/${D}/m/[a-f0-9]{24}/e/${E}/configuration$`).test(route)) {
+    if (new RegExp(`^elements/d/${HEX}/m/${HEX}/e/${HEX}/configuration$`).test(route)) {
       return 'r3';
     }
-    if (new RegExp(`^parts/d/${D}/m/[a-f0-9]{24}/e/${E}$`).test(route)) {
+    if (new RegExp(`^parts/d/${HEX}/m/${HEX}/e/${HEX}$`).test(route)) {
       assert.equal(search, '');
       return 'r4';
     }
-    if (new RegExp(`^parts/d/${D}/m/[a-f0-9]{24}/e/${E}/partid/[^/]+/shadedviews$`).test(route)) {
+    if (new RegExp(`^parts/d/${HEX}/m/${HEX}/e/${HEX}/partid/[^/]+/shadedviews$`).test(route)) {
       return 'r5';
     }
+    if (new RegExp(`^partstudios/d/${HEX}/m/${HEX}/e/${HEX}/shadedviews$`).test(route)) {
+      return 'r8';
+    }
     return assert.fail(`unexpected REST ${route}`);
+  };
+  const respond = (kind, route, u) => {
+    if (state.fail[kind]) {
+      return json({message: 'fixture failure'}, state.fail[kind]);
+    }
+    const mv = /\/m\/([a-f0-9]{24})\//.exec(route)?.[1];
+    const [documentId, workspaceId] = [
+      /\/d\/([a-f0-9]{24})/.exec(route)?.[1],
+      /\/w\/([a-f0-9]{24})\//.exec(route)?.[1],
+    ];
+    const elementId = /\/e\/([a-f0-9]{24})/.exec(route)?.[1];
+    switch (kind) {
+      case 'r6':
+        return json(data.search);
+      case 'document': {
+        const id = route.slice('documents/'.length);
+        return json(id === D ? data.document : (data.documents.get(id) ?? {id, name: null}));
+      }
+      case 'workspaces':
+        return json(documentId === D ? data.workspaces : (data.documentWorkspaces.get(documentId) ?? []));
+      case 'r1':
+        if (documentId === D && workspaceId === P) {
+          return json({
+            microversion: state.microversions.length > 1 ? state.microversions.shift() : state.microversions[0],
+          });
+        }
+        return json({microversion: state.otherMicroversions.get(`${documentId}/${workspaceId}`) ?? BASE});
+      case 'r2':
+        return json(data.elements);
+      case 'r3':
+        return json(state.isConfigured ? data.configured : data.configuration);
+      case 'r4':
+        return json(
+          elementId === E ? (data.parts.get(mv) ?? data.parts.get(BASE)) : (data.elementParts.get(elementId) ?? []),
+        );
+      case 'r8':
+        assert(u.searchParams.get('outputWidth') === '128' && u.searchParams.get('pixelSize') === '0');
+        return json({images: [state.studioImage.toString('base64')]});
+      default:
+        assert(u.searchParams.get('outputWidth') === '256' && u.searchParams.get('pixelSize') === '0');
+        return json({images: [state.image.toString('base64')]});
+    }
   };
   const fetcher = async (url, init = {}) => {
     const u = new URL(String(url));
@@ -116,29 +175,13 @@ async function fakeOnshape(h) {
     const route = u.pathname.replace(/^\/api\/v10\//, '');
     const kind = kindOf(route, u.search);
     calls.push({method, kind, route, search: u.search});
-    await state.onRequest?.(kind, route);
-    if (state.fail[kind]) {
-      return json({message: 'fixture failure'}, state.fail[kind]);
-    }
-    const mv = /\/m\/([a-f0-9]{24})\//.exec(route)?.[1];
-    switch (kind) {
-      case 'document':
-        return json(data.document);
-      case 'workspaces':
-        return json(data.workspaces);
-      case 'r1':
-        return json({
-          microversion: state.microversions.length > 1 ? state.microversions.shift() : state.microversions[0],
-        });
-      case 'r2':
-        return json(data.elements);
-      case 'r3':
-        return json(state.isConfigured ? data.configured : data.configuration);
-      case 'r4':
-        return json(data.parts.get(mv) ?? data.parts.get(BASE));
-      default:
-        assert(u.searchParams.get('outputWidth') === '256' && u.searchParams.get('pixelSize') === '0');
-        return json({images: [state.image.toString('base64')]});
+    state.inFlight += 1;
+    state.maxInFlight = Math.max(state.maxInFlight, state.inFlight);
+    try {
+      await state.onRequest?.(kind, route);
+      return respond(kind, route, u);
+    } finally {
+      state.inFlight -= 1;
     }
   };
   return {data, state, calls, fetcher};
@@ -778,7 +821,9 @@ test('W10 goal hand-off: focus iff valid; goalHash equals goal-hash-focus.json; 
   assert.equal((await goalStatus(s.h.ctx)).goal.target.focus, null);
 });
 
-test('§4 work-context-preview: bound element and current revision only; provider failures are preview_unavailable', async (t) => {
+// work-context-1.1.0 §11.2 extends the preview: any Part Studio of the workspace at observedMicroversion (W15); an
+// element that is not a Part Studio there is still selection_observation_stale.
+test('§4 work-context-preview: current revision and a Part Studio of that revision; provider failures are preview_unavailable', async (t) => {
   const s = await setup(t);
   const ok = await s.call('work-context-preview', {elementId: E, partId: 'JIF', observedMicroversion: BASE});
   assert.equal(ok.ok, true, JSON.stringify(ok));
@@ -790,7 +835,7 @@ test('§4 work-context-preview: bound element and current revision only; provide
   const stale = await s.call('work-context-preview', {elementId: E, partId: 'JIF', observedMicroversion: MV2});
   assert.equal(stale.code, 'selection_observation_stale');
   const foreign = await s.call('work-context-preview', {
-    elementId: 'ab'.repeat(12),
+    elementId: '9'.repeat(24),
     partId: 'JIF',
     observedMicroversion: BASE,
   });
@@ -799,10 +844,11 @@ test('§4 work-context-preview: bound element and current revision only; provide
     (await s.call('work-context-preview', {elementId: E, partId: 'J/F', observedMicroversion: BASE})).code,
     'invalid_arguments',
   );
+  // JIF is cached at BASE now (§11.4, immutable at mv); the failure cases use parts not previewed yet.
   for (const status of [404, 503]) {
     s.rest.state.fail.r5 = status;
     assert.equal(
-      (await s.call('work-context-preview', {elementId: E, partId: 'JIF', observedMicroversion: BASE})).code,
+      (await s.call('work-context-preview', {elementId: E, partId: 'JIG', observedMicroversion: BASE})).code,
       'preview_unavailable',
     );
   }
@@ -810,7 +856,7 @@ test('§4 work-context-preview: bound element and current revision only; provide
   // A whole-studio sized image (800 px) or an oversized one is never substituted.
   s.rest.state.image = png(800);
   assert.equal(
-    (await s.call('work-context-preview', {elementId: E, partId: 'JIF', observedMicroversion: BASE})).code,
+    (await s.call('work-context-preview', {elementId: E, partId: 'JHD', observedMicroversion: BASE})).code,
     'preview_unavailable',
   );
 });
@@ -901,15 +947,34 @@ test('§6.3 Engineer onshape_status carries workContext; WC4 the Lead projection
 test('W11 every code the work-context modules emit is in error-codes.json or an existing plugin code', async () => {
   const codes = await contract('error-codes.json');
   const listed = new Set([...codes.plugin, ...codes.reused]);
+  const viewReasons = new Set(codes.viewReasons);
   const emitted = new Set();
-  for (const name of ['work-context', 'work-context-store', 'work-context-service']) {
+  // §11.3 view reasons are returned as values (never thrown); they must be listed as view reasons.
+  const reasons = new Set();
+  for (const name of ['work-context', 'work-context-store', 'work-context-service', 'work-context-cache']) {
     const source = await readFile(new URL(`../dist/${name}.js`, import.meta.url), 'utf8');
     for (const m of source.matchAll(/\b(?:Error|fail)\('([a-z0-9_]+)'\)/g)) {
       emitted.add(m[1]);
     }
     for (const m of source.matchAll(/return '([a-z0-9_]+)'/g)) {
-      emitted.add(m[1]);
+      (viewReasons.has(m[1]) && !listed.has(m[1]) ? reasons : emitted).add(m[1]);
     }
+    for (const pattern of [/\? '([a-z0-9_]+)' :/g, /: '([a-z0-9_]+)';/g]) {
+      for (const m of source.matchAll(pattern)) {
+        reasons.add(m[1]);
+      }
+    }
+  }
+  for (const reason of reasons) {
+    assert(viewReasons.has(reason) || listed.has(reason), `unlisted view reason ${reason}`);
+  }
+  for (const reason of [
+    'document_not_provisioned',
+    'workspace_inspection_only',
+    'candidate_inspection_only',
+    'part_search_truncated',
+  ]) {
+    assert(reasons.has(reason), reason);
   }
   for (const code of [
     'selection_observation_stale',
@@ -920,6 +985,9 @@ test('W11 every code the work-context modules emit is in error-codes.json or an 
     'selection_revision_conflict',
     'preview_unavailable',
     'goal_state_invalid',
+    // §11.5
+    'document_not_accessible',
+    'provider_quota_exhausted',
   ]) {
     assert(emitted.has(code), code);
   }
@@ -934,4 +1002,630 @@ test('W11 every code the work-context modules emit is in error-codes.json or an 
   // The dashboard and rest wiring add only listed or existing codes.
   const rest = await readFile(new URL('../dist/rest.js', import.meta.url), 'utf8');
   assert(rest.includes("'preview_unavailable'"));
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// work-context-1.1.0-draft §11 browsing: W12–W18.
+const OBSERVED_AT = 1761140000000;
+const OTHER_DOC = '1111111111111111111111aa';
+const OTHER_MAIN = '1111111111111111111111ee';
+const OTHER_BRANCH = '1111111111111111111111ff';
+const EXPERIMENT = 'd'.repeat(24);
+const FASTENERS = 'ab'.repeat(12);
+
+async function browseSetup(t, options) {
+  const s = await setup(t, options);
+  s.h.advance(OBSERVED_AT - s.h.now());
+  s.rest.data.documentWorkspaces.set(OTHER_DOC, [
+    {id: OTHER_MAIN, documentId: OTHER_DOC, name: 'Main', isReadOnly: false},
+    {id: OTHER_BRANCH, documentId: OTHER_DOC, name: 'release', isReadOnly: true, protectionRule: 'MERGE'},
+  ]);
+  return s;
+}
+const kinds = (s) => s.rest.calls.map((c) => c.kind);
+const count = (s, kind) => s.rest.calls.filter((c) => c.kind === kind).length;
+
+test('W12 documents: page 0 pins the bound document, drops folders and trash, no owner data; equals document-page.json', async (t) => {
+  const s = await browseSetup(t);
+  const result = await s.call('work-context-documents', {query: '  mount '});
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.deepEqual(result.documents, strip(await contract('document-page.json')));
+  // One R6 read (GET, server-side q, modifiedAt desc, offset 0, 20 per page, no filter); the bound document came from
+  // the page itself, so no R0 label read.
+  assert.deepEqual(kinds(s), ['r6']);
+  const r6 = new URLSearchParams(s.rest.calls[0].search);
+  assert.deepEqual(Object.fromEntries(r6), {
+    q: 'mount',
+    sortColumn: 'modifiedAt',
+    sortOrder: 'desc',
+    offset: '0',
+    limit: '20',
+  });
+  // Only id, name, modifiedAt (and defaultWorkspace.id internally) reach the view.
+  const text = JSON.stringify(result);
+  for (const secret of ['example.invalid', 'fixture-owner', 'permissionSet', 'READ', 'thumbnail', 'Mount folder']) {
+    assert(!text.includes(secret), secret);
+  }
+  assert(!text.includes('4444444444444444444444dd'), 'trashed document listed');
+  // Page 1: nothing pinned, the bound document is never repeated.
+  const next = await s.call('work-context-documents', {query: 'mount', offset: 20});
+  assert.deepEqual(
+    next.documents.items.map((d) => [d.documentId, d.bound, d.reason]),
+    [
+      [OTHER_DOC, false, 'document_not_provisioned'],
+      ['2222222222222222222222bb', false, 'document_not_provisioned'],
+    ],
+  );
+  assert.deepEqual([next.documents.offset, next.documents.hasMore], [20, true]);
+  assert.equal(new URLSearchParams(s.rest.calls.at(-1).search).get('offset'), '20');
+  // Filters map to getDocuments filter values.
+  for (const [filter, value] of [
+    ['recent', '5'],
+    ['mine', '0'],
+    ['shared', '2'],
+  ]) {
+    await s.call('work-context-documents', {query: 'mount', filter});
+    assert.equal(new URLSearchParams(s.rest.calls.at(-1).search).get('filter'), value, filter);
+  }
+  // The bound document is pinned even when the page does not contain it and hasMore follows `next`. Its labels come
+  // from the R0 label read once the earlier listing has expired (TTL 60 s).
+  s.h.advance(60_000);
+  s.rest.data.search = {items: [s.rest.data.search.items[0]], next: null};
+  const pinned = await s.call('work-context-documents', {query: 'library'});
+  assert.deepEqual(
+    pinned.documents.items.map((d) => [d.documentId, d.name, d.modifiedAt, d.bound]),
+    [
+      [D, 'Camera Mount', null, true],
+      [OTHER_DOC, 'Mount Bracket Library', '2026-10-20T08:30:00Z', false],
+    ],
+  );
+  assert.equal(pinned.documents.hasMore, false);
+  assert.deepEqual(kinds(s).slice(-2), ['r6', 'document']);
+  // Input validation (§11.2, §11.4).
+  for (const payload of [
+    {offset: 7},
+    {offset: -20},
+    {offset: '0'},
+    {query: 'x'.repeat(101)},
+    {query: 'a\u0000b'},
+    {query: 5},
+    {filter: 'trash'},
+    {extra: true},
+  ]) {
+    assert.equal((await s.call('work-context-documents', payload)).code, 'invalid_arguments', JSON.stringify(payload));
+  }
+  // NFC normalization: a decomposed query is sent composed.
+  await s.call('work-context-documents', {query: 'Gehäuse'});
+  assert.equal(new URLSearchParams(s.rest.calls.at(-1).search).get('q'), 'Gehäuse');
+  // More than one provider page or a malformed page fails closed.
+  s.rest.data.search = {items: Array.from({length: 21}, () => ({jsonType: 'folder'})), next: null};
+  assert.equal((await s.call('work-context-documents', {query: 'many'})).code, 'provider_protocol_error');
+  s.rest.data.search = {items: [{jsonType: 'document-summary', id: 'not-an-id'}]};
+  assert.equal((await s.call('work-context-documents', {query: 'bad'})).code, 'provider_protocol_error');
+  assert(s.rest.calls.every((c) => c.method === 'GET'));
+});
+
+test('W13 workspaces: roles primary/candidate/default/other, eligibility from the binding only; equals workspace-list.json', async (t) => {
+  const s = await browseSetup(t);
+  await seedGoal(s.h, 'STOPPED', {candidateWorkspaceId: CANDIDATE});
+  s.rest.data.workspaces = await recorded('workspaces-browse.json');
+  const result = await s.call('work-context-workspaces', {documentId: D});
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.deepEqual(result.workspaces, strip(await contract('workspace-list.json')));
+  // Provider protection flags are labels: the MERGE-protected Primary and the OPEN workspaces are not re-ranked by it.
+  assert.deepEqual(kinds(s), ['workspaces']);
+  // A non-bound document: the provider default workspace (from the R6 listing, no extra read) is `default`; every
+  // workspace is inspection-only with document_not_provisioned; isReadOnly is a label only.
+  await s.call('work-context-documents', {query: 'mount'});
+  const before = s.rest.calls.length;
+  const other = await s.call('work-context-workspaces', {documentId: OTHER_DOC});
+  assert.deepEqual(other.workspaces.items, [
+    {
+      workspaceId: OTHER_MAIN,
+      name: 'Main',
+      role: 'default',
+      readOnly: false,
+      goalEligible: false,
+      reason: 'document_not_provisioned',
+    },
+    {
+      workspaceId: OTHER_BRANCH,
+      name: 'release',
+      role: 'other',
+      readOnly: true,
+      goalEligible: false,
+      reason: 'document_not_provisioned',
+    },
+  ]);
+  assert.deepEqual(kinds(s).slice(before), ['workspaces']);
+  // Without a prior listing the default workspace comes from the R0 label read.
+  const unlisted = '5'.repeat(24);
+  s.rest.data.documents.set(unlisted, {id: unlisted, name: 'Unlisted', defaultWorkspace: {id: '6'.repeat(24)}});
+  s.rest.data.documentWorkspaces.set(unlisted, [
+    {id: '7'.repeat(24), name: 'side'},
+    {id: '6'.repeat(24), name: 'Main'},
+  ]);
+  const fresh = await s.call('work-context-workspaces', {documentId: unlisted});
+  assert.deepEqual(
+    fresh.workspaces.items.map((w) => [w.workspaceId, w.role]),
+    [
+      ['6'.repeat(24), 'default'],
+      ['7'.repeat(24), 'other'],
+    ],
+  );
+  assert.deepEqual(kinds(s).slice(-2), ['workspaces', 'document']);
+  // A workspace of another document in the list, duplicates and a missing Primary fail closed.
+  s.rest.data.documentWorkspaces.set('8'.repeat(24), [{id: '9'.repeat(24), documentId: OTHER_DOC}]);
+  assert.equal((await s.call('work-context-workspaces', {documentId: '8'.repeat(24)})).code, 'provider_protocol_error');
+  s.rest.data.workspaces = [{id: CANDIDATE, documentId: D, name: 'goal-candidate'}];
+  // Cached for 30 s (§11.4): the earlier valid list is still served, then the malformed one fails closed.
+  const cached = await s.call('work-context-workspaces', {documentId: D, connectionRef: 'owner-rest'});
+  assert.equal(cached.ok, true, JSON.stringify(cached));
+  assert.deepEqual(cached.workspaces.items, result.workspaces.items);
+  s.h.advance(30_000);
+  assert.equal((await s.call('work-context-workspaces', {documentId: D})).code, 'provider_protocol_error');
+  for (const payload of [{}, {documentId: 'x'}, {documentId: D, extra: 1}]) {
+    assert.equal((await s.call('work-context-workspaces', payload)).code, 'invalid_arguments', JSON.stringify(payload));
+  }
+});
+
+test('W14 parts: per-studio R4 at m/{mv}, R1 recheck, name and part-number filter, order, reasons; equals part-search.json', async (t) => {
+  const s = await browseSetup(t);
+  const result = await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'clamp'});
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.deepEqual(result.parts, strip(await contract('part-search.json')));
+  // R1 → R2 → R3 (bound studio only) → R4 × studios → R1, every pinned read at the R1 microversion.
+  assert.deepEqual(kinds(s), ['r1', 'r2', 'r3', 'r4', 'r4', 'r1']);
+  assert(s.rest.calls.filter((c) => ['r2', 'r3', 'r4'].includes(c.kind)).every((c) => c.route.includes(`/m/${BASE}`)));
+  assert.deepEqual(
+    s.rest.calls.filter((c) => c.kind === 'r4').map((c) => c.route.split('/e/')[1]),
+    [E, FASTENERS],
+  );
+  // Part-number match, case-insensitive; the second search is served from the microversion cache (R1 twice only).
+  const byNumber = await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'fb-004'});
+  assert.deepEqual(
+    byNumber.parts.hits.map((h) => [h.name, h.partNumber, h.reason]),
+    [
+      ['Clamp bolt', 'FB-0042', 'element_not_provisioned'],
+      ['Washer', 'FB-0043', 'element_not_provisioned'],
+    ],
+  );
+  assert.deepEqual(kinds(s).slice(6), ['r1', 'r1']);
+  // No query: every part (bounded), same-name parts distinct by partId, kind and hidden flags kept.
+  const all = await s.call('work-context-parts', {documentId: D, workspaceId: P});
+  assert.deepEqual(
+    all.parts.hits.map((h) => [h.name, h.partId, h.selectable, h.reason, h.hidden]),
+    [
+      ['Bracket', 'JHD', true, null, false],
+      ['Bracket', 'JHH', true, null, true],
+      ['Clamp bolt', 'JFD', false, 'element_not_provisioned', false],
+      ['Clamp left', 'JIF', true, null, false],
+      ['Clamp right', 'JIG', true, null, false],
+      ['Cover surface', 'JKD', false, 'part_kind_unsupported', false],
+      ['Washer', 'JFH', false, 'element_not_provisioned', false],
+    ],
+  );
+  // One studio only; an element that is not a Part Studio at mv is refused.
+  const one = await s.call('work-context-parts', {documentId: D, workspaceId: P, elementId: FASTENERS});
+  assert.deepEqual(
+    one.parts.hits.map((h) => h.partId),
+    ['JFD', 'JFH'],
+  );
+  assert.equal(one.parts.studios.length, 2);
+  assert.equal(
+    (await s.call('work-context-parts', {documentId: D, workspaceId: P, elementId: '9'.repeat(24)})).code,
+    'target_not_part_studio',
+  );
+  // NFC: a decomposed query matches a composed name.
+  s.rest.data.elementParts.set(FASTENERS, [
+    {...s.rest.data.elementParts.get(FASTENERS)[0], name: 'Gehäuse', partId: 'JGH'},
+  ]);
+  s.rest.state.otherMicroversions.set(`${D}/${EXPERIMENT}`, MV2);
+  const nfc = await s.call('work-context-parts', {documentId: D, workspaceId: EXPERIMENT, query: 'GEHÄUSE'});
+  assert.deepEqual(
+    nfc.parts.hits.map((h) => [h.partId, h.reason]),
+    [['JGH', 'workspace_inspection_only']],
+  );
+  // Reason order: a non-Primary workspace never reads R3; every studio and hit says workspace_inspection_only.
+  assert.deepEqual(
+    nfc.parts.studios.map((st) => [st.reason, st.configurationChecked, st.goalEligible]),
+    [
+      ['workspace_inspection_only', false, false],
+      ['workspace_inspection_only', false, false],
+    ],
+  );
+  assert(!s.rest.calls.some((c) => c.kind === 'r3' && c.route.includes(`/m/${MV2}/`)));
+  // Equal partIds in different workspaces are different parts: the hit is tied to its own workspace and microversion.
+  assert.deepEqual([nfc.parts.workspaceId, nfc.parts.observedMicroversion], [EXPERIMENT, MV2]);
+  // The Candidate of the current goal says candidate_inspection_only.
+  await seedGoal(s.h, 'STOPPED', {candidateWorkspaceId: CANDIDATE});
+  const candidate = await s.call('work-context-parts', {documentId: D, workspaceId: CANDIDATE, query: 'clamp left'});
+  assert.deepEqual(
+    candidate.parts.hits.map((h) => [h.partId, h.selectable, h.reason]),
+    [['JIF', false, 'candidate_inspection_only']],
+  );
+  // A non-bound document: document_not_provisioned first.
+  const foreign = await s.call('work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_MAIN, query: 'clamp'});
+  assert(foreign.parts.hits.length > 0);
+  assert(foreign.parts.hits.every((h) => h.reason === 'document_not_provisioned' && !h.selectable));
+  assert(foreign.parts.studios.every((st) => st.reason === 'document_not_provisioned'));
+  // Configured bound studio: configuration_unsupported comes before part_kind_unsupported.
+  s.rest.state.otherMicroversions.clear();
+  s.rest.state.microversions = [MV2];
+  s.rest.data.parts.set(MV2, s.rest.data.parts.get(BASE));
+  s.rest.state.isConfigured = true;
+  const configured = await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'c'});
+  assert.deepEqual(
+    configured.parts.studios.map((st) => [st.reason, st.configurationChecked]),
+    [
+      ['configuration_unsupported', true],
+      ['element_not_provisioned', false],
+    ],
+  );
+  assert(
+    configured.parts.hits
+      .filter((h) => h.elementId === E)
+      .every((h) => h.reason === 'configuration_unsupported' && !h.selectable),
+  );
+  s.rest.state.isConfigured = false;
+});
+
+test('W14 parts: R1 recheck, truncation limits and malformed parts', async (t) => {
+  const s = await browseSetup(t);
+  s.rest.state.microversions = [BASE, MV2];
+  assert.equal(
+    (await s.call('work-context-parts', {documentId: D, workspaceId: P})).code,
+    'selection_observation_stale',
+  );
+  // More than 20 Part Studios: 20 are scanned, the result says part_search_truncated.
+  s.rest.state.microversions = ['1'.repeat(24)];
+  const studios = Array.from({length: 21}, (_, i) => ({
+    id: `${String(i).padStart(2, '0')}${'f'.repeat(22)}`,
+    name: `Studio ${i}`,
+    elementType: 'PARTSTUDIO',
+  }));
+  s.rest.data.elements = studios;
+  const r4Before = count(s, 'r4');
+  let result = await s.call('work-context-parts', {documentId: D, workspaceId: P});
+  assert.deepEqual([result.parts.truncated, result.parts.truncatedReason], [true, 'part_search_truncated']);
+  assert.equal(result.parts.studios.length, 21);
+  assert.equal(count(s, 'r4') - r4Before, 20);
+  // More than 100 hits.
+  s.rest.state.microversions = ['2'.repeat(24)];
+  s.rest.data.elements = [{id: FASTENERS, name: 'Fasteners', elementType: 'PARTSTUDIO'}];
+  const many = Array.from({length: 101}, (_, i) => ({
+    name: `Pin ${String(i).padStart(3, '0')}`,
+    partId: `P${i}`,
+    bodyType: 'solid',
+    isMesh: false,
+    isFlattenedBody: false,
+  }));
+  s.rest.data.elementParts.set(FASTENERS, many);
+  result = await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'pin'});
+  assert.deepEqual([result.parts.hits.length, result.parts.truncated], [100, true]);
+  assert.equal(result.parts.hits[0].name, 'Pin 000');
+  // A narrower query is not truncated.
+  result = await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'pin 05'});
+  assert.deepEqual([result.parts.hits.length, result.parts.truncated, result.parts.truncatedReason], [10, false, null]);
+  // More than 500 parts in one studio.
+  s.rest.state.microversions = ['3'.repeat(24)];
+  s.rest.data.elementParts.set(
+    FASTENERS,
+    Array.from({length: 501}, (_, i) => ({...many[0], partId: `Q${i}`, name: `Nut ${i}`})),
+  );
+  result = await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'zzz'});
+  assert.deepEqual([result.parts.hits.length, result.parts.truncated], [0, true]);
+  // An invalid partId fails the whole read.
+  s.rest.state.microversions = ['4'.repeat(24)];
+  s.rest.data.elementParts.set(FASTENERS, [{...many[0], partId: 'J H'}]);
+  assert.equal((await s.call('work-context-parts', {documentId: D, workspaceId: P})).code, 'provider_protocol_error');
+  for (const payload of [
+    {documentId: D},
+    {documentId: D, workspaceId: 'x'},
+    {documentId: D, workspaceId: P, elementId: 'x'},
+    {documentId: D, workspaceId: P, query: 'x'.repeat(101)},
+    {documentId: D, workspaceId: P, partId: 'JIF'},
+  ]) {
+    assert.equal((await s.call('work-context-parts', payload)).code, 'invalid_arguments', JSON.stringify(payload));
+  }
+});
+
+test('W15 preview of a non-bound part and of a Part Studio (R8) with the R1 rule of that workspace', async (t) => {
+  const s = await browseSetup(t);
+  // A non-bound Part Studio of the bound Primary.
+  const part = await s.call('work-context-preview', {elementId: FASTENERS, partId: 'JFD', observedMicroversion: BASE});
+  assert.equal(part.ok, true, JSON.stringify(part));
+  assert.equal(part.preview.partId, 'JFD');
+  assert(s.rest.calls.at(-1).route.startsWith(`parts/d/${D}/m/${BASE}/e/${FASTENERS}/partid/JFD/shadedviews`));
+  // A part of a non-bound document: R1 of that workspace decides.
+  const foreign = {
+    documentId: OTHER_DOC,
+    workspaceId: OTHER_MAIN,
+    elementId: FASTENERS,
+    partId: 'JFH',
+    observedMicroversion: BASE,
+  };
+  assert.equal((await s.call('work-context-preview', foreign)).ok, true);
+  const r1 = s.rest.calls.filter((c) => c.kind === 'r1').at(-1);
+  assert.equal(r1.route, `documents/d/${OTHER_DOC}/w/${OTHER_MAIN}/currentmicroversion`);
+  s.rest.state.otherMicroversions.set(`${OTHER_DOC}/${OTHER_MAIN}`, MV2);
+  assert.equal((await s.call('work-context-preview', foreign)).code, 'selection_observation_stale');
+  // The bound Primary's revision does not stand in for another workspace's revision.
+  assert.equal((await s.call('work-context-preview', {...foreign, observedMicroversion: MV2})).ok, true);
+  // Part Studio preview (no partId): R8 at 128 px, partId null.
+  const studio = await s.call('work-context-preview', {elementId: E, observedMicroversion: BASE});
+  assert.equal(studio.ok, true, JSON.stringify(studio));
+  assert.deepEqual([studio.preview.partId, studio.preview.mimeType], [null, 'image/png']);
+  assert.equal(Buffer.from(studio.preview.dataBase64, 'base64').readUInt32BE(16), 128);
+  assert(s.rest.calls.at(-1).route.startsWith(`partstudios/d/${D}/m/${BASE}/e/${E}/shadedviews`));
+  // R8 failures and a wrongly sized studio image are preview_unavailable, never a substitute.
+  s.rest.state.fail.r8 = 500;
+  assert.equal(
+    (await s.call('work-context-preview', {elementId: FASTENERS, observedMicroversion: BASE})).code,
+    'preview_unavailable',
+  );
+  delete s.rest.state.fail.r8;
+  s.rest.state.studioImage = png(256);
+  assert.equal(
+    (await s.call('work-context-preview', {elementId: FASTENERS, observedMicroversion: BASE})).code,
+    'preview_unavailable',
+  );
+  // A non-bound document needs its workspace; inputs are strict.
+  for (const payload of [
+    {documentId: OTHER_DOC, elementId: FASTENERS, observedMicroversion: BASE},
+    {documentId: 'x', workspaceId: OTHER_MAIN, elementId: FASTENERS, observedMicroversion: BASE},
+    {elementId: E, partId: 'JIF', observedMicroversion: BASE, query: 'x'},
+  ]) {
+    assert.equal((await s.call('work-context-preview', payload)).code, 'invalid_arguments', JSON.stringify(payload));
+  }
+  // Preview writes nothing.
+  assert.equal(await readRecordFile(s.h), undefined);
+  assert(s.rest.calls.every((c) => c.method === 'GET'));
+});
+
+test('W16 adopt of any hit outside §1 → selection_target_not_allowed, record unchanged', async (t) => {
+  const s = await browseSetup(t);
+  await adoptJif(s);
+  const previous = await readRecordFile(s.h);
+  s.rest.data.workspaces = await recorded('workspaces-browse.json');
+  const searches = [
+    {documentId: D, workspaceId: P, query: 'clamp bolt'},
+    {documentId: D, workspaceId: EXPERIMENT, query: 'clamp'},
+    {documentId: OTHER_DOC, workspaceId: OTHER_MAIN, query: 'clamp'},
+  ];
+  let tried = 0;
+  for (const search of searches) {
+    const {parts} = await s.call('work-context-parts', search);
+    for (const hit of parts.hits) {
+      assert.equal(hit.selectable, false, JSON.stringify(hit));
+      const result = await s.call(
+        'work-context-adopt',
+        await adoptRequest({
+          expectedSelectionRevision: 1,
+          documentId: parts.documentId,
+          workspaceId: parts.workspaceId,
+          elementId: hit.elementId,
+          partId: hit.partId,
+          observedMicroversion: parts.observedMicroversion,
+        }),
+      );
+      assert.deepEqual([result.ok, result.code], [false, 'selection_target_not_allowed'], JSON.stringify(hit));
+      assert.equal(await readRecordFile(s.h), previous);
+      tried += 1;
+    }
+  }
+  assert(tried >= 5, String(tried));
+});
+
+// A dashboard whose runtime lifecycle registrations are captured (dispose of the browsing cache).
+function lifecycleDashboard(s) {
+  const actions = [];
+  const lifecycles = [];
+  registerDashboard(
+    {
+      session: {controls: {registerSessionAction: (a) => actions.push(a)}},
+      registerHttpRoute: () => {},
+      lifecycle: {registerRuntimeLifecycle: (l) => lifecycles.push(l)},
+      runtime: {state: {resolveStateDir: () => s.h.root}, config: {current: () => ({})}},
+    },
+    s.config,
+    undefined,
+    s.h.ctx.fetcher,
+    s.h.now,
+  );
+  const call = async (id, payload = {}) =>
+    (await actions.find((a) => a.id === id).handler({payload, client: {scopes: READ_ADMIN}})).result;
+  return {call, lifecycles};
+}
+
+test('W17 cache: hit within TTL, dropped on authorization change, reconnect, disconnect and dispose; one read in flight', async (t) => {
+  const s = await browseSetup(t);
+  const documents = () => s.call('work-context-documents', {query: 'mount'});
+  await documents();
+  await documents();
+  assert.equal(count(s, 'r6'), 1);
+  // TTL 60 s for R6.
+  s.h.advance(59_999);
+  await documents();
+  assert.equal(count(s, 'r6'), 1);
+  s.h.advance(1);
+  await documents();
+  assert.equal(count(s, 'r6'), 2);
+  // TTL 30 s for R7.
+  await s.call('work-context-workspaces', {documentId: D});
+  s.h.advance(29_999);
+  await s.call('work-context-workspaces', {documentId: D});
+  assert.equal(count(s, 'workspaces'), 1);
+  s.h.advance(1);
+  await s.call('work-context-workspaces', {documentId: D});
+  assert.equal(count(s, 'workspaces'), 2);
+  // Microversion-keyed reads (R2/R3/R4) are reused; R1 is always read.
+  await s.call('work-context-parts', {documentId: D, workspaceId: P});
+  await s.call('work-context-parts', {documentId: D, workspaceId: P, query: 'x'});
+  assert.deepEqual([count(s, 'r2'), count(s, 'r3'), count(s, 'r4'), count(s, 'r1')], [1, 1, 2, 4]);
+  // Authorization change: a fresh partition.
+  const original = s.config();
+  s.setConfig(
+    parseConfig({
+      bindings: [binding],
+      liveReads: true,
+      goals: {enabled: true, approvalDirectory: join(s.h.root, 'approval-2')},
+    }),
+  );
+  await documents();
+  assert.equal(count(s, 'r6'), 3);
+  await documents();
+  assert.equal(count(s, 'r6'), 3);
+  // Reconnect (another access token): a fresh partition.
+  await saveToken(s.h.root, binding, 'fixture-access-reconnected-DO-NOT-LOG');
+  await documents();
+  assert.equal(count(s, 'r6'), 4);
+  // Disconnect: nothing cached is served.
+  const store = await credentials(s.h.root, binding.connectionRef, connectionOwner(binding));
+  await store.save(null);
+  assert.equal((await documents()).code, 'reconnect_required');
+  assert.equal((await s.call('work-context-parts', {documentId: D, workspaceId: P})).code, 'reconnect_required');
+  assert.equal(count(s, 'r6'), 4);
+  await saveToken(s.h.root, binding, 'fixture-access-reconnected-DO-NOT-LOG');
+  s.setConfig(original);
+  // Live reads off: no cached data either.
+  s.setConfig(parseConfig({...original, liveReads: false}));
+  assert.equal((await documents()).code, 'live_reads_disabled');
+  s.setConfig(original);
+  // dispose clears the plugin instance's cache.
+  const d = lifecycleDashboard(s);
+  await d.call('work-context-documents', {query: 'dispose'});
+  await d.call('work-context-documents', {query: 'dispose'});
+  assert.equal(count(s, 'r6'), 5);
+  const lifecycle = d.lifecycles.find((l) => l.id === 'work-context-browse-cache');
+  await lifecycle.dispose();
+  await d.call('work-context-documents', {query: 'dispose'});
+  assert.equal(count(s, 'r6'), 6);
+  await lifecycle.cleanup({reason: 'reset'});
+  await d.call('work-context-documents', {query: 'dispose'});
+  assert.equal(count(s, 'r6'), 7);
+  // One provider read in flight per connection, even with concurrent browsing requests.
+  s.rest.state.maxInFlight = 0;
+  s.rest.state.onRequest = () => new Promise((resolve) => setTimeout(resolve, 2));
+  const results = await Promise.all([
+    s.call('work-context-documents', {query: 'parallel'}),
+    s.call('work-context-workspaces', {documentId: OTHER_DOC}),
+    s.call('work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_MAIN}),
+    s.call('work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_MAIN}),
+    s.call('work-context-preview', {elementId: E, partId: 'JHD', observedMicroversion: BASE}),
+  ]);
+  assert(
+    results.every((r) => r.ok),
+    JSON.stringify(results.map((r) => r.code)),
+  );
+  assert.equal(s.rest.state.maxInFlight, 1);
+  // The second identical parts search was served from the cache after the first finished.
+  assert.equal(s.rest.calls.filter((c) => c.kind === 'r4' && c.route.startsWith(`parts/d/${OTHER_DOC}/`)).length, 2);
+  // Cached data never leaves memory: no browsing file in the state directory.
+  const files = await readdir(join(s.h.root, 'claw-onshape'), {recursive: true});
+  assert(!files.some((f) => /browse|cache|documents/.test(f)), JSON.stringify(files));
+});
+
+test('W18 402 → provider_quota_exhausted, 403/404 on a listed document → document_not_accessible, 429 without retry', async (t) => {
+  const s = await browseSetup(t);
+  const cases = [
+    ['r6', 402, 'work-context-documents', {query: 'a'}, 'provider_quota_exhausted'],
+    ['r6', 429, 'work-context-documents', {query: 'b'}, 'provider_rate_limited'],
+    ['workspaces', 403, 'work-context-workspaces', {documentId: OTHER_DOC}, 'document_not_accessible'],
+    ['workspaces', 404, 'work-context-workspaces', {documentId: '5'.repeat(24)}, 'document_not_accessible'],
+    ['workspaces', 402, 'work-context-workspaces', {documentId: '6'.repeat(24)}, 'provider_quota_exhausted'],
+    ['r1', 404, 'work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_MAIN}, 'document_not_accessible'],
+    ['r1', 403, 'work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_BRANCH}, 'document_not_accessible'],
+    ['r1', 429, 'work-context-parts', {documentId: D, workspaceId: EXPERIMENT}, 'provider_rate_limited'],
+    ['r2', 403, 'work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_MAIN}, 'document_not_accessible'],
+    ['r4', 402, 'work-context-parts', {documentId: OTHER_DOC, workspaceId: OTHER_MAIN}, 'provider_quota_exhausted'],
+    [
+      'r1',
+      404,
+      'work-context-preview',
+      {documentId: OTHER_DOC, workspaceId: OTHER_MAIN, elementId: E, observedMicroversion: BASE},
+      'document_not_accessible',
+    ],
+    // The bound Primary keeps its 1.0 preview code for a missing document.
+    ['r1', 404, 'work-context-preview', {elementId: E, observedMicroversion: BASE}, 'provider_not_found'],
+  ];
+  for (const [kind, status, action, payload, code] of cases) {
+    const before = count(s, kind);
+    s.rest.state.fail[kind] = status;
+    const result = await s.call(action, payload);
+    delete s.rest.state.fail[kind];
+    assert.deepEqual([result.ok, result.code], [false, code], `${kind} ${status} ${action}`);
+    // Exactly one failing read: no automatic retry.
+    assert.equal(count(s, kind) - before, 1, `${kind} ${status} retried`);
+    assert(Object.hasOwn(messages, code), code);
+  }
+  // Existing callers keep their codes: the catalog still reports 402 as provider_unavailable (http.ts unchanged).
+  s.rest.state.fail.r2 = 402;
+  assert.equal((await s.call('work-context-catalog')).code, 'provider_unavailable');
+  delete s.rest.state.fail.r2;
+  // Failures are not cached: the same read succeeds afterwards.
+  assert.equal((await s.call('work-context-documents', {query: 'a'})).ok, true);
+});
+
+test('B6 browsing is dashboard-only: no agent tool or status path reaches the browsing reads', async () => {
+  const index = await readFile(new URL('../dist/index.js', import.meta.url), 'utf8');
+  for (const name of ['workContextDocuments', 'workContextWorkspaces', 'workContextParts', 'documentSearch']) {
+    assert(!index.includes(name), name);
+  }
+  const manifest = JSON.parse(await readFile(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
+  assert(!JSON.stringify(manifest.contracts?.tools ?? []).includes('work-context'));
+});
+
+test('W17 BrowseCache: a superseded scope neither reads nor writes; LRU bounds by entries and bytes; TTL', async () => {
+  const {BrowseCache, MV_CACHE_ENTRIES, MV_CACHE_BYTES} = await import('../dist/work-context-cache.js');
+  let clock = 0;
+  const cache = new BrowseCache(() => clock);
+  const old = cache.access('owner-rest', 'scope-1');
+  let release;
+  const pending = old.pinned('k', () => new Promise((resolve) => (release = resolve)));
+  // The authorization changed while the old read was in flight.
+  const fresh = cache.access('owner-rest', 'scope-2');
+  release('stale-value');
+  assert.equal(await pending, 'stale-value');
+  let loads = 0;
+  assert.equal(
+    await fresh.pinned('k', async () => {
+      loads += 1;
+      return 'fresh-value';
+    }),
+    'fresh-value',
+  );
+  assert.equal(loads, 1);
+  // The old scope cannot read the new data either.
+  assert.equal(await old.pinned('k', async () => 'old-load'), 'old-load');
+  // Partitions are per connection.
+  assert.equal(await cache.access('other-ref', 'scope-2').pinned('k', async () => 'other'), 'other');
+  // Entry bound.
+  const lru = cache.access('lru', 's');
+  for (let i = 0; i <= MV_CACHE_ENTRIES; i += 1) {
+    await lru.pinned(`e${i}`, async () => i);
+  }
+  assert.equal(await lru.pinned('e0', async () => 'reloaded'), 'reloaded');
+  assert.equal(await lru.pinned(`e${MV_CACHE_ENTRIES}`, async () => 'reloaded'), MV_CACHE_ENTRIES);
+  // Byte bound: two half-size buffers evict the oldest; an oversized value is never stored.
+  const bytes = cache.access('bytes', 's');
+  await bytes.pinned('a', async () => Buffer.alloc(MV_CACHE_BYTES / 2));
+  await bytes.pinned('b', async () => Buffer.alloc(MV_CACHE_BYTES / 2));
+  await bytes.pinned('c', async () => Buffer.alloc(1));
+  assert.equal(await bytes.pinned('a', async () => 'evicted'), 'evicted');
+  await bytes.pinned('huge', async () => Buffer.alloc(MV_CACHE_BYTES + 1));
+  assert.equal(await bytes.pinned('huge', async () => 'not-stored'), 'not-stored');
+  // TTL and clear().
+  const timed = cache.access('ttl', 's');
+  await timed.timed('t', 10, async () => 1);
+  clock = 9;
+  assert.equal(await timed.timed('t', 10, async () => 2), 1);
+  clock = 10;
+  assert.equal(await timed.timed('t', 10, async () => 3), 3);
+  cache.clear();
+  assert.equal(await cache.access('ttl', 's').timed('t', 10, async () => 4), 4);
+  // A failing read does not block the per-connection queue.
+  const queue = cache.access('queue', 's');
+  await assert.rejects(queue.exclusive(async () => assert.fail('boom')));
+  assert.equal(await queue.exclusive(async () => 'next'), 'next');
 });

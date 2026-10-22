@@ -13,6 +13,14 @@ import {userError} from './readiness.ts';
 import type {
   AdoptedBy,
   Catalog,
+  DocumentFilter,
+  DocumentPage,
+  DocumentSummary,
+  PartRow,
+  PartSearch,
+  ScannedStudio,
+  WorkspaceList,
+  WorkspaceSummary,
   CatalogPart,
   GoalFocus,
   Interlock,
@@ -21,8 +29,25 @@ import type {
   SelectionRecord,
   WorkContextView,
 } from './work-context.ts';
-import {bindingKey, catalogView, partCheck, selectionInBounds, validPartId, workContextView} from './work-context.ts';
+import {
+  bindingKey,
+  catalogView,
+  DOCUMENT_FILTER,
+  DOCUMENT_PAGE_SIZE,
+  documentPageView,
+  normalizeQuery,
+  partCheck,
+  partSearchView,
+  STUDIO_SCAN_LIMIT,
+  selectionInBounds,
+  validPartId,
+  workContextView,
+  workspaceListView,
+} from './work-context.ts';
 import {selectionStore} from './work-context-store.ts';
+import type {BrowseAccess} from './work-context-cache.ts';
+import {DOCUMENTS_TTL_MS, uncachedAccess, WORKSPACES_TTL_MS} from './work-context-cache.ts';
+import {ProviderHttpError} from './http.ts';
 
 // OpenClaw 2026.9.9 plugin JSON: 65,536 characters per string (dashboard.ts); leave headroom.
 export const PREVIEW_BASE64_MAX_CHARS = 65_000;
@@ -37,6 +62,20 @@ export type WorkContextClient = {
   configuredAt(binding: Binding, microversionId: string): Promise<boolean>;
   partsAt(binding: Binding, microversionId: string): Promise<CatalogPart[]>;
   partPreview(binding: Binding, microversionId: string, partId: string): Promise<Buffer>;
+  // §11.1 browsing reads (R6, R0 label, R7, R1–R5 and R8 for any listed document/workspace/Part Studio).
+  documentSearch(
+    query: string,
+    offset: number,
+    filter: number | undefined,
+  ): Promise<{documents: DocumentSummary[]; hasMore: boolean}>;
+  documentLabel(documentId: string): Promise<DocumentSummary>;
+  documentWorkspaces(documentId: string): Promise<WorkspaceSummary[]>;
+  workspaceMicroversion(documentId: string, workspaceId: string): Promise<string>;
+  studiosAt(documentId: string, microversionId: string): Promise<PartStudio[]>;
+  configurationAt(documentId: string, microversionId: string, elementId: string): Promise<boolean>;
+  partRowsAt(documentId: string, microversionId: string, elementId: string): Promise<PartRow[]>;
+  partPreviewAt(documentId: string, microversionId: string, elementId: string, partId: string): Promise<Buffer>;
+  studioPreviewAt(documentId: string, microversionId: string, elementId: string): Promise<Buffer>;
 };
 export type WorkContextDeps = {
   stateDir: string;
@@ -50,8 +89,16 @@ export type WorkContextDeps = {
   readGuard: () => void;
   // Late-reply fence: the access token used by the reads is still the stored one.
   fence: () => void | Promise<void>;
+  // §11.4 cache partition of this connection, bound to the request's scope; absent = no reuse.
+  browse?: BrowseAccess;
 };
-export type Preview = {mimeType: 'image/png'; dataBase64: string; partId: string; observedMicroversion: string};
+// partId is null for a Part Studio preview (§11.2, R8).
+export type Preview = {
+  mimeType: 'image/png';
+  dataBase64: string;
+  partId: string | null;
+  observedMicroversion: string;
+};
 
 const NO_INTERLOCK: Interlock = {blocked: false, code: null, goalId: null};
 const ADOPT_KEYS = [
@@ -225,31 +272,6 @@ function strictInput(payload: unknown, keys: readonly string[]): Record<string, 
     return fail('invalid_arguments');
   }
   return payload;
-}
-
-// §4 work-context-preview: R1 must still equal observedMicroversion; R5 failures are preview_unavailable.
-export async function workContextPreview(deps: WorkContextDeps, payload: unknown): Promise<Preview> {
-  const {binding, client} = deps;
-  const input = strictInput(payload, ['connectionRef', 'elementId', 'partId', 'observedMicroversion']);
-  if (!hex24(input.elementId) || !validPartId(input.partId) || !hex24(input.observedMicroversion)) {
-    return fail('invalid_arguments');
-  }
-  const partId = input.partId;
-  const observedMicroversion = input.observedMicroversion;
-  if (input.elementId !== boundElement(binding)) {
-    return fail('selection_observation_stale');
-  }
-  const current = await read(deps, () => client.primaryMicroversion(binding));
-  if (current !== observedMicroversion) {
-    return fail('selection_observation_stale');
-  }
-  const bytes = await read(deps, () => client.partPreview(binding, observedMicroversion, partId));
-  await deps.fence();
-  const dataBase64 = bytes.toString('base64');
-  if (dataBase64.length > PREVIEW_BASE64_MAX_CHARS) {
-    return fail('preview_unavailable');
-  }
-  return {mimeType: 'image/png', dataBase64, partId, observedMicroversion};
 }
 
 // Status-time observation of a stored selection (§5.2). Read failures become `unverified` with the read error code;
@@ -488,4 +510,262 @@ export async function goalFocus(
     elementId: selection.elementId,
     selectionRevision: record.selectionRevision,
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// §11 browsing (work-context-1.1.0-draft). operator.read, GET only, no write of any kind. Every method runs serialized
+// per connection (one browsing read sequence in flight) and maps provider statuses as §11.5 requires.
+
+type BrowseRead = {
+  // R7/R1/R2 (and the R0 label read) of a listed document: 403/404 → document_not_accessible.
+  documentScoped?: boolean;
+};
+
+// §11.5 mapping inside the browsing methods only; existing callers of http.ts keep their codes.
+function browseError(e: unknown, options: BrowseRead): unknown {
+  if (e instanceof ProviderHttpError) {
+    if (e.status === 402) {
+      return new Error('provider_quota_exhausted');
+    }
+    if (options.documentScoped && (e.status === 403 || e.status === 404)) {
+      return new Error('document_not_accessible');
+    }
+  }
+  return e;
+}
+
+async function browseRead<T>(deps: WorkContextDeps, action: () => Promise<T>, options: BrowseRead = {}): Promise<T> {
+  try {
+    return await read(deps, action);
+  } catch (e) {
+    throw browseError(e, options);
+  }
+}
+
+const access = (deps: WorkContextDeps): BrowseAccess => deps.browse ?? uncachedAccess();
+
+function hex24Input(value: unknown): string {
+  return hex24(value) ? value : fail('invalid_arguments');
+}
+
+// Candidate of the binding's current goal; only meaningful inside the bound document.
+async function candidateOf(deps: WorkContextDeps, documentId: string): Promise<string | null> {
+  if (documentId !== deps.binding.documentId) {
+    return null;
+  }
+  try {
+    return await currentCandidate(deps.stateDir, deps.binding);
+  } catch {
+    return fail('goal_state_invalid');
+  }
+}
+
+// R6 page through the cache (TTL 60 s); also remembers each document's default workspace for R7 roles.
+async function documentPage(deps: WorkContextDeps, query: string, offset: number, filter: number | undefined) {
+  const cache = access(deps);
+  const page = await cache.timed(`r6:${filter ?? '-'}:${offset}:${query}`, DOCUMENTS_TTL_MS, () =>
+    browseRead(deps, () => deps.client.documentSearch(query, offset, filter)),
+  );
+  for (const d of page.documents) {
+    await cache.timed(`r0:${d.documentId}`, DOCUMENTS_TTL_MS, async () => d);
+  }
+  return page;
+}
+
+// R0 label read of one document, through the cache (an R6 hit of the same connection serves it).
+function documentLabel(deps: WorkContextDeps, documentId: string): Promise<DocumentSummary> {
+  return access(deps).timed(`r0:${documentId}`, DOCUMENTS_TTL_MS, () =>
+    browseRead(deps, () => deps.client.documentLabel(documentId), {documentScoped: true}),
+  );
+}
+
+// §11.2 work-context-documents.
+export async function workContextDocuments(deps: WorkContextDeps, payload: unknown): Promise<DocumentPage> {
+  deps.guard();
+  const input = strictInput(payload, ['connectionRef', 'query', 'offset', 'filter']);
+  const query = normalizeQuery(input.query);
+  const offset = input.offset ?? 0;
+  if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0 || offset % DOCUMENT_PAGE_SIZE) {
+    return fail('invalid_arguments');
+  }
+  let filter: number | undefined;
+  if (input.filter !== undefined) {
+    if (typeof input.filter !== 'string' || !Object.hasOwn(DOCUMENT_FILTER, input.filter)) {
+      return fail('invalid_arguments');
+    }
+    filter = DOCUMENT_FILTER[input.filter as DocumentFilter];
+  }
+  boundElement(deps.binding);
+  return access(deps).exclusive(async () => {
+    const page = await documentPage(deps, query, offset, filter);
+    // Page 0 pins the bound document; its labels come from this page or from the R0 label read.
+    const bound =
+      offset === 0
+        ? (page.documents.find((d) => d.documentId === deps.binding.documentId) ??
+          (await documentLabel(deps, deps.binding.documentId)))
+        : null;
+    await deps.fence();
+    return documentPageView({
+      binding: deps.binding,
+      bound,
+      documents: page.documents,
+      offset,
+      hasMore: page.hasMore,
+      query,
+      observedAt: deps.now(),
+    });
+  });
+}
+
+// §11.2 work-context-workspaces.
+export async function workContextWorkspaces(deps: WorkContextDeps, payload: unknown): Promise<WorkspaceList> {
+  deps.guard();
+  const input = strictInput(payload, ['connectionRef', 'documentId']);
+  const documentId = hex24Input(input.documentId);
+  boundElement(deps.binding);
+  return access(deps).exclusive(async () => {
+    const workspaces = await access(deps).timed(`r7:${documentId}`, WORKSPACES_TTL_MS, () =>
+      browseRead(deps, () => deps.client.documentWorkspaces(documentId), {documentScoped: true}),
+    );
+    // The provider default workspace is a label of non-bound documents only.
+    const defaultWorkspaceId =
+      documentId === deps.binding.documentId ? null : (await documentLabel(deps, documentId)).defaultWorkspaceId;
+    const candidateWorkspaceId = await candidateOf(deps, documentId);
+    await deps.fence();
+    return workspaceListView({
+      binding: deps.binding,
+      documentId,
+      workspaces,
+      defaultWorkspaceId,
+      candidateWorkspaceId,
+      observedAt: deps.now(),
+    });
+  });
+}
+
+// R2 at mv through the microversion cache (immutable at mv).
+function studiosAt(deps: WorkContextDeps, documentId: string, mv: string): Promise<PartStudio[]> {
+  return access(deps).pinned(`r2:${documentId}:${mv}`, () =>
+    browseRead(deps, () => deps.client.studiosAt(documentId, mv), {documentScoped: true}),
+  );
+}
+
+// §11.2 work-context-parts: R1 → R2 → (R3 bound studio) → R4 × studios → R1 recheck, all in one workspace.
+export async function workContextParts(deps: WorkContextDeps, payload: unknown): Promise<PartSearch> {
+  deps.guard();
+  const input = strictInput(payload, ['connectionRef', 'documentId', 'workspaceId', 'query', 'elementId']);
+  const documentId = hex24Input(input.documentId);
+  const workspaceId = hex24Input(input.workspaceId);
+  const elementId = input.elementId === undefined ? undefined : hex24Input(input.elementId);
+  const query = normalizeQuery(input.query);
+  const {binding} = deps;
+  const bound = boundElement(binding);
+  return access(deps).exclusive(async () => {
+    const cache = access(deps);
+    const candidateWorkspaceId = await candidateOf(deps, documentId);
+    const mv = await browseRead(deps, () => deps.client.workspaceMicroversion(documentId, workspaceId), {
+      documentScoped: true,
+    });
+    const studios = await studiosAt(deps, documentId, mv);
+    if (elementId !== undefined && !studios.some((s) => s.elementId === elementId)) {
+      return fail('target_not_part_studio');
+    }
+    const selected = elementId === undefined ? studios : studios.filter((s) => s.elementId === elementId);
+    const scanned: ScannedStudio[] = [];
+    const inBounds = documentId === binding.documentId && workspaceId === binding.primaryWorkspaceId;
+    for (const studio of selected.slice(0, STUDIO_SCAN_LIMIT)) {
+      // R3 only where adopt could accept a part (§1): the bound studio in the bound Primary.
+      const configured =
+        inBounds && studio.elementId === bound
+          ? await cache.pinned(`r3:${documentId}:${mv}:${studio.elementId}`, () =>
+              browseRead(deps, () => deps.client.configurationAt(documentId, mv, studio.elementId)),
+            )
+          : null;
+      const parts = await cache.pinned(`r4:${documentId}:${mv}:${studio.elementId}`, () =>
+        browseRead(deps, () => deps.client.partRowsAt(documentId, mv, studio.elementId)),
+      );
+      scanned.push({studio, configured, parts});
+    }
+    const recheck = await browseRead(deps, () => deps.client.workspaceMicroversion(documentId, workspaceId), {
+      documentScoped: true,
+    });
+    if (recheck !== mv) {
+      return fail('selection_observation_stale');
+    }
+    await deps.fence();
+    return partSearchView({
+      binding,
+      documentId,
+      workspaceId,
+      candidateWorkspaceId,
+      observedMicroversion: mv,
+      query,
+      studios,
+      scanned,
+      studiosTruncated: selected.length > STUDIO_SCAN_LIMIT,
+      observedAt: deps.now(),
+    });
+  });
+}
+
+// §4 / §11.2 work-context-preview. documentId/workspaceId default to the binding; the element may be any Part Studio
+// of that workspace at observedMicroversion, which MUST equal R1 of that workspace (selection_observation_stale).
+// Without partId the Part Studio preview (R8) is returned. R5/R8 failures are preview_unavailable (CR-5).
+export async function workContextPreview(deps: WorkContextDeps, payload: unknown): Promise<Preview> {
+  const {binding, client} = deps;
+  const input = strictInput(payload, [
+    'connectionRef',
+    'documentId',
+    'workspaceId',
+    'elementId',
+    'partId',
+    'observedMicroversion',
+  ]);
+  if (
+    !hex24(input.elementId) ||
+    (input.partId !== undefined && !validPartId(input.partId)) ||
+    !hex24(input.observedMicroversion) ||
+    (input.documentId !== undefined && !hex24(input.documentId)) ||
+    (input.workspaceId !== undefined && !hex24(input.workspaceId))
+  ) {
+    return fail('invalid_arguments');
+  }
+  const documentId = input.documentId ?? binding.documentId;
+  // A workspace of a non-bound document must be named; the Primary default applies to the bound document only.
+  if (input.workspaceId === undefined && documentId !== binding.documentId) {
+    return fail('invalid_arguments');
+  }
+  const workspaceId = input.workspaceId ?? binding.primaryWorkspaceId;
+  const elementId = input.elementId;
+  const partId = input.partId ?? null;
+  const observedMicroversion = input.observedMicroversion;
+  const defaultTarget = documentId === binding.documentId && workspaceId === binding.primaryWorkspaceId;
+  return access(deps).exclusive(async () => {
+    // The bound Primary keeps its 1.0 read codes; a listed document maps 403/404 to document_not_accessible.
+    const current = await browseRead(deps, () => client.workspaceMicroversion(documentId, workspaceId), {
+      documentScoped: !defaultTarget,
+    });
+    if (current !== observedMicroversion) {
+      return fail('selection_observation_stale');
+    }
+    const studios = await studiosAt(deps, documentId, observedMicroversion);
+    if (!studios.some((s) => s.elementId === elementId)) {
+      return fail('selection_observation_stale');
+    }
+    const bytes = await access(deps).pinned(
+      `preview:${documentId}:${observedMicroversion}:${elementId}:${partId ?? ''}`,
+      () =>
+        read(deps, () =>
+          partId === null
+            ? client.studioPreviewAt(documentId, observedMicroversion, elementId)
+            : client.partPreviewAt(documentId, observedMicroversion, elementId, partId),
+        ),
+    );
+    await deps.fence();
+    const dataBase64 = bytes.toString('base64');
+    if (dataBase64.length > PREVIEW_BASE64_MAX_CHARS) {
+      return fail('preview_unavailable');
+    }
+    return {mimeType: 'image/png', dataBase64, partId, observedMicroversion};
+  });
 }

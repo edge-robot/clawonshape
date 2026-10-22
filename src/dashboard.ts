@@ -28,9 +28,15 @@ import {
   adoptWorkContext,
   clearWorkContext,
   workContextCatalog,
+  workContextDocuments,
+  workContextParts,
   workContextPreview,
   workContextStatus,
+  workContextWorkspaces,
 } from './work-context-service.ts';
+import {BrowseCache} from './work-context-cache.ts';
+import {bindingKey} from './work-context.ts';
+import {sha256Hex} from './goal-scope.ts';
 
 // OpenClaw 2026.9.9 plugin JSON: 65,536 chars/string, 262,144 serialized bytes.
 // Leave metadata/envelope headroom; larger images fail closed, without resizing evidence.
@@ -521,13 +527,19 @@ function registerGoalActions(
   }
 }
 
-// work-context.md §4. Input keys are strict (invalid_arguments); connectionRef resolves exactly one binding as in
-// workspace-context. Every response is {ok: true, ...} or {ok: false, code, message}.
+// work-context.md §4 and §11.2. Input keys are strict (invalid_arguments); connectionRef resolves exactly one binding
+// as in workspace-context. Every response is {ok: true, ...} or {ok: false, code, message}.
 const WORK_CONTEXT_ACTIONS = {
   'work-context-catalog': {scope: 'operator.read', keys: ['connectionRef']},
   'work-context-preview': {
     scope: 'operator.read',
-    keys: ['connectionRef', 'elementId', 'partId', 'observedMicroversion'],
+    keys: ['connectionRef', 'documentId', 'workspaceId', 'elementId', 'partId', 'observedMicroversion'],
+  },
+  'work-context-documents': {scope: 'operator.read', keys: ['connectionRef', 'query', 'offset', 'filter']},
+  'work-context-workspaces': {scope: 'operator.read', keys: ['connectionRef', 'documentId']},
+  'work-context-parts': {
+    scope: 'operator.read',
+    keys: ['connectionRef', 'documentId', 'workspaceId', 'query', 'elementId'],
   },
   'work-context-status': {scope: 'operator.read', keys: ['connectionRef']},
   'work-context-adopt': {
@@ -544,6 +556,13 @@ const WORK_CONTEXT_ACTIONS = {
   },
   'work-context-clear': {scope: 'operator.admin', keys: ['connectionRef', 'expectedSelectionRevision']},
 } as const;
+// Methods that use the §11.4 cache and per-connection serialization (the extended preview included).
+const BROWSE_ACTIONS: ReadonlySet<string> = new Set([
+  'work-context-documents',
+  'work-context-workspaces',
+  'work-context-parts',
+  'work-context-preview',
+]);
 const WORK_CONTEXT_PROPERTIES: Record<string, Record<string, string | number>> = {
   connectionRef: {type: 'string', pattern: '^[a-z][a-z0-9_-]{0,63}$'},
   expectedSelectionRevision: {type: 'integer', minimum: 0},
@@ -552,9 +571,19 @@ const WORK_CONTEXT_PROPERTIES: Record<string, Record<string, string | number>> =
   elementId: {type: 'string'},
   partId: {type: 'string'},
   observedMicroversion: {type: 'string'},
+  query: {type: 'string'},
+  offset: {type: 'integer', minimum: 0},
+  filter: {type: 'string'},
 };
 
 function registerWorkContextActions(api: OpenClawPluginApi, current: () => Config, now: () => number) {
+  // §11.4: browsing cache of this plugin instance, in memory only; dispose and host cleanup drop it.
+  const browseCache = new BrowseCache(now);
+  api.lifecycle.registerRuntimeLifecycle({
+    id: 'work-context-browse-cache',
+    dispose: () => browseCache.clear(),
+    cleanup: () => browseCache.clear(),
+  });
   for (const actionId of Object.keys(WORK_CONTEXT_ACTIONS) as (keyof typeof WORK_CONTEXT_ACTIONS)[]) {
     const {scope: required, keys} = WORK_CONTEXT_ACTIONS[actionId];
     api.session.controls.registerSessionAction({
@@ -634,6 +663,24 @@ function registerWorkContextActions(api: OpenClawPluginApi, current: () => Confi
               }
             },
           };
+          if (BROWSE_ACTIONS.has(actionId)) {
+            // Scope fingerprint: authorization snapshot, binding and the hash of the access token in use. A changed
+            // authorization, binding or token (refresh, disconnect/reconnect) selects a fresh, empty partition. The
+            // token is read first, so a disconnected connection fails before any cached data is served.
+            const token = await accessToken(store, initial.oauth, readGuard);
+            readGuard();
+            const scope = sha256Hex(JSON.stringify([snapshot, bindingKey(binding), sha256Hex(token)]));
+            deps.browse = browseCache.access(binding.connectionRef, scope);
+          }
+          if (actionId === 'work-context-documents') {
+            return response({ok: true, documents: await workContextDocuments(deps, input)});
+          }
+          if (actionId === 'work-context-workspaces') {
+            return response({ok: true, workspaces: await workContextWorkspaces(deps, input)});
+          }
+          if (actionId === 'work-context-parts') {
+            return response({ok: true, parts: await workContextParts(deps, input)});
+          }
           if (actionId === 'work-context-catalog') {
             return response({ok: true, catalog: await workContextCatalog(deps)});
           }

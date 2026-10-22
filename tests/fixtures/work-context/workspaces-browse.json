@@ -1,0 +1,5 @@
+[
+  {"id": "eeeeeeeeeeeeeeeeeeeeeeee", "documentId": "0123456789abcdef01234567", "name": "Main", "microversion": "aaaaaaaaaaaaaaaaaaaaaaaa", "isReadOnly": false, "protectionRule": "MERGE", "type": "workspace"},
+  {"id": "dddddddddddddddddddddddd", "documentId": "0123456789abcdef01234567", "name": "experiment", "microversion": "aaaaaaaaaaaaaaaaaaaaaaaa", "isReadOnly": false, "protectionRule": "OPEN", "type": "workspace"},
+  {"id": "cccccccccccccccccccccccc", "documentId": "0123456789abcdef01234567", "name": "goal-candidate", "microversion": "aaaaaaaaaaaaaaaaaaaaaaaa", "isReadOnly": false, "protectionRule": "OPEN", "type": "workspace"}
+]
