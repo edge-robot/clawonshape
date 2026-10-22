@@ -314,7 +314,10 @@ async function activeGoalRecord() {
 }
 
 test('GoalView of an ACTIVE goal after two OK dispatches has exactly the fixture keys and types (§9)', async () => {
-  const expected = await fixture('goal-workflow/goal-view/active.json');
+  const shared = await fixture('goal-workflow/goal-view/active.json');
+  // goal-1.2.0: target.focus is absent from the shared fixture; consumers treat an absent key as null (changelog).
+  assert(!('focus' in shared.target));
+  const expected = {...shared, target: {...shared.target, focus: null}};
   const record = await activeGoalRecord();
   const summary = {
     goalId: record.goalId,

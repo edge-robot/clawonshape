@@ -2,7 +2,7 @@
 // §12.2). No I/O and no clock: every time value is an input. The verification core is the seam that a Verifiable
 // Credential verifier replaces later (ADR-2026-10-21 D1); it does not depend on the dashboard.
 import {timingSafeEqual} from 'node:crypto';
-import type {GoalCondition, GoalScope} from './goal-scope.ts';
+import type {GoalCondition, GoalFocus, GoalScope} from './goal-scope.ts';
 import {canonicalFeatureHash, goalHash, GOAL_FEATURE_ID, GOAL_OPERATION, hex24, validateScope} from './goal-scope.ts';
 
 export type GoalState =
@@ -676,6 +676,8 @@ export type GoalView = {
     primaryWorkspaceId: string;
     candidateWorkspaceId: string | null;
     baseMicroversion: string;
+    // goal-1.2.0: the work-context focus of the scope, null without a selection.
+    focus: GoalFocus | null;
   };
   scope: {featureIds: string[]; operations: string[]; maxDispatches: number; lifetimeMs: number};
   progress: {
@@ -723,6 +725,7 @@ export function goalView(
       primaryWorkspaceId: record.binding.primaryWorkspaceId,
       candidateWorkspaceId: record.candidateWorkspaceId,
       baseMicroversion: record.scope.target.baseMicroversion,
+      focus: record.scope.focus ? {...record.scope.focus} : null,
     },
     scope: {
       featureIds: [...record.scope.featureIds],

@@ -56,12 +56,15 @@ import {
 import {approvalFileActive, goalStore, writeGoalGrant} from './goal-store.ts';
 import type {GoalStore} from './goal-store.ts';
 import {goalCapability, journalSummary} from './goal-mcp.ts';
+import type {GoalFocus} from './goal-scope.ts';
+import type {WorkContextClient} from './work-context-service.ts';
+import {goalFocus} from './work-context-service.ts';
 
 export type GoalClient = {
   goalFeatures(binding: Binding, workspaceId: string): Promise<FeaturesRead>;
   goalWorkspaceMicroversion(binding: Binding, workspaceId: string): Promise<string>;
   goalCandidateExists(binding: Binding, workspaceId: string): Promise<boolean>;
-};
+} & Pick<WorkContextClient, 'partStudiosAt' | 'configuredAt' | 'partsAt'>;
 // Existing candidate path (REST OAuth2Write), bound by the caller to the operator authority and the Primary source.
 export type CandidateCreation = {
   readAttempt(): Promise<CandidateAttempt | undefined>;
@@ -269,7 +272,7 @@ export async function proposeGoal(
   }
   const binding = goalBindingOf(ctx.binding);
   // Structural validation before any provider read; the base microversion is filled in after the read.
-  const draft = (baseMicroversion: string, candidate: GoalScope['candidate']): GoalScope =>
+  const draft = (baseMicroversion: string, candidate: GoalScope['candidate'], focus?: GoalFocus): GoalScope =>
     validateScope({
       version: 1,
       goalText: input.goalText,
@@ -288,8 +291,15 @@ export async function proposeGoal(
       lifetimeMs: lifetime(input.lifetimeMinutes),
       requester: {channel: ctx.binding.messageChannel, senderId: ctx.binding.requesterSenderId},
       origin: {channel: origin.channel, target: origin.target},
+      ...(focus ? {focus} : {}),
     });
   draft('0'.repeat(24), {mode: 'create', workspaceId: null});
+  // work-context.md §7: the focus of a valid selection, checked at the scope's base microversion (read under the lock).
+  const focusAt = async (baseMicroversion: string) => {
+    const focus = await goalFocus(ctx.stateDir, ctx.binding, ctx.client, baseMicroversion);
+    ctx.guard();
+    return focus;
+  };
   // Every referenced feature must exist in the Primary Part Studio (read, REST).
   const primary = await ctx.client.goalFeatures(ctx.binding, binding.primaryWorkspaceId);
   const present = new Set(primary.features.map((f) => f.featureId));
@@ -306,9 +316,10 @@ export async function proposeGoal(
       const candidate: GoalScope['candidate'] = existing.candidateWorkspaceId
         ? {mode: 'reuse', workspaceId: existing.candidateWorkspaceId}
         : {mode: 'create', workspaceId: null};
-      // renew = the confirmed scope unchanged: same target (base microversion) and same Candidate plan.
-      const unchanged = draft(existing.scope.target.baseMicroversion, existing.scope.candidate);
-      const fresh = draft(primary.microversionId, candidate);
+      // renew = the confirmed scope unchanged: same target (base microversion), Candidate plan and focus.
+      const existingBase = existing.scope.target.baseMicroversion;
+      const baseFocus = await focusAt(existingBase);
+      const unchanged = draft(existingBase, existing.scope.candidate, baseFocus);
       if (goalHash(unchanged) === existing.goalHash) {
         // renew: unchanged scope, new nonce (§3).
         assertEvent(existing, 'renew');
@@ -320,6 +331,8 @@ export async function proposeGoal(
         );
       }
       assertEvent(existing, 'revise');
+      const freshFocus = primary.microversionId === existingBase ? baseFocus : await focusAt(primary.microversionId);
+      const fresh = draft(primary.microversionId, candidate, freshFocus);
       if (referencedFeatureIds(fresh).some((id) => !present.has(id))) {
         return fail('invalid_arguments');
       }
@@ -339,13 +352,15 @@ export async function proposeGoal(
         'unchanged',
       );
     }
-    const scope = draft(primary.microversionId, {mode: 'create', workspaceId: null});
-    if (referencedFeatureIds(scope).some((id) => !present.has(id))) {
+    const unfocused = draft(primary.microversionId, {mode: 'create', workspaceId: null});
+    if (referencedFeatureIds(unfocused).some((id) => !present.has(id))) {
       return fail('invalid_arguments');
     }
     if ((await store.nonTerminal()).length) {
       return fail('goal_active_conflict');
     }
+    const focus = await focusAt(primary.microversionId);
+    const scope = focus ? draft(primary.microversionId, {mode: 'create', workspaceId: null}, focus) : unfocused;
     const created: GoalRecord = {
       goalId: randomUUID(),
       scopeRevision: 1,
