@@ -1,0 +1,33 @@
+{
+  "_comment": "work-context.md §11.3 DocumentPage, page 0, query 'mount': bound document pinned first",
+  "items": [
+    {
+      "documentId": "0123456789abcdef01234567",
+      "name": "Camera Mount",
+      "modifiedAt": "2026-10-22T10:00:00Z",
+      "bound": true,
+      "goalEligible": true,
+      "reason": null
+    },
+    {
+      "documentId": "1111111111111111111111aa",
+      "name": "Mount Bracket Library",
+      "modifiedAt": "2026-10-20T08:30:00Z",
+      "bound": false,
+      "goalEligible": false,
+      "reason": "document_not_provisioned"
+    },
+    {
+      "documentId": "2222222222222222222222bb",
+      "name": null,
+      "modifiedAt": null,
+      "bound": false,
+      "goalEligible": false,
+      "reason": "document_not_provisioned"
+    }
+  ],
+  "offset": 0,
+  "hasMore": true,
+  "query": "mount",
+  "observedAt": 1761140000000
+}

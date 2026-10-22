@@ -1,0 +1,31 @@
+{
+  "_comment": "work-context.md §11.3 WorkspaceList for the bound document",
+  "documentId": "0123456789abcdef01234567",
+  "items": [
+    {
+      "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+      "name": "Main",
+      "role": "primary",
+      "readOnly": false,
+      "goalEligible": true,
+      "reason": null
+    },
+    {
+      "workspaceId": "cccccccccccccccccccccccc",
+      "name": "goal-candidate",
+      "role": "candidate",
+      "readOnly": false,
+      "goalEligible": false,
+      "reason": "candidate_inspection_only"
+    },
+    {
+      "workspaceId": "dddddddddddddddddddddddd",
+      "name": "experiment",
+      "role": "other",
+      "readOnly": false,
+      "goalEligible": false,
+      "reason": "workspace_inspection_only"
+    }
+  ],
+  "observedAt": 1761140000000
+}

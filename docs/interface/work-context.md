@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Contract-Version | `work-context-1.0.0-draft` (requires `goal-workflow.md` ≥ `goal-1.2.0-draft`; no server contract change) |
-| Status | **draft**: contract-first, not implemented |
+| Contract-Version | `work-context-1.1.0-draft` (requires `goal-workflow.md` ≥ `goal-1.2.0-draft`; no server contract change) |
+| Status | **draft**: 1.0.0 implemented and deployed (0.3.0-rc.2); §11 browsing (1.1.0) contract-first, not implemented |
 | Owner | onshape-architekt (only the architect edits this file and `work-context-fixtures/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-2026-10-21: Task-scoped Onshape workspace and part selection", increment 1 |
 | Issues | [edge-robot/clawonshape#21](https://github.com/edge-robot/clawonshape/issues/21) (this contract, backend), [#17](https://github.com/edge-robot/clawonshape/issues/17) (selector UI, consumer), [#18](https://github.com/edge-robot/clawonshape/issues/18) (goal hand-off), [edge-robot/onshape-mcp#9](https://github.com/edge-robot/onshape-mcp/issues/9) (no server change in increment 1) |
@@ -277,6 +277,131 @@ and S9 belongs to #17; synthetic tests establish no live acceptance.
 | WC5 | Task-level ownership, sharing and retention | deferred; increment 2 contract |
 | WC6 | Selection across Part Studios / documents (needs MCP target provisioning) | G3 [#3](https://github.com/edge-robot/clawonshape/issues/3), [onshape-mcp#9](https://github.com/edge-robot/onshape-mcp/issues/9) |
 
+## 11. Browsing: documents, workspaces and part search (`work-context-1.1.0-draft`)
+
+Source: live acceptance 2026-10-22 (`docs/evidence/2026-10-22-work-context-live-acceptance.md`). The
+user rejected the increment-1 selector because document choice was a single preselected entry and
+part search only covered the bound Part Studio. The research report
+`docs/prompts/2026-10-22-onshape-catalog-research.report.md` gives the provider analysis; CR-9–CR-14
+from it are adopted here with the changes noted.
+
+**Authority (decided 2026-10-22).** The user asked for real listing. Listing documents, workspaces
+and parts is a read with the existing `OAuth2Read` scope and needs `operator.read`. It grants no new
+right: **adoption stays limited to the increment-1 bounds** (§1, §5 unchanged), because the MCP target
+is static (G3, #3). Everything outside the bounds is browsable and previewable as **inspection only**
+and says why. Document lists and search results are dashboard-only and never reach agent context.
+
+### 11.1 Additional provider reads
+
+| # | Purpose | Request |
+|---|---|---|
+| R6 | Document search, paged | `GET /api/v10/documents?q={q}&filter={f}&sortColumn=modifiedAt&sortOrder=desc&offset={n}&limit=20` (`getDocuments`) |
+| R7 | Workspaces of a listed document | `GET /api/v10/documents/d/{d}/workspaces` (`getDocumentWorkspaces`; the R0 read, now for any `d`) |
+| R8 | Part Studio preview | `GET /api/v10/partstudios/d/{d}/m/{mv}/e/{e}/shadedviews` (`getPartStudioShadedViews`), 128 px |
+| R1, R2, R4, R5 | as §2 | `{d}`, `{w}`, `{e}` MAY be any document, workspace or Part Studio that R6/R7/R2 listed in the same connection |
+
+- Parts are read **per Part Studio** (R4). `getPartsWMV` (`/parts/d/{d}/{wvm}/{wvmid}`) requires
+  `elementId` in OpenAPI 1.216 and 1.222 and is therefore not a workspace-wide shortcut.
+- No server-side part search exists. Part search is **document-first**: R6 finds documents by name,
+  then R7, then R1 → R2 → R4 × studios → R1 recheck in the chosen workspace, and the plugin filters by
+  `name` and `partNumber` (case-insensitive, NFC substring). No fan-out across documents.
+- R6/R7 have no revision. R1 → R2/R4 → R1 stays the fence for every workspace-level read.
+- Non-document items of R6 (`jsonType` other than `document-summary`) and trashed documents are
+  dropped. Only `id`, `name`, `modifiedAt` and `defaultWorkspace.id` reach the view; owner e-mail and
+  permission sets never do.
+
+### 11.2 Additional gateway methods
+
+All `operator.read`, GET only, unknown keys → `invalid_arguments`.
+
+| Action | Input | Result |
+|---|---|---|
+| `work-context-documents` | `{connectionRef?, query?: string 0..100, offset?: integer ≥ 0, multiple of 20, filter?: "recent" \| "mine" \| "shared"}` | `{ok, documents: DocumentPage}` |
+| `work-context-workspaces` | `{connectionRef?, documentId}` | `{ok, workspaces: WorkspaceList}` |
+| `work-context-parts` | `{connectionRef?, documentId, workspaceId, query?: string 0..100, elementId?}` | `{ok, parts: PartSearch}`; no `query` = all parts (bounded); `elementId` = one studio only |
+| `work-context-preview` (extended) | `{connectionRef?, documentId?, workspaceId?, elementId, partId?, observedMicroversion}` | as §4; `documentId`/`workspaceId` default to the binding; without `partId` → Part Studio preview (R8). The element may be any Part Studio of a listed workspace; R1 of **that** workspace MUST equal `observedMicroversion`, else `selection_observation_stale` |
+
+`work-context-catalog`, `-status`, `-adopt` and `-clear` are unchanged. `work-context-adopt` still
+rejects everything outside §1 with `selection_target_not_allowed`.
+
+### 11.3 Views
+
+```json
+{"DocumentPage": {"items": [{"documentId": "24-hex", "name": "string|null", "modifiedAt": "ISO-8601|null",
+   "bound": true, "goalEligible": true, "reason": null}], "offset": 0, "hasMore": false, "query": "", "observedAt": 0},
+ "WorkspaceList": {"documentId": "24-hex", "items": [{"workspaceId": "24-hex", "name": "string|null",
+   "role": "primary|candidate|default|other", "readOnly": false, "goalEligible": true, "reason": null}], "observedAt": 0},
+ "PartSearch": {"documentId": "24-hex", "workspaceId": "24-hex", "observedMicroversion": "24-hex", "query": "",
+   "studios": [{"elementId": "24-hex", "name": "string|null", "goalEligible": true, "reason": null, "configurationChecked": true}],
+   "hits": [{"elementId": "24-hex", "partId": "string", "name": "string", "partNumber": "string|null", "bodyType": "solid",
+     "hidden": false, "selectable": true, "reason": null}],
+   "truncated": false, "truncatedReason": null, "observedAt": 0}}
+```
+
+- The bound document is always `items[0]` on page 0 with `bound: true`, even if it does not match
+  `query` (then labelled "gebunden"); other entries are de-duplicated against it.
+- `role`: `primary` = `binding.primaryWorkspaceId` in the bound document; `candidate` = the current
+  goal's Candidate; `default` = the provider default workspace of a non-bound document (label only);
+  otherwise `other`. Provider flags (`isReadOnly`, `protectionRule`) are labels and never decide
+  eligibility.
+- `hits` are sorted by `name`, studio name, `partId`. `selectable: true` only for parts that `adopt`
+  would accept (§1). Otherwise `selectable: false` with the **first** failing reason in this order:
+  `document_not_provisioned`, `candidate_inspection_only` / `workspace_inspection_only`,
+  `element_not_provisioned`, `configuration_unsupported`, `part_kind_unsupported`.
+- `configurationChecked: false` for studios whose R3 was not read (all non-bound studios); they are
+  inspection-only anyway.
+- A part is identified by `(documentId, workspaceId, elementId, partId)` at `observedMicroversion`;
+  equal `partId`s in different workspaces or studios are different parts.
+
+### 11.4 Limits, caching and rate protection
+
+- Document page 20 (provider maximum). `query` ≤ 100 characters after trim, NFC. The UI sends
+  document queries only from 2 characters on, debounced ≥ 300 ms.
+- At most 20 Part Studios scanned per part search, 500 parts per studio, 100 hits returned; beyond
+  that `truncated: true`, `truncatedReason: "part_search_truncated"`.
+- Response limits: R6 1 MiB, R7 1 MiB, R4 4 MiB; previews below 65 000 base64 characters (CR-3).
+- In-memory LRU for `mv`-keyed data (64 entries, 8 MiB); TTL 60 s for R6, 30 s for R7. All caches are
+  dropped on authorization or binding change, disconnect/reconnect and plugin dispose. Nothing is
+  persisted.
+- At most one provider read in flight per connection for the browsing methods (serialized). No
+  automatic retry on 429.
+
+### 11.5 Error codes and view reasons
+
+| Code | Kind | Meaning / UI outcome |
+|---|---|---|
+| `document_not_provisioned` | view reason | not the bound document; "nur ansehen" |
+| `workspace_inspection_only` | view reason | non-Primary workspace; "nur ansehen" (`candidate_inspection_only` stays for the Candidate) |
+| `document_not_accessible` | error | R7/R1/R2 returned 403/404 for a listed document; "kein Zugriff" |
+| `provider_quota_exhausted` | error | provider 402 (annual API limit); "Onshape-API-Kontingent erschöpft" |
+| `part_search_truncated` | `truncatedReason` | narrow the query |
+
+Reused: `provider_rate_limited` (429, "später erneut", no retry loop), `invalid_arguments`,
+`provider_protocol_error`, `selection_observation_stale`, `live_reads_disabled`,
+`reconnect_required`, `authorization_changed`.
+
+### 11.6 Tests (offline) W12–W18
+
+| # | Test |
+|---|---|
+| W12 | documents: paging (`offset` multiple of 20, `hasMore`), bound document pinned first and de-duplicated, non-document and trashed items dropped, no owner e-mail in the view; equals `document-page.json` |
+| W13 | workspaces: roles `primary`/`candidate`/`default`/`other`, eligibility from the binding only; equals `workspace-list.json` |
+| W14 | parts: per-studio R4 at `m/{mv}`, R1 recheck, filtering by name and part number, sort order, eligibility reason order, truncation; equals `part-search.json` |
+| W15 | preview of a non-bound part and of a Part Studio (R8) with the R1 rule of that workspace |
+| W16 | adopt of any hit outside §1 → `selection_target_not_allowed`, record unchanged |
+| W17 | cache: hit within TTL, drop on authorization change and reconnect; one read in flight per connection |
+| W18 | 402 → `provider_quota_exhausted`, 403/404 on a listed document → `document_not_accessible`, 429 → `provider_rate_limited` without retry |
+
+### 11.7 Open live checks
+
+| ID | Check |
+|---|---|
+| WC7 | R6 with `q` and each `filter`: item kinds, whether shared documents appear, response size |
+| WC8 | R7 field values (`isReadOnly`, `protectionRule`, default workspace) on the live documents |
+| WC9 | R8 at `m/{mv}` and 128 px below 65 000 characters |
+| WC10 | 403 vs. 404 for an inaccessible document |
+| WC11 | API call accounting of the ClawOnshape OAuth app (private/counted?) and the plan's annual cap |
+
 ## Accepted interpretations (ts-plugin-dev report 2026-10-22, CR-1–CR-8)
 
 - **CR-1 R0 label reads.** `GET /api/v10/documents/{d}` and `GET /api/v10/documents/d/{d}/workspaces`
@@ -300,6 +425,11 @@ and S9 belongs to #17; synthetic tests establish no live acceptance.
   `reason: "goal_state_invalid"`, `selection: null`.
 
 ## Changelog
+
+- `work-context-1.1.0-draft` (2026-10-22): additive §11 browsing (R6–R8; `work-context-documents`,
+  `-workspaces`, `-parts`; extended `-preview`; views, limits, codes, W12–W18, WC7–WC11) from the
+  research CR-9–CR-14. Changes against the CRs: `getPartsWMV` dropped (elementId required in OpenAPI
+  1.222 too); listing authority decided by the user's request; adoption bounds unchanged.
 
 - `work-context-1.0.0-draft` amended (2026-10-22): accepted interpretations CR-1–CR-8 from the backend
   report (no MUST changed; fixtures unchanged).
