@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900"><style>text{font-family:DejaVu Sans,sans-serif}</style><rect x="0" y="0" width="1440" height="900" rx="0" fill="#0c141e" stroke="#0c141e"/><text x="26" y="28" fill="#a5b8c8" font-size="12" font-weight="400">PRODUKTENTWURF · Beispieldaten · keine Live-Verbindung</text><rect x="0" y="46" width="1440" height="64" rx="0" fill="#101b27" stroke="#2c4050"/><text x="28" y="86" fill="#e2eaf2" font-size="20" font-weight="600">Engineering Cockpit</text><text x="1140" y="85" fill="#a5b8c8" font-size="14" font-weight="400">Mechanical Engineer</text><rect x="0" y="110" width="184" height="790" rx="0" fill="#0a121b" stroke="#2c4050"/><text x="20" y="157" fill="#96adbe" font-size="11" font-weight="400">ARBEITSBEREICH</text><rect x="14" y="175" width="156" height="43" rx="8" fill="#173841" stroke="#173841"/><text x="30" y="203" fill="#68e1d8" font-size="15" font-weight="400">Workspace</text><text x="30" y="258" fill="#e2eaf2" font-size="15" font-weight="400">CAD</text><text x="30" y="312" fill="#e2eaf2" font-size="15" font-weight="400">3D Print</text><text x="22" y="407" fill="#96adbe" font-size="11" font-weight="400">VERBINDUNGEN</text><text x="22" y="445" fill="#e2eaf2" font-size="14" font-weight="400">Onshape</text><text x="22" y="470" fill="#68e1d8" font-size="12" font-weight="400">Verbunden</text><text x="22" y="521" fill="#e2eaf2" font-size="14" font-weight="400">Bambu Studio</text><text x="22" y="546" fill="#96adbe" font-size="12" font-weight="400">Nicht eingerichtet</text><text x="220" y="158" fill="#96adbe" font-size="11">WORKSPACE</text>
+<text x="220" y="201" fill="#e2eaf2" font-size="30" font-weight="600">Dein Engineering-Workspace</text>
+<rect x="220" y="230" width="1184" height="174" rx="12" fill="#15212d" stroke="#2c4050"/>
+<text x="244" y="264" fill="#e2eaf2" font-size="17" font-weight="600">Arbeitskontext</text>
+<text x="244" y="300" fill="#e2eaf2" font-size="19" font-weight="600">Unterarm-Abdeckung links</text>
+<text x="244" y="330" fill="#a5b8c8" font-size="14">pib · Roboterarm  /  Workspace: Main  /  Part Studio: Gehäuse</text>
+<text x="244" y="376" fill="#96adbe" font-size="12">Main · geschützt   ·   Auswahl geprüft: 21.10.2026, 14:15   ·   Stand 7c29…</text>
+<rect x="1194" y="251" width="186" height="42" rx="8" fill="#203242" stroke="#3d596c"/>
+<text x="1210" y="278" fill="#e2eaf2" font-size="14" font-weight="600">Auswahl ändern</text>
+<text x="1231" y="330" fill="#79e5dc" font-size="13">In Onshape öffnen ↗</text>
+<rect x="220" y="424" width="581" height="188" rx="12" fill="#15212d" stroke="#2c4050"/>
+<text x="244" y="461" fill="#e2eaf2" font-size="19" font-weight="600">Onshape</text>
+<text x="244" y="495" fill="#79e5dc" font-size="14">Verbunden</text>
+<text x="244" y="526" fill="#a5b8c8" font-size="14">CAD-Kontext ausgewählt. Formuliere als Nächstes dein Ziel.</text>
+<rect x="244" y="548" width="172" height="42" rx="8" fill="#57d6d0"/>
+<text x="260" y="575" fill="#09282d" font-size="14" font-weight="600">Weiter zu CAD</text>
+<text x="438" y="575" fill="#a5b8c8" font-size="13">Verbindung verwalten</text>
+<rect x="821" y="424" width="583" height="188" rx="12" fill="#15212d" stroke="#2c4050"/>
+<text x="845" y="461" fill="#e2eaf2" font-size="19" font-weight="600">Bambu Studio / Bambu Lab</text>
+<text x="845" y="495" fill="#a5b8c8" font-size="14">Nicht eingerichtet</text>
+<text x="845" y="526" fill="#a5b8c8" font-size="14">Druckvorbereitung ist noch nicht verfügbar.</text>
+<rect x="845" y="548" width="226" height="42" rx="8" fill="#203242" stroke="#3d596c"/>
+<text x="861" y="575" fill="#e2eaf2" font-size="14">Voraussetzungen ansehen</text>
+</svg>

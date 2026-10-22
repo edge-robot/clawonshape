@@ -13,6 +13,159 @@ Product priority update: Increment 0 connectivity/onboarding and Increment 1
 Discord read/render take precedence over MCP mutation work. ADR-008–011 record
 the implemented product slice; ADR-001–007's plane/security boundaries remain.
 
+## ADR-2026-10-21: Task-scoped Onshape workspace and part selection
+
+Status: **Proposed technical design; cross-component review pending.** Accepted
+product direction: Document → Workspace → Part, explicit adoption and return to
+the compact existing work-context card. Task: COC-CONTEXT-SELECTION-20261021.
+Normative product source: [spec.md, Select an Onshape work context](../spec.md#select-an-onshape-work-context),
+S1–S9. This entry does not supersede the accepted goal authorization/source policy
+below or assert that a selector exists. No additional permission is accepted here.
+
+Tracking: [ClawOnshape #21](https://github.com/edge-robot/clawonshape/issues/21)
+(selection/goal-handoff contract), [onshape-mcp #9](https://github.com/edge-robot/onshape-mcp/issues/9)
+(minimal generic read/admission audit), existing [#17](https://github.com/edge-robot/clawonshape/issues/17)
+(UI consumer), [#18](https://github.com/edge-robot/clawonshape/issues/18)
+(goal lifecycle) and [#19](https://github.com/edge-robot/clawonshape/issues/19)
+(spec adoption). Prior proposal: [review packet](https://github.com/edge-robot/clawonshape/issues/17#issuecomment-6322223880).
+
+### Context and examined implementation
+
+Read-only review: clawonshape `feat/18-goal-authorization@3895fb3` and
+onshape-mcp `feat/5-goal-grant@cc67472`, including existing local documentation
+changes. Mockups in `docs/product/onshape-selection-2026-10-21/` are examples,
+not runtime evidence. No tests or provider/runtime actions were run for this review.
+
+- `src/config.ts` Binding identifies document/workspace/element, no individual Part
+  or task-local selection. `src/dashboard.ts` workspace-context accepts connectionRef
+  and checks operator.read, liveReads and authorization snapshots around reads.
+- `src/rest.ts:workspaceContext` projects the exact configured Part Studio's labels;
+  it is not an authorized document/Part catalog. `ui/control-ui.js` offers assigned
+  Primary/Candidate choices and a Part Studio image, not a concrete Part selector.
+- `src/goal-service.ts:proposeGoal` reads Primary; the goal contract creates one
+  Candidate from confirmed Primary. STOPPED/EXPIRED/BLOCKED are nonterminal;
+  close requires reconciliation. Existing exclusivity is store-wide (one grant),
+  stricter than task-local selection; do not weaken it through this change.
+- `docs/interface/onshape-mcp.md` and the fork's `docs/target-policy.md` constrain
+  metadata/features and immutable revision reads. Workspace claims for approved
+  Candidates do not authorize an arbitrary document/Part Studio or Part catalog.
+  Raw-tool admission remains the hard boundary; schema discovery grants nothing.
+
+Provider facts, checked against official documentation on 2026-10-21:
+a Part Studio contains zero or more Parts; raw Part IDs can change and must not be
+promised stable. Configuration must be explicit where applicable. See
+[Onshape Architecture](https://onshape-public.github.io/docs/api-intro/architecture/).
+[Associativity](https://onshape-public.github.io/docs/api-adv/associativity/) describes
+revision-based identity translation, including split and failed resolution, using
+POST. This documents a provider mechanism, not an approved route in our restricted
+adapter. Exact API version/parameters and Candidate mapping still need audit.
+
+### Proposed decisions and rationale
+
+1. **Three distinct records.** Keep the host-provisioned authorization envelope,
+   selected work context and immutable confirmed goal scope separate. Selection
+   only narrows existing authority. Never rewrite global binding/OAuth state or a
+   shared MCP target on adoption. This prevents one user's UI from moving another
+   team's work and preserves hard execution bounds.
+2. **Revision-qualified identity.** A selected reference carries document,
+   workspace, Part Studio element, observed microversion, explicit supported
+   configuration and Part identity. Labels/short IDs are display aids. Re-resolve
+   before use and across Candidate creation; missing, split, merged or ambiguous
+   identity blocks use. No same-name or first-Part fallback. Existing element-only
+   records remain legacy inspection context and require actual Part selection.
+3. **Authorized catalogs, not OAuth-wide search.** ClawOnshape owns bounded
+   catalog/search/metadata and subject/assignment checks. Filter before returning
+   names, counts or previews. Reuse guarded REST control-plane reads where suitable;
+   onshape-mcp owns any necessary generic CAD read and hard admission delta.
+   Review exact routes/schemas/capabilities first, including semantic reads using
+   POST. Existing policies do not silently expand. If static bounds cannot serve
+   a target, show a blocker and seek a separately authorized provisioning decision.
+4. **Task-local persistence and atomic adoption.** Persist only confirmed context
+   under trusted team/requester/channel/account/connection and task identity,
+   with a monotonic selection revision. Browser drafts are transient. Resolve
+   ownership from authenticated host context; missing task association blocks
+   adoption. Use compare-and-set for concurrent tabs and serialize adoption with
+   goal confirmation and legacy/Candidate attempt admission. Recheck authorization,
+   complete membership, configuration, revision and pending work after asynchronous
+   reads and before commit. Failure retains the old reference, but cannot make
+   revoked/invalid old context usable. Refresh/restart restores a reference for
+   revalidation, never assumed readiness. Exact host association and retention
+   remain open below; this is a design proposal, not a new authorization scheme.
+5. **No implicit goal migration.** Any nonterminal goal, outstanding confirmation
+   or approval, unresolved legacy/Candidate/mutation attempt or unknown work
+   status blocks adopting another context. STOP/expiry alone is insufficient;
+   reconcile and explicitly close where supported. History keeps original target,
+   revision, goal and artifact identity. Never transfer grants, Candidate ownership
+   or evidence. Read-only browsing may remain available within existing authority.
+6. **Preserve Primary source policy.** Selecting a non-Primary workspace does not
+   authorize using it as a new goal source or reusing its Candidate. Do not display
+   one selected Part while silently proposing work against Primary. Handoff must
+   resolve/prove the intended source/Part and disclose the Candidate plan before
+   separate confirmation; otherwise block. Alternative source policy needs an
+   explicit human decision and contract amendment to #18.
+7. **Fence asynchronous data.** Key requests/cache by authorization generation,
+   connection, task/selection revision, target, Part, configuration and observed
+   microversion. Parent changes clear descendants and obsolete preview requests;
+   discard late replies. Reconnect, revocation, assignment/configuration or CAD
+   drift invalidates readiness and related drafts/cache. Preserve historical
+   evidence with its own provenance. Preview is for the selected Part/stand or
+   explicitly unavailable; whole-studio rendering cannot imply isolated Part view.
+8. **Part intent is not feature containment.** Feature updates can affect other
+   Parts in the same studio. Require affected/preserved scope and independent
+   checks before goal confirmation; unresolved effects require clarification.
+   MCP enforces target/feature/operation/CAS/grant bounds, not geometric correctness.
+9. **Compact UI lifecycle.** Workspace/CAD consume one normalized confirmed view.
+   Adopt closes the dialog and restores the compact card with “Auswahl ändern”;
+   large preview/lists stay in the selector. Cancel/Escape discard the draft and
+   return focus. Navigation, search, preview and adoption never create a Candidate,
+   approve a goal or mutate CAD. S1–S9 govern observable acceptance.
+
+### Consequences, alternatives and verification
+
+Review an additive selection/goal-handoff contract in #21 before backend or UI
+implementation; #9 audits only the executor delta actually needed by it. Keep
+existing goal and legacy approval behavior and stricter exclusivity intact.
+No Clawake work is justified without a concrete provisioning need. Contract files
+and fixtures are intentionally unchanged in this architecture-only assignment.
+Rejected alternatives: OAuth-visible equals assigned; global config retargeting;
+permanent large selector; raw partId or name as durable identity; auto-stopping
+or migrating goals; transferring old approvals; treating Part selection as a
+single-Part mutation sandbox; silently using Primary for another displayed source.
+
+Later evidence must map S1–S9 to contract/provider mocks, two-team/two-task
+isolation, concurrent adoption/confirmation, stale replies, restart/reload,
+revocation/reconnect, revision/configuration drift, missing/split/merged identity,
+legacy migration and absence of CAD/Candidate/approval writes. Browser checks
+include before/during/after adoption, reopening, missing preview, keyboard/focus
+and 1440×900, 1366×768, 390×844. Live acceptance needs separate authorization.
+
+### Open human decisions and external review packet
+
+- Who may adopt a context within the current operator model? Do not infer a
+  new user-level write/adoption permission from operator.read or OAuth visibility.
+- Which trusted host task/session identity associates dashboard and channel,
+  and is selection private or deliberately shared within a task? Confirm retention
+  and conflict expectations without allowing unrelated tasks to switch each other.
+- Which configurations and Part classes are in the first supported increment?
+  An implicit mutable provider default cannot stand for an explicit configuration.
+- Is non-Primary selection inspection-only for now, or should a later reviewed
+  source-policy change permit new goals from it? Current Primary policy remains.
+
+Technical review questions: validate the authorization/catalog source and adopter
+mapping; exact route/method/version/configuration/preview contracts; identity
+resolution including Candidate mapping; atomic adoption lock/CAS boundaries with
+current store-wide goal/approval state; migration/versioning and consumer parity.
+Do not enable unsupported paths while these questions remain unanswered.
+
+**Claude review blocker:** the current role/coordination skill permits only the
+bounded existing openclaw-dev and aws-devops channels. No authorized direct route
+to the existing Claude architect is available; developer assignment is excluded
+by this task. This entry and #21/#9 are the concrete review packet for an
+allowed future or human-mediated review. No Claude response or agreement has
+been received or is claimed. The role permits repository writes only to spec.md
+and docs/ADR.md through onshape-doc, so no separate review files were created in
+the product mockup directory. No alternate network/authentication/agent path used.
+
 ## ADR-2026-10-21: Goal-scoped mutation authorization
 
 Status: **Accepted** (2026-10-21, user decisions D1–D5 below). Tracking
