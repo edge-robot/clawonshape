@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Contract-Version | `goal-1.1.0-draft` (requires server contract `onshape-mcp.md` ≥ `1.2.0-draft`, §12) |
+| Contract-Version | `goal-1.2.0-draft` (requires server contract `onshape-mcp.md` ≥ `1.2.0-draft`, §12) |
 | Status | **draft**: contract-first, not implemented |
 | Owner | onshape-architekt (only the architect edits this file and `fixtures/goal-workflow/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-2026-10-21: Goal-scoped mutation authorization" |
@@ -61,9 +61,14 @@ true on the plugin side as well.
   "maxDispatches": "integer 1..25, default 10",
   "lifetimeMs": "integer 60000..28800000, default 7200000",
   "requester": {"channel": "string", "senderId": "string"},
-  "origin": {"channel": "string", "target": "string"}
+  "origin": {"channel": "string", "target": "string"},
+  "focus": {"partId": "string", "partName": "string", "elementId": "24-hex", "selectionRevision": "integer ≥ 1"}
 }
 ```
+
+`focus` (goal-1.2.0) is optional and present only when the binding has a `valid` work-context
+selection at propose time (`work-context.md` §7). It is intent, not a containment claim; absent means
+no part was selected. Test vector with `focus`: `work-context-fixtures/goal-hash-focus.json`.
 
 `Condition` = `{"id": "[a-z0-9-]{1,32}, unique per list", "kind": "parameterEquals" | "featureState" | "featureUnchanged" | "note", "featureId"?: string, "parameterId"?: string, "expression"?: string (1..200), "state"?: "OK", "text": string (1..500)}`
 
@@ -230,7 +235,7 @@ derives state itself.
   "goalId": "uuid", "scopeRevision": 1, "state": "ACTIVE",
   "goalText": "…", "goalConditions": [], "preservationConditions": [],
   "goalHash": "sha256", "confirmationRequired": false,
-  "target": {"documentId": "…", "elementId": "…", "primaryWorkspaceId": "…", "candidateWorkspaceId": "… | null", "baseMicroversion": "…"},
+  "target": {"documentId": "…", "elementId": "…", "primaryWorkspaceId": "…", "candidateWorkspaceId": "… | null", "baseMicroversion": "…", "focus": "{partId, partName, elementId, selectionRevision} | null"},
   "scope": {"featureIds": [], "operations": ["updatePartStudioFeature"], "maxDispatches": 10, "lifetimeMs": 7200000},
   "progress": {"dispatches": 0, "remaining": 10, "unreconciledSequence": null, "unreconciledEntry": null, "lastOutcome": null, "lastVerification": null},
   "grant": {"revision": 1, "state": "ACTIVE", "expiresAt": 0} ,
@@ -318,6 +323,11 @@ Server-side negative tests (scope, Primary, budget, duplicate, uncertain, restar
   unresolved attempt blocks the confirmation (fail closed).
 
 ## Changelog
+
+- `goal-1.2.0-draft` (2026-10-22): additive. Optional `scope.focus` from the work-context selection
+  (`work-context.md` §7, #21); `GoalView.target.focus` (`null` without a selection; consumers treat an absent key as `null`, so the shared fixture `goal-view/active.json` and the server fixture digest stay unchanged). `onshape_goal_propose`
+  fails with `selection_part_missing` or the selection's invalid/unverified reason. A goal without `focus`
+  hashes exactly as in goal-1.1.0 (`fixtures/goal-workflow/goal-hash/vector.json` unchanged).
 
 - `goal-1.1.0-draft` (2026-10-21): additive. `progress.unreconciledEntry` in `GoalView`; `goal-reconcile` and
   `onshape_goal_reconcile` accept `{goalId}` alone and take the input from the server summary (requires

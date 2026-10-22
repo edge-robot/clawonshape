@@ -15,12 +15,15 @@ the implemented product slice; ADR-001–007's plane/security boundaries remain.
 
 ## ADR-2026-10-21: Task-scoped Onshape workspace and part selection
 
-Status: **Proposed technical design; cross-component review pending.** Accepted
-product direction: Document → Workspace → Part, explicit adoption and return to
-the compact existing work-context card. Task: COC-CONTEXT-SELECTION-20261021.
+Status: **Accepted for increment 1** (2026-10-22, user decisions I1–I5 below, after
+onshape-architekt review). Decisions 1–9 are accepted as the target design; increment 1 implements
+the bounded subset in I1–I5. Accepted product direction: Document → Workspace → Part, explicit
+adoption and return to the compact existing work-context card. Task: COC-CONTEXT-SELECTION-20261021.
 Normative product source: [spec.md, Select an Onshape work context](../spec.md#select-an-onshape-work-context),
-S1–S9. This entry does not supersede the accepted goal authorization/source policy
-below or assert that a selector exists. No additional permission is accepted here.
+S1–S9. Interface: [`docs/interface/work-context.md`](interface/work-context.md)
+(`work-context-1.0.0-draft`) and goal-workflow `goal-1.2.0-draft` (`scope.focus`). This entry does
+not supersede the accepted goal authorization/source policy below. No additional permission is
+accepted here.
 
 Tracking: [ClawOnshape #21](https://github.com/edge-robot/clawonshape/issues/21)
 (selection/goal-handoff contract), [onshape-mcp #9](https://github.com/edge-robot/onshape-mcp/issues/9)
@@ -157,14 +160,37 @@ resolution including Candidate mapping; atomic adoption lock/CAS boundaries with
 current store-wide goal/approval state; migration/versioning and consumer parity.
 Do not enable unsupported paths while these questions remain unanswered.
 
-**Claude review blocker:** the current role/coordination skill permits only the
-bounded existing openclaw-dev and aws-devops channels. No authorized direct route
-to the existing Claude architect is available; developer assignment is excluded
-by this task. This entry and #21/#9 are the concrete review packet for an
-allowed future or human-mediated review. No Claude response or agreement has
-been received or is claimed. The role permits repository writes only to spec.md
-and docs/ADR.md through onshape-doc, so no separate review files were created in
-the product mockup directory. No alternate network/authentication/agent path used.
+### Review outcome and increment 1 (2026-10-22)
+
+Reviewed by onshape-architekt against `feat/18-goal-authorization@fe41d54` and
+onshape-mcp `feat/5-goal-grant@cc67472`; review comments on #21 and onshape-mcp#9.
+Provider facts were checked against the Onshape OpenAPI (`GET /parts/d/{did}/{wvm}/{wvmid}/e/{eid}`,
+`getPartsWMVE`, fields `partId`, `name`, `bodyType`, `isHidden`, `isMesh`, `isFlattenedBody`,
+`microversionId`; `withThumbnails` is not supported for microversions). Decisions by the user:
+
+- **I1 Ownership.** One confirmed selection per binding. The binding already joins agent,
+  requester, channel, account, connection and target; no trusted task/session identity exists
+  yet. Task-level ownership, sharing and retention are deferred to [#20](https://github.com/edge-robot/clawonshape/issues/20) / increment 2.
+- **I2 Adopter.** The authority that confirms goals (`operator.admin`) adopts and clears;
+  `operator.read` browses. No new permission.
+- **I3 Bounds.** Only the bound document and the protected Primary are selectable; all Part
+  Studios are listed, but only the bound element is goal-eligible, because the MCP target bounds
+  are static (G3, [#3](https://github.com/edge-robot/clawonshape/issues/3)). Other studios and
+  the Candidate are shown with an explanation.
+- **I4 Configuration and kinds.** Only Part Studios without configuration parameters; only solid,
+  non-mesh, non-flattened parts.
+- **I5 Source.** Goals stay Primary-sourced. The selection reaches the goal as `scope.focus`
+  (intent, part of `goalHash`), never as a target change. Non-Primary sources need a later decision.
+
+Consequences: increment 1 needs no onshape-mcp change; catalog and preview are plugin REST reads
+with the existing OAuth read authority (onshape-mcp#9 stays open for selection beyond the bound
+element). No Clawake change. Work is split along the contract: backend by ts-plugin-dev on
+`feat/21-work-context-selection`, selector UI by the Codex team on `feat/21-selection-ui`
+against the contract fixtures; contract changes only through onshape-architekt.
+
+Process notes: #21 and onshape-mcp#9 were opened without architect coordination and the
+onshape-mcp issue lies outside the Codex team's repositories; both are kept and re-scoped
+rather than recreated. Human-mediated review is the accepted channel between the two architects.
 
 ## ADR-2026-10-21: Goal-scoped mutation authorization
 

@@ -1,0 +1,86 @@
+{
+  "_comment": "work-context.md §6.1. Same-name parts (Bracket) differ by partId; left/right parts by name.",
+  "document": {
+    "documentId": "0123456789abcdef01234567",
+    "name": "Camera Mount",
+    "preselected": true
+  },
+  "workspaces": [
+    {
+      "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+      "name": "Main",
+      "role": "primary",
+      "selectable": true,
+      "reason": null
+    },
+    {
+      "workspaceId": "cccccccccccccccccccccccc",
+      "name": "goal-candidate",
+      "role": "candidate",
+      "selectable": false,
+      "reason": "candidate_inspection_only"
+    }
+  ],
+  "observedMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+  "partStudios": [
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "name": "Mount Plate",
+      "goalEligible": true,
+      "reason": null,
+      "truncated": false,
+      "parts": [
+        {
+          "partId": "JHD",
+          "name": "Bracket",
+          "bodyType": "solid",
+          "hidden": false,
+          "selectable": true,
+          "reason": null
+        },
+        {
+          "partId": "JHH",
+          "name": "Bracket",
+          "bodyType": "solid",
+          "hidden": true,
+          "selectable": true,
+          "reason": null
+        },
+        {
+          "partId": "JIF",
+          "name": "Clamp left",
+          "bodyType": "solid",
+          "hidden": false,
+          "selectable": true,
+          "reason": null
+        },
+        {
+          "partId": "JIG",
+          "name": "Clamp right",
+          "bodyType": "solid",
+          "hidden": false,
+          "selectable": true,
+          "reason": null
+        },
+        {
+          "partId": "JKD",
+          "name": "Cover surface",
+          "bodyType": "sheet",
+          "hidden": false,
+          "selectable": false,
+          "reason": "part_kind_unsupported"
+        }
+      ]
+    },
+    {
+      "elementId": "abababababababababababab",
+      "name": "Fasteners",
+      "goalEligible": false,
+      "reason": "element_not_provisioned",
+      "truncated": false,
+      "parts": null
+    }
+  ],
+  "selectionRevision": 0,
+  "observedAt": 1761116400000
+}

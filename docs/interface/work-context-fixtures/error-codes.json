@@ -1,0 +1,30 @@
+{
+  "_comment": "work-context.md §8; new plugin codes of this contract",
+  "plugin": [
+    "selection_observation_stale",
+    "selection_part_missing",
+    "selection_part_unsupported",
+    "configuration_unsupported",
+    "element_not_provisioned",
+    "selection_target_not_allowed",
+    "selection_revision_conflict",
+    "preview_unavailable"
+  ],
+  "reused": [
+    "invalid_arguments",
+    "authorization_changed",
+    "live_reads_disabled",
+    "not_configured",
+    "provider_protocol_error",
+    "goal_active_conflict",
+    "mutation_reconciliation_required",
+    "goal_state_invalid"
+  ],
+  "viewReasons": [
+    "candidate_inspection_only",
+    "revision_advanced",
+    "part_kind_unsupported",
+    "element_not_provisioned",
+    "configuration_unsupported"
+  ]
+}
