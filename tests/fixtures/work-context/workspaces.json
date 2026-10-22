@@ -1,0 +1,4 @@
+[
+  {"id": "eeeeeeeeeeeeeeeeeeeeeeee", "documentId": "0123456789abcdef01234567", "name": "Main", "microversion": "aaaaaaaaaaaaaaaaaaaaaaaa", "isReadOnly": false},
+  {"id": "cccccccccccccccccccccccc", "documentId": "0123456789abcdef01234567", "name": "goal-candidate", "microversion": "aaaaaaaaaaaaaaaaaaaaaaaa", "isReadOnly": false}
+]
