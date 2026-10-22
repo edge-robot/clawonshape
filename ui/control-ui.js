@@ -154,6 +154,8 @@ export function goalRevisionLink(goal) {
 }
 
 const css = `
+.coc .coc-selection-dialog{color:#e3ebf4;background:#101c29;border:1px solid #476475;border-radius:12px;width:min(1120px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:24px;overflow:auto}.coc .coc-selection-dialog::backdrop{background:#000b}.coc .coc-selection-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:18px;margin:18px 0}.coc .coc-selection-columns section{min-width:0}.coc .coc-selection-columns button{display:block;width:100%;text-align:left;margin:7px 0;overflow-wrap:anywhere}.coc .coc-selection-columns button[aria-pressed=true]{border-color:#68dbd5;background:#193e45}.coc .coc-selection-dialog input{display:block;width:100%;font:inherit;padding:8px;border:1px solid #476475;border-radius:6px;margin:6px 0 12px}.coc .coc-selection-dialog p,.coc .coc-selection-dialog h3{overflow-wrap:anywhere}.coc .coc-selection-studio{border-top:1px solid #345;padding-top:12px;margin-top:14px}.coc .coc-selection-summary{border-top:1px solid #345;padding-top:16px}.coc .coc-selection-summary img{max-height:180px;width:240px;display:block}@media(max-width:700px){.coc .coc-selection-columns{grid-template-columns:1fr}.coc .coc-selection-dialog{padding:16px}}
+
 .coc{color:#e3ebf4;background:#0c141e;font:14px/1.55 system-ui,sans-serif;border:1px solid #28394a;border-radius:12px;overflow:hidden;min-width:0;color-scheme:dark}.coc *{box-sizing:border-box}.coc h1,.coc h2,.coc h3,.coc p{margin:0 0 12px}.coc h1,.coc .coc-candidate strong{overflow-wrap:anywhere}.coc h1{font-size:27px;line-height:1.25}.coc h2{font-size:17px}.coc h3{font-size:15px}.coc button,.coc select,.coc a.coc-action{font:inherit;border:1px solid #3c5669;border-radius:8px;padding:9px 13px;background:#203141;color:#e3ebf4;cursor:pointer;max-width:100%}.coc button:hover,.coc a.coc-action:hover{background:#294351}.coc button:disabled{opacity:.5;cursor:wait}.coc :focus-visible{outline:3px solid #69e5de;outline-offset:3px}.coc a{color:#68dbd5;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}.coc .coc-muted{color:#a2b5c6}.coc .coc-eyebrow{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#a2b5c6}.coc .coc-top{padding:20px 26px;border-bottom:1px solid #28394a;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}.coc .coc-top strong{font-size:18px}.coc .coc-shell{display:grid;grid-template-columns:180px minmax(0,1fr)}.coc .coc-rail{padding:24px 16px;background:#0b131d;border-right:1px solid #28394a}.coc .coc-rail a{display:block;padding:10px 8px;margin-bottom:8px;text-decoration:none}.coc .coc-rail a:first-of-type{background:#19323d;border-radius:8px}.coc .coc-rail .coc-tools{border-top:1px solid #28394a;margin-top:25px;padding-top:24px}.coc .coc-rail p{font-size:12px}.coc .coc-main{padding:26px;min-width:0}.coc .coc-context p{overflow-wrap:anywhere}.coc .coc-context{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:20px;flex-wrap:wrap}.coc .coc-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:0 0 20px}.coc .coc-candidate{text-align:left;background:#141f2c;min-height:105px;display:flex;flex-direction:column;gap:6px}.coc .coc-candidate[aria-pressed=true]{border-color:#55d4d0;box-shadow:inset 0 0 0 1px #55d4d0;background:#18313b}.coc .coc-candidate strong{font-size:16px}.coc .coc-body{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.coc .coc-panel{background:#141f2c;border:1px solid #28394a;border-radius:12px;padding:20px;min-width:0}.coc .coc-viewer{padding:0;overflow:hidden}.coc .coc-viewhead{padding:16px 20px;background:#192633;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}.coc .coc-modes{display:flex;gap:5px;flex-wrap:wrap}.coc .coc-modes button{padding:5px 10px;font-size:12px}.coc .coc-modes button[aria-pressed=true]{background:#2c4854;color:#68dbd5}.coc .coc-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:radial-gradient(ellipse at center,#1a2d3a,#0f1b26);min-height:330px}.coc .coc-stage.coc-single{grid-template-columns:1fr}.coc figure{margin:0;padding:20px;min-width:0;display:flex;flex-direction:column;gap:14px}.coc figure+figure{border-left:1px dashed #385061}.coc .coc-empty-image{flex:1;min-height:200px;display:grid;place-content:center;text-align:center;padding:24px;color:#a2b5c6;background-image:linear-gradient(#8da9bd08 1px,transparent 1px),linear-gradient(90deg,#8da9bd08 1px,transparent 1px);background-size:28px 28px}.coc figcaption{font-size:12px;overflow-wrap:anywhere}.coc .coc-lower{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-top:18px}.coc .coc-steps{list-style:none;padding:0;margin:20px 0}.coc .coc-steps li{padding:0 0 18px 18px;border-left:2px solid #3d5668}.coc .coc-steps strong,.coc .coc-steps span{display:block}.coc .coc-steps span{font-size:12px;color:#a2b5c6}.coc .coc-next{border:1px solid #315956;background:#17312f;border-radius:8px;padding:14px;margin-top:18px}.coc .coc-notice{padding:12px 16px;border:1px solid #826c43;background:#2b281f;border-radius:8px;margin-bottom:18px;color:#f2d399}.coc dl{margin:0}.coc dt{font-size:12px;color:#a2b5c6;margin-top:12px}.coc dd{margin:3px 0;overflow-wrap:anywhere}.coc pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;font-size:12px}.coc details{margin-top:18px}.coc summary{cursor:pointer;font-weight:600;padding:8px 0}.coc .coc-controls{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.coc .coc-foot{font-size:12px;color:#a2b5c6;margin-top:16px}.coc .coc-badge{color:#68dbd5}.coc .coc-revision{font-family:monospace;font-size:12px;overflow-wrap:anywhere}.coc .coc-parameter{padding:10px 0;border-bottom:1px solid #28394a}.coc .coc-parameter strong{color:#68dbd5}.coc img{width:100%;height:auto;max-height:440px;object-fit:contain}.coc [hidden]{display:none!important}@media(max-width:1250px){.coc .coc-shell{grid-template-columns:1fr}.coc .coc-rail{display:none}.coc .coc-body{grid-template-columns:minmax(0,1fr) 280px}.coc .coc-main{padding:20px}.coc .coc-lower{grid-template-columns:1fr}}@media(max-width:850px){.coc .coc-body{grid-template-columns:1fr}.coc .coc-stage{grid-template-columns:1fr}.coc figure+figure{border-left:0;border-top:1px dashed #385061}.coc .coc-main{padding:14px}.coc h1{font-size:23px}}
 .coc .coc-navigation{display:flex;flex-direction:column;gap:10px}.coc .coc-navigation button{text-align:left;border:0;background:transparent}.coc .coc-navigation button[aria-current=page]{background:#19343f;color:#68dbd5;border-left:3px solid #68dbd5}.coc .coc-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0}.coc .coc-cad-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px}.coc .coc-cad-work{min-width:0}.coc .coc-branches .coc-cards{grid-template-columns:1fr}.coc .coc-cad-work>.coc-panel{margin-bottom:18px}.coc .coc-body{grid-template-columns:minmax(0,1fr) 245px}.coc .coc-lower{grid-template-columns:1fr}.coc h3{overflow-wrap:anywhere}.coc .coc-panel+.coc-panel{margin-top:18px}.coc button:disabled{cursor:not-allowed}.coc .coc-tool-grid>.coc-panel{margin-top:0}
 @media(max-width:1250px){.coc .coc-rail{display:block;padding:10px;border-right:0;border-bottom:1px solid #28394a}.coc .coc-rail>.coc-eyebrow,.coc .coc-rail>.coc-tools{display:none}.coc .coc-navigation{flex-direction:row;flex-wrap:wrap}.coc .coc-cad-layout{grid-template-columns:200px minmax(0,1fr)}.coc .coc-body{grid-template-columns:1fr}}
@@ -161,6 +163,658 @@ const css = `
 
 .coc .coc-goal-context{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,3fr);gap:4px 14px}.coc .coc-goal-context dt,.coc .coc-goal-context dd{margin:0}.coc .coc-goal-review{overflow-wrap:anywhere}.coc .coc-goal-progress{font-size:16px;color:#68dbd5;margin-top:16px}.coc #coc-goal ul{padding-left:20px;overflow-wrap:anywhere}@media(max-width:850px){.coc .coc-goal-context{grid-template-columns:1fr}}
 `;
+// Contract work-context-1.0.0-draft. Drafts never leave this page except on explicit adoption.
+export const workContextReason = (code) =>
+  ({
+    selection_observation_stale: 'Stand hat sich geändert. Katalog aktualisieren und Auswahl erneut prüfen.',
+    selection_part_missing: 'Bauteil nicht mehr vorhanden. Bitte erneut auswählen.',
+    selection_part_unsupported: 'Bauteilart nicht unterstützt. Ein anderes Volumenbauteil auswählen.',
+    part_kind_unsupported: 'Bauteilart nicht unterstützt · nur Volumenbauteile ohne Netz oder abgewickeltes Blech.',
+    configuration_unsupported:
+      'Konfiguriertes Part Studio nicht unterstützt. Ein Studio ohne Konfigurationsparameter wählen.',
+    element_not_provisioned: 'Part Studio nicht für Ziele freigegeben. Zuordnung durch Operator prüfen lassen.',
+    selection_target_not_allowed: 'Auswahl außerhalb der erlaubten Zuordnung. Keine Übernahme; Operator kontaktieren.',
+    selection_revision_conflict: 'Eine andere Auswahl wurde übernommen. Die gewinnende Auswahl wird neu geladen.',
+    preview_unavailable: 'Vorschau nicht verfügbar. Vorschau erneut laden oder Bauteil in Onshape prüfen.',
+    invalid_arguments: 'Auswahlanfrage ungültig. Dialog schließen und erneut öffnen.',
+    authorization_changed: 'Zugriff geändert. Verbindung prüfen und erneut anmelden.',
+    live_reads_disabled: 'Live-Lesen deaktiviert. Operator muss den Lesezugriff prüfen.',
+    not_configured: 'Keine Zuordnung eingerichtet. Operator kontaktieren.',
+    provider_protocol_error:
+      'Onshape-Antwort nicht lesbar. Katalog erneut laden; bei Wiederholung Operator kontaktieren.',
+    goal_active_conflict: 'Schließe zuerst das aktuelle Ziel ab und kläre offene Änderungen. Stop allein genügt nicht.',
+    mutation_reconciliation_required:
+      'Unklaren Änderungs- oder Candidate-Ausgang zuerst abgleichen lassen. Danach Ziel abschließen.',
+    goal_state_invalid: 'Arbeitsstatus nicht lesbar. Auswahl gesperrt; Operator muss den Zustand prüfen.',
+    candidate_inspection_only: 'Candidate · nur Ansicht. Für neue Ziele den geschützten Primary auswählen.',
+    revision_advanced: 'Stand neuer als Auswahl. Bauteil am aktuellen Stand erneut geprüft.',
+    reconnect_required: 'Verbindung abgelaufen. Onshape erneut verbinden und Auswahl prüfen.',
+    disconnected: 'Onshape nicht verbunden. Verbindung erneuern und Auswahl prüfen.',
+    oauth_read_scope_missing: 'Leseberechtigung fehlt. Onshape-Verbindung durch Operator prüfen lassen.',
+    plugin_unavailable: 'Auswahlstatus nicht verfügbar. Verbindung prüfen und Status aktualisieren.',
+  })[code] ?? `Auswahl nicht verfügbar (${code ?? 'unbekannt'}). Status aktualisieren.`;
+
+function createWorkContext({el, button, anchor, panel, root, call, canAdmin, render, alive, ref, showGoal, showCad}) {
+  let view,
+    statusError,
+    statusLoading = false,
+    statusRequest = 0;
+  let dialog,
+    draft,
+    catalog,
+    catalogLoading = false,
+    catalogRequest = 0,
+    previewRequest = 0;
+  let preview,
+    previewLoading = false,
+    previewError,
+    message,
+    adopting = false,
+    adoptRequest = 0,
+    returnView;
+  let filters = {document: '', workspace: '', part: ''};
+  const matches = (g, connection) => alive(g) && connection === ref();
+  const clearPreview = () => {
+    previewRequest++;
+    preview = undefined;
+    previewLoading = false;
+    previewError = undefined;
+  };
+  const close = (focus = true) => {
+    catalogRequest++;
+    adoptRequest++;
+    clearPreview();
+    draft = catalog = undefined;
+    catalogLoading = adopting = false;
+    if (dialog) {
+      dialog.close();
+      dialog.remove();
+      dialog = undefined;
+    }
+    if (focus) {
+      root.querySelector?.('[data-context-change]')?.focus();
+    }
+  };
+  const reset = () => {
+    close(false);
+    statusRequest++;
+    view = undefined;
+    statusError = undefined;
+    statusLoading = false;
+  };
+  const goodView = (value) =>
+    value &&
+    ['none', 'valid', 'invalid', 'unverified'].includes(value.validity) &&
+    Number.isSafeInteger(value.selectionRevision) &&
+    value.selectionRevision >= 0 &&
+    typeof value.interlock?.blocked === 'boolean';
+  const blocked = () => statusLoading || !view || statusError || view.interlock.blocked;
+  const readStatus = async (g, connection) => {
+    const request = ++statusRequest;
+    statusLoading = true;
+    view = undefined;
+    clearPreview();
+    render();
+    draw();
+    try {
+      const result = await call('work-context-status', connection);
+      if (!matches(g, connection) || request !== statusRequest) {
+        return;
+      }
+      if (!result.ok || !goodView(result.workContext)) {
+        throw new Error(result.code ?? 'provider_protocol_error');
+      }
+      view = result.workContext;
+      statusError = undefined;
+      if (
+        view.validity !== 'valid' ||
+        view.interlock.blocked ||
+        (draft &&
+          view.selection?.currentMicroversion &&
+          draft.observedMicroversion !== view.selection.currentMicroversion)
+      ) {
+        draft = catalog = undefined;
+        catalogRequest++;
+        clearPreview();
+      }
+    } catch (error) {
+      if (!matches(g, connection) || request !== statusRequest) {
+        return;
+      }
+      view = undefined;
+      statusError = error.message;
+      draft = catalog = undefined;
+      catalogRequest++;
+      clearPreview();
+    } finally {
+      if (matches(g, connection) && request === statusRequest) {
+        statusLoading = false;
+        render();
+        draw();
+      }
+    }
+  };
+  const loadPreview = async (g, connection) => {
+    clearPreview();
+    if (!draft) {
+      draw();
+      return;
+    }
+    const choice = draft,
+      request = previewRequest;
+    previewLoading = true;
+    draw();
+    try {
+      const result = await call('work-context-preview', connection, {
+        elementId: choice.elementId,
+        partId: choice.partId,
+        observedMicroversion: choice.observedMicroversion,
+      });
+      if (!matches(g, connection) || !dialog || request !== previewRequest || draft !== choice) {
+        return;
+      }
+      if (!result.ok) {
+        previewError = result.code ?? 'preview_unavailable';
+        if (previewError !== 'preview_unavailable') {
+          const code = previewError;
+          message = workContextReason(code);
+          draft = catalog = undefined;
+          await readStatus(g, connection);
+          if (code === 'selection_observation_stale' && matches(g, connection) && dialog && !blocked()) {
+            await loadCatalog(g, connection);
+          }
+          return;
+        }
+      } else if (
+        result.preview?.partId === choice.partId &&
+        result.preview.observedMicroversion === choice.observedMicroversion &&
+        result.preview.mimeType === 'image/png' &&
+        typeof result.preview.dataBase64 === 'string' &&
+        result.preview.dataBase64.length <= 1000000 &&
+        /^[A-Za-z0-9+/]+={0,2}$/.test(result.preview.dataBase64)
+      ) {
+        preview = result.preview;
+      } else {
+        previewError = 'preview_unavailable';
+      }
+    } catch {
+      if (matches(g, connection) && request === previewRequest) {
+        previewError = 'preview_unavailable';
+      }
+    } finally {
+      if (matches(g, connection) && request === previewRequest) {
+        previewLoading = false;
+        draw();
+      }
+    }
+  };
+  const loadCatalog = async (g, connection, retry = 0) => {
+    const request = ++catalogRequest;
+    clearPreview();
+    draft = catalog = undefined;
+    catalogLoading = true;
+    draw();
+    try {
+      const result = await call('work-context-catalog', connection);
+      if (!matches(g, connection) || !dialog || request !== catalogRequest) {
+        return;
+      }
+      if (!result.ok) {
+        if (result.code === 'selection_observation_stale' && retry === 0) {
+          message = workContextReason(result.code);
+          await loadCatalog(g, connection, 1);
+          return;
+        }
+        throw new Error(result.code ?? 'provider_protocol_error');
+      }
+      const next = result.catalog;
+      if (
+        !next?.document?.preselected ||
+        !validId(next.document.documentId) ||
+        !validId(next.observedMicroversion) ||
+        !Array.isArray(next.workspaces) ||
+        !Array.isArray(next.partStudios) ||
+        !Number.isSafeInteger(next.selectionRevision)
+      ) {
+        throw new Error('provider_protocol_error');
+      }
+      // A later status observation invalidates an older catalog even if its request is the newest.
+      const current = view?.selection?.currentMicroversion;
+      if (current && current !== next.observedMicroversion) {
+        throw new Error('selection_observation_stale');
+      }
+      catalog = next;
+      const previous = view?.validity === 'valid' ? view.selection : undefined;
+      const workspace = next.workspaces.find((w) => w.workspaceId === previous?.workspaceId && w.selectable);
+      const studio = next.partStudios.find((s) => s.elementId === previous?.elementId && s.goalEligible);
+      const part = studio?.parts?.find((p) => p.partId === previous?.partId && p.selectable);
+      if (previous && workspace && studio && part) {
+        draft = {
+          documentId: next.document.documentId,
+          workspaceId: workspace.workspaceId,
+          elementId: studio.elementId,
+          partId: part.partId,
+          observedMicroversion: next.observedMicroversion,
+        };
+      }
+      catalogLoading = false;
+      draw();
+      if (draft) {
+        await loadPreview(g, connection);
+      }
+    } catch (error) {
+      if (matches(g, connection) && dialog && request === catalogRequest) {
+        message = workContextReason(error.message);
+      }
+    } finally {
+      if (matches(g, connection) && request === catalogRequest) {
+        catalogLoading = false;
+        draw();
+      }
+    }
+  };
+  const adopt = async (g, connection) => {
+    if (!draft || !catalog || blocked() || !canAdmin() || adopting || catalogLoading || previewLoading) {
+      return;
+    }
+    const request = ++adoptRequest,
+      choice = draft;
+    adopting = true;
+    message = 'Auswahl wird geprüft …';
+    draw();
+    try {
+      const result = await call('work-context-adopt', connection, {
+        expectedSelectionRevision: catalog.selectionRevision,
+        ...choice,
+      });
+      if (!matches(g, connection) || !dialog || request !== adoptRequest) {
+        return;
+      }
+      if (result.ok && goodView(result.workContext)) {
+        view = result.workContext;
+        statusError = undefined;
+        close(false);
+        render();
+        root.querySelector?.('[data-context-change]')?.focus();
+        return;
+      }
+      const code = result.code ?? 'provider_protocol_error';
+      message = workContextReason(code);
+      clearPreview();
+      draft = undefined;
+      if (code === 'selection_revision_conflict') {
+        await readStatus(g, connection);
+        if (matches(g, connection) && dialog && request === adoptRequest) {
+          close(false);
+          render();
+          const note = root.querySelector?.('[data-context-notice]');
+          if (note) {
+            note.textContent = `${workContextReason(code)} Gewinner geladen.`;
+          }
+          root.querySelector?.('[data-context-change]')?.focus();
+        }
+      } else if (code === 'selection_observation_stale') {
+        await readStatus(g, connection);
+        if (matches(g, connection) && dialog && request === adoptRequest) {
+          await loadCatalog(g, connection);
+        }
+      } else {
+        // Re-read the authoritative validity/interlock after every rejected adoption; never retry the write.
+        await readStatus(g, connection);
+      }
+    } catch {
+      if (matches(g, connection) && request === adoptRequest) {
+        message = 'Ausgang der Übernahme unklar. Status aktualisieren; nicht erneut übernehmen.';
+        draft = catalog = undefined;
+        clearPreview();
+        await readStatus(g, connection);
+      }
+    } finally {
+      if (matches(g, connection) && request === adoptRequest) {
+        adopting = false;
+        render();
+        draw();
+      }
+    }
+  };
+  const draw = () => {
+    if (!dialog) {
+      return;
+    }
+    const focused = document.activeElement;
+    const field = focused?.getAttribute?.('data-search');
+    const focusText = focused?.tagName === 'BUTTON' ? focused.textContent : undefined;
+    const selectionStart = focused?.selectionStart;
+    dialog.replaceChildren();
+    const heading = el('h2', 'Arbeitskontext auswählen');
+    heading.id = 'coc-selection-title';
+    const dismiss = button('Schließen', () => close());
+    dismiss.disabled = adopting;
+    dialog.append(
+      heading,
+      dismiss,
+      el('p', 'Eine Auswahl pro Zuordnung · Übernehmen startet keine CAD-Arbeit.', 'muted'),
+    );
+    if (message) {
+      const note = el('p', message, 'notice');
+      note.setAttribute('role', 'status');
+      dialog.append(note);
+    }
+    if (blocked()) {
+      dialog.append(
+        el(
+          'p',
+          statusLoading ? 'Auswahlstatus wird geprüft …' : workContextReason(statusError ?? view?.interlock.code),
+          'notice',
+        ),
+      );
+    }
+    const reload = button('Katalog aktualisieren', async () => {
+      message = undefined;
+      await readStatus(returnView.g, returnView.connection);
+      if (dialog && !blocked()) {
+        await loadCatalog(returnView.g, returnView.connection);
+      }
+    });
+    reload.disabled = adopting || statusLoading;
+    dialog.append(reload);
+    if (catalogLoading) {
+      dialog.append(el('p', 'Katalog wird geladen …'));
+    }
+    if (catalog) {
+      const columns = el('div', undefined, 'selection-columns');
+      const column = (title, key) => {
+        const node = el('section');
+        node.append(el('h3', title));
+        const label = el('label', `${title} durchsuchen`),
+          input = el('input');
+        input.type = 'search';
+        input.value = filters[key];
+        input.setAttribute('data-search', key);
+        input.setAttribute('aria-label', `${title} durchsuchen`);
+        input.oninput = () => {
+          filters[key] = input.value;
+          draw();
+        };
+        label.append(input);
+        node.append(label);
+        columns.append(node);
+        return node;
+      };
+      const contains = (text, key) => text.toLocaleLowerCase('de').includes(filters[key].toLocaleLowerCase('de'));
+      const documents = column('Dokument', 'document');
+      if (contains(catalog.document.name, 'document')) {
+        const item = button(`${catalog.document.name} · vorausgewählt`, () => {
+          // The sole bound document is already selected; no parent switch exists in increment 1.
+        });
+        item.setAttribute('aria-pressed', 'true');
+        documents.append(item);
+      } else {
+        documents.append(el('p', 'Keine Suchtreffer im zugeordneten Dokument. Suche anpassen.'));
+      }
+      const workspaces = column('Onshape-Workspace', 'workspace');
+      let workspaceCount = 0;
+      for (const workspace of catalog.workspaces) {
+        if (!contains(workspace.name, 'workspace')) {
+          continue;
+        }
+        workspaceCount++;
+        const item = button(
+          `${workspace.name} · ${workspace.role === 'primary' ? 'geschützter Primary' : 'Candidate'}`,
+          () => {
+            if (!workspace.selectable || adopting) {
+              return;
+            }
+            draft = undefined;
+            clearPreview();
+            draw();
+          },
+        );
+        item.disabled = !workspace.selectable || adopting;
+        item.setAttribute(
+          'aria-pressed',
+          String(workspace.selectable && (!draft || draft.workspaceId === workspace.workspaceId)),
+        );
+        workspaces.append(item);
+        if (workspace.reason) {
+          workspaces.append(el('p', workContextReason(workspace.reason), 'muted'));
+        }
+      }
+      if (!workspaceCount) {
+        workspaces.append(el('p', 'Keine Suchtreffer. Workspace-Suche anpassen.'));
+      }
+      const parts = column('Bauteil', 'part');
+      let count = 0;
+      for (const studio of catalog.partStudios) {
+        const group = el('section', undefined, 'selection-studio');
+        group.append(el('h3', `Part Studio: ${studio.name}`));
+        if (studio.reason) {
+          group.append(el('p', workContextReason(studio.reason), 'muted'));
+        }
+        if (studio.parts === null) {
+          group.append(el('p', 'Bauteile nicht geladen.'));
+        } else if (studio.parts?.length === 0) {
+          group.append(el('p', 'Keine Bauteile in diesem Part Studio.'));
+        }
+        for (const part of studio.parts ?? []) {
+          if (!contains(`${studio.name} ${part.name} ${part.partId}`, 'part')) {
+            continue;
+          }
+          count++;
+          const item = button(`${part.name} · ${part.partId}${part.hidden ? ' · ausgeblendet in Onshape' : ''}`, () => {
+            const workspace = catalog.workspaces.find((w) => w.selectable && w.role === 'primary');
+            if (!part.selectable || !studio.goalEligible || !workspace || adopting) {
+              return;
+            }
+            draft = {
+              documentId: catalog.document.documentId,
+              workspaceId: workspace.workspaceId,
+              elementId: studio.elementId,
+              partId: part.partId,
+              observedMicroversion: catalog.observedMicroversion,
+            };
+            message = undefined;
+            void loadPreview(returnView.g, returnView.connection);
+          });
+          item.replaceChildren(
+            el('span', part.name),
+            el('span', ` · ${part.partId}${part.hidden ? ' · ausgeblendet in Onshape' : ''}`, 'revision'),
+          );
+          item.disabled = !part.selectable || !studio.goalEligible || adopting || !!blocked();
+          item.setAttribute(
+            'aria-pressed',
+            String(draft?.elementId === studio.elementId && draft?.partId === part.partId),
+          );
+          group.append(item);
+          if (part.reason) {
+            group.append(el('p', workContextReason(part.reason), 'muted'));
+          }
+        }
+        if (studio.truncated) {
+          group.append(el('p', 'Liste gekürzt · höchstens 500 Bauteile. Auswahl bei Bedarf in Onshape prüfen.'));
+        }
+        parts.append(group);
+      }
+      if (!count && filters.part) {
+        parts.append(el('p', 'Keine Suchtreffer. Bauteilsuche anpassen.'));
+      }
+      dialog.append(
+        columns,
+        el('p', `Katalogstand ${catalog.observedMicroversion} · ${date(catalog.observedAt)}`, 'revision'),
+      );
+    }
+    const summary = el('section', undefined, 'selection-summary');
+    summary.setAttribute('aria-label', 'Vorläufige Auswahl');
+    if (draft) {
+      const studio = catalog.partStudios.find((s) => s.elementId === draft.elementId);
+      const part = studio?.parts?.find((p) => p.partId === draft.partId);
+      summary.append(
+        el('h3', `${part?.name} · ${draft.partId}`),
+        el('p', `${catalog.document.name} / Primary / ${studio?.name}`),
+      );
+      if (preview) {
+        const image = el('img');
+        image.src = `data:image/png;base64,${preview.dataBase64}`;
+        image.alt = `Vorschau nur für ${part?.name} · ${draft.partId}`;
+        const shown = preview;
+        image.onerror = () => {
+          if (preview === shown) {
+            clearPreview();
+            previewError = 'preview_unavailable';
+            draw();
+          }
+        };
+        summary.append(image);
+      } else {
+        summary.append(
+          el(
+            'p',
+            previewLoading
+              ? 'Bauteilvorschau wird geladen …'
+              : workContextReason(previewError ?? 'preview_unavailable'),
+          ),
+        );
+      }
+      if (!previewLoading) {
+        summary.append(button('Vorschau erneut laden', () => loadPreview(returnView.g, returnView.connection)));
+      }
+      const url = cadLink(draft);
+      if (url) {
+        summary.append(anchor('Arbeitskontext in Onshape öffnen ↗', url));
+      }
+    } else {
+      summary.append(el('p', 'Wähle genau ein Bauteil. Ohne vollständige Auswahl ist keine Übernahme möglich.'));
+    }
+    dialog.append(summary);
+    const actions = el('div', undefined, 'controls');
+    const accept = button('Auswahl übernehmen', () => adopt(returnView.g, returnView.connection));
+    accept.disabled = !draft || !catalog || !!blocked() || !canAdmin() || adopting || previewLoading || catalogLoading;
+    const cancel = button('Abbrechen', () => close());
+    cancel.disabled = adopting;
+    actions.append(cancel, accept);
+    dialog.append(actions);
+    if (!canAdmin()) {
+      dialog.append(el('p', 'Übernehmen benötigt operator.admin. Lesender Zugriff erlaubt die Auswahlprüfung.'));
+    }
+    if (field) {
+      const input = dialog.querySelector(`[data-search="${field}"]`);
+      input?.focus();
+      if (typeof selectionStart === 'number' && input) {
+        input.setSelectionRange(selectionStart, selectionStart);
+      }
+    } else if (focusText) {
+      const buttons = [...dialog.querySelectorAll('button:not([disabled])')];
+      (buttons.find((node) => node.textContent === focusText) ?? buttons[0])?.focus();
+    }
+  };
+  const open = (g, connection) => {
+    if (!matches(g, connection) || blocked() || dialog) {
+      return;
+    }
+    returnView = {g, connection};
+    filters = {document: '', workspace: '', part: ''};
+    message = undefined;
+    dialog = el('dialog', undefined, 'selection-dialog');
+    dialog.setAttribute('aria-labelledby', 'coc-selection-title');
+    dialog.oncancel = (event) => {
+      event.preventDefault();
+      if (!adopting) {
+        close();
+      }
+    };
+    const opened = dialog;
+    dialog.onclose = () => {
+      if (dialog === opened && !opened.open) {
+        close();
+      }
+    };
+    dialog.onkeydown = (event) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+      const controls = [...opened.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]')].filter(
+        (node) => node.getClientRects().length,
+      );
+      const first = controls[0],
+        last = controls.at(-1);
+      if (
+        (event.shiftKey && document.activeElement === first) ||
+        (!event.shiftKey && document.activeElement === last)
+      ) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      }
+    };
+    root.append(dialog);
+    draw();
+    dialog.showModal();
+    void (async () => {
+      await readStatus(g, connection);
+      if (dialog === opened && !blocked()) {
+        await loadCatalog(g, connection);
+      }
+    })();
+  };
+  const card = (g) => {
+    const node = panel('Arbeitskontext');
+    node.setAttribute('data-work-context', '');
+    const notice = el('p', '', 'muted');
+    notice.setAttribute('data-context-notice', '');
+    notice.setAttribute('role', 'status');
+    node.append(notice);
+    if (statusLoading) {
+      node.append(el('p', 'Auswahlstatus wird geprüft …'));
+    } else if (statusError || !view) {
+      node.append(el('p', workContextReason(statusError), 'notice'));
+    } else {
+      const s = view.selection;
+      node.append(
+        el(
+          'p',
+          {
+            none: 'Wähle ein Bauteil für deine CAD-Aufgabe.',
+            valid: 'Bestätigte Bauteilauswahl',
+            invalid: 'Auswahl ungültig · nicht für Ziele verwendbar',
+            unverified: 'Auswahl ungeprüft · nicht für Ziele verwendbar',
+          }[view.validity],
+          'badge',
+        ),
+      );
+      if (s) {
+        node.append(
+          el('h3', s.partName ?? 'Bauteilname nicht verfügbar'),
+          el(
+            'p',
+            `Dokument: ${s.documentName ?? 'Name nicht verfügbar'} · Workspace: ${s.workspaceName ?? 'Name nicht verfügbar'} · Part Studio: ${s.partStudioName ?? 'Name nicht verfügbar'}`,
+          ),
+          el(
+            'p',
+            `Part ${s.partId} · Auswahlrevision ${view.selectionRevision} · ausgewählt bei ${s.observedMicroversion} · aktuell ${s.currentMicroversion ?? 'ungeprüft'}`,
+            'revision',
+          ),
+        );
+        const url = cadLink(s);
+        if (url && url === s.onshapeUrl) {
+          node.append(anchor('Auswahl in Onshape öffnen ↗', url));
+        }
+      }
+      node.append(el('p', `Geprüft: ${date(view.observedAt)}`, 'muted'));
+      if (view.reason) {
+        node.append(el('p', workContextReason(view.reason), 'notice'));
+      }
+      if (view.interlock.blocked) {
+        node.append(el('p', workContextReason(view.interlock.code), 'notice'), button('Zum Zielbereich', showGoal));
+      }
+    }
+    const change = button('Auswahl ändern', () => open(g, ref()));
+    change.setAttribute('data-context-change', '');
+    change.disabled = !!blocked();
+    node.append(change, button('Weiter zu CAD', showCad));
+    return node;
+  };
+  return {card, readStatus, reset};
+}
+
 export default {
   id: 'claw-onshape',
   activate(host) {
@@ -339,6 +993,30 @@ export default {
           root.setAttribute('aria-busy', String(busy));
         };
         const canAdmin = () => context.host.connection?.canAdmin === true;
+        const workContext = createWorkContext({
+          el,
+          button,
+          anchor,
+          panel,
+          root,
+          call,
+          canAdmin,
+          render: () => render(),
+          alive: active,
+          ref: () => select.value,
+          showGoal: () => {
+            selectedView = 'cad';
+            render();
+            const goal = root.querySelector?.('#coc-goal');
+            goal?.setAttribute('tabindex', '-1');
+            goal?.focus();
+          },
+          showCad: () => {
+            selectedView = 'cad';
+            render();
+            content.querySelector?.('h1')?.focus();
+          },
+        });
         // Goal status has its own request fence. Legacy payloads never supply goal evidence.
         let goalSnapshot,
           goalLoading = false,
@@ -476,7 +1154,7 @@ export default {
           } finally {
             if (sameGoalContext(g, ref, request)) {
               const actionError = goalError;
-              await readGoals(g, ref);
+              await Promise.all([readGoals(g, ref), workContext.readStatus(g, ref)]);
               if (active(g) && ref === select.value && actionError) {
                 goalError = actionError;
               }
@@ -605,6 +1283,21 @@ export default {
               }
             }
             const t = goal.target ?? {};
+            if (t.focus) {
+              review.append(
+                el('h3', `Bauteil-Fokus: ${t.focus.partName}`),
+                el(
+                  'p',
+                  `Part Studio: ${t.focus.elementId} · Part ${t.focus.partId} · Auswahlrevision ${t.focus.selectionRevision}`,
+                  'revision',
+                ),
+                el(
+                  'p',
+                  'Der Fokus beschreibt die Absicht. Ziel- und Erhaltungsbedingungen bleiben featurebasiert; eine erfolgreiche Prüfung belegt nicht, dass nur dieses Bauteil geändert wurde.',
+                  'notice',
+                ),
+              );
+            }
             const dl = el('dl', undefined, 'goal-context');
             for (const [label, value] of [
               ['Dokument', t.documentId],
@@ -887,20 +1580,8 @@ export default {
         };
         const renderWorkspace = () => {
           const t = snapshot?.target;
-          const names = namesKey === targetKey(t) ? observedNames : undefined;
           content.append(el('p', 'Workspace', 'eyebrow'), title('Dein Engineering-Workspace'));
-          const contextPanel = panel('Arbeitskontext');
-          contextPanel.append(
-            el('p', names?.documentName ?? (t ? `Dokument ${short(t.documentId)}` : 'Keine bestätigte Zuordnung')),
-            el('p', 'Team-/Projektbezeichnung nicht konfiguriert.', 'muted'),
-            el(
-              'p',
-              t
-                ? `Workspace ${names?.workspaceName ?? t.workspaceId} · Part Studio ${names?.elementName ?? t.elementId ?? 'nicht zugeordnet'}`
-                : 'Zuordnung durch den Operator prüfen lassen.',
-            ),
-            el('p', metadataText(), 'foot'),
-          );
+          const contextPanel = workContext.card(generation);
           const toolsPanel = el('div', undefined, 'tool-grid'),
             cad = panel('Onshape'),
             print = panel('Bambu Studio / Bambu Lab');
@@ -987,6 +1668,7 @@ export default {
             renderPrint();
             return;
           }
+          content.append(workContext.card(generation));
           const choices = candidateChoices(snapshot),
             t = snapshot?.target;
           if (!choices.length) {
@@ -1503,6 +2185,7 @@ export default {
           }
         };
         const load = async (keepOperatorResult = false) => {
+          workContext.reset();
           invalidateGoal();
           candidateAttempted = false;
           if (!keepOperatorResult) {
@@ -1586,6 +2269,7 @@ export default {
                 ? loadWorkspaceContext(g, data.target, select.value)
                 : Promise.resolve(),
               readGoals(g, select.value),
+              workContext.readStatus(g, select.value),
             ]);
           } catch (error) {
             if (!active(g)) {
@@ -1614,6 +2298,7 @@ export default {
           }
         };
         const connectionAction = async (actionId, write = false) => {
+          workContext.reset();
           invalidateGoal();
           clearImage();
           observedNames = undefined;
@@ -1670,6 +2355,7 @@ export default {
         void load();
         return {
           dispose() {
+            workContext.reset();
             clearImage();
             disposed = true;
             generation++;

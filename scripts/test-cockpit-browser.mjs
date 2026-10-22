@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {pngFixture} from '../tests/fixtures/png.mjs';
 import {imageHash} from '../dist/render.js';
+import {runSelectionBrowser} from '../tests/cockpit-selection-browser.mjs';
 import {target} from '../tests/fixtures/cockpit.mjs';
 const origin = 'https://cockpit-fixture.test';
-const output = 'docs/product/dashboard-workflow-2026-10-21/implementation';
+const output = '/tmp/clawonshape-ui-cockpit-regression';
 const png = pngFixture();
 const image = {
   ...target,
@@ -30,6 +31,7 @@ window.data={...fixtureData,oauthWrite:true};window.metadata={...workspaceContex
 window.goalFixture=goalFixture;window.goals={ok:true,goal:goalFixture(),history:[]};window.mode='normal';window.calls=[];window.image=${JSON.stringify(image)};window.connection={canAdmin:true};
 ui.activate({ui:{registerNavigation(){},registerPage(page){window.view=page.mount(document.querySelector('#app'),{signal:new AbortController().signal,host:{connection:window.connection,async request(method,args){
 window.calls.push(args);
+if(args.actionId==='work-context-status')return {ok:true,result:{ok:true,workContext:{selectionRevision:0,validity:'none',reason:null,selection:null,interlock:{blocked:false,code:null,goalId:null},observedAt:Date.now()}}};
 if(args.actionId==='goal-status')return {ok:true,result:window.goals};
 if(args.actionId==='goal-confirm'){window.goals={ok:true,goal:goalFixture('ACTIVE'),history:[]};return {ok:true,result:window.goals};}
 if(args.actionId==='goal-stop'){window.goals={ok:true,goal:goalFixture('STOPPED'),history:[]};return {ok:true,result:window.goals};}
@@ -80,14 +82,14 @@ try {
   await page.goto(origin);
   const nav = page.getByRole('navigation', {name: 'Arbeitsbereich'});
   await page.getByRole('heading', {name: 'Dein Engineering-Workspace', exact: true}).waitFor();
-  await page.getByText('DEMO Document', {exact: true}).waitFor();
+  await page.getByText('Wähle ein Bauteil für deine CAD-Aufgabe.', {exact: true}).waitFor();
   assert.deepEqual(await nav.getByRole('button').allTextContents(), ['Workspace', 'CAD', '3D Print']);
   assert.equal(await nav.getByRole('button', {name: 'Workspace', exact: true}).getAttribute('aria-current'), 'page');
   assert.equal(await page.locator('#coc-connections').getAttribute('open'), null);
   assert.equal(await page.locator('#coc-operator-actions').getAttribute('open'), null);
   assert.deepEqual(
     (await page.evaluate(() => window.calls)).map((c) => c.actionId),
-    ['status', 'mutation-status', 'workspace-context', 'goal-status'],
+    ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'],
   );
   await mkdir(output, {recursive: true});
   const capture = async (name) => {
@@ -231,3 +233,5 @@ try {
 } finally {
   await browser?.close();
 }
+
+await runSelectionBrowser();

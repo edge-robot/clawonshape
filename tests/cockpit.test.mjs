@@ -1,9 +1,14 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import ui, {candidateChoices, proposalState, cadLink} from '../ui/control-ui.js';
 import {target, data, status, proposal, workspaceContext, goalFixture} from './fixtures/cockpit.mjs';
 import {pngFixture} from './fixtures/png.mjs';
 import {imageHash} from '../dist/render.js';
+
+const emptyWorkContext = JSON.parse(
+  readFileSync(new URL('../docs/interface/work-context-fixtures/view-none.json', import.meta.url), 'utf8'),
+);
 
 class Element {
   constructor(tag) {
@@ -66,15 +71,17 @@ async function mounted(
           return {
             ok: true,
             result:
-              args.actionId === 'mutation-status'
-                ? await response
-                : args.actionId === 'status'
-                  ? statusResponse
-                  : args.actionId === 'goal-status'
-                    ? await goals
-                    : args.actionId === 'workspace-context'
-                      ? await contextResponse
-                      : await (typeof actionResponse === 'function' ? actionResponse(args) : actionResponse),
+              args.actionId === 'work-context-status'
+                ? {ok: true, workContext: emptyWorkContext}
+                : args.actionId === 'mutation-status'
+                  ? await response
+                  : args.actionId === 'status'
+                    ? statusResponse
+                    : args.actionId === 'goal-status'
+                      ? await goals
+                      : args.actionId === 'workspace-context'
+                        ? await contextResponse
+                        : await (typeof actionResponse === 'function' ? actionResponse(args) : actionResponse),
           };
         },
       },
@@ -150,7 +157,7 @@ test('native page auto-loads read-only data, selects Primary and proposals consi
   await mounted(async ({all, text, requests}) => {
     assert.deepEqual(
       requests.map((r) => r.actionId),
-      ['status', 'mutation-status', 'workspace-context', 'goal-status'],
+      ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'],
     );
     assert.match(text(), /Engineering Cockpit/);
     assert.equal(all().find((e) => e.id === 'coc-operator-actions').open, undefined);
@@ -163,7 +170,7 @@ test('native page auto-loads read-only data, selects Primary and proposals consi
     );
     primary.onclick();
     assert.match(text(), /Kein gespeicherter Auftrag/);
-    assert.equal(requests.length, 4);
+    assert.equal(requests.length, 5);
   });
 });
 test('refresh clears old cards on error; late response after dispose cannot render', async () => {
@@ -198,7 +205,9 @@ test('read/write consent remains an explicit connection action', async () => {
     assert(requests.some((r) => r.actionId === 'connect' && r.payload.requestRestWriteAccess === true));
     assert(
       requests.every((r) =>
-        ['status', 'mutation-status', 'workspace-context', 'goal-status', 'connect'].includes(r.actionId),
+        ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status', 'connect'].includes(
+          r.actionId,
+        ),
       ),
     );
   });
@@ -227,7 +236,7 @@ test('operator section is collapsed; exact payload precedes approval; no actions
     assert.equal(card.children[3].children[0].textContent, 'Approve this Candidate update');
     assert.deepEqual(
       requests.map((r) => r.actionId),
-      ['status', 'mutation-status', 'workspace-context', 'goal-status'],
+      ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'],
     );
   });
 });
@@ -363,7 +372,7 @@ test('admin absence prevents handler dispatch; successful Candidate response is 
         .onclick();
       assert.deepEqual(
         requests.map((r) => r.actionId),
-        ['status', 'mutation-status', 'workspace-context', 'goal-status'],
+        ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'],
       );
     },
     {canAdmin: false, initial: {...data, oauthWrite: true}},
@@ -393,7 +402,7 @@ test('three real destinations start on Workspace, keep technical sections closed
         ['Workspace', 'CAD', '3D Print'],
       );
       assert.equal(nav[0].attrs['aria-current'], 'page');
-      assert.match(text(), /DEMO Document/);
+      assert.match(text(), /Wähle ein Bauteil für deine CAD-Aufgabe/);
       assert(!text().includes('pib /'));
       assert(!all().find((e) => e.id === 'coc-connections').open);
       assert(!all().find((e) => e.id === 'coc-operator-actions').open);
@@ -410,7 +419,7 @@ test('three real destinations start on Workspace, keep technical sections closed
       assert(!all().some((e) => e.tag === 'input'));
       assert.deepEqual(
         requests.map((r) => r.actionId),
-        ['status', 'mutation-status', 'workspace-context', 'goal-status'],
+        ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'],
       );
       nav[0].onclick();
       assert.match(text(), /Dein Engineering-Workspace/);
@@ -626,7 +635,9 @@ test('U2 full goal review precedes exact confirmation; one pending click means o
       assert.match(text, /Neuer Candidate aus Primary/);
       assert.match(text, /Bestätigung gültig bis/);
       assert(
-        requests.every((r) => ['status', 'mutation-status', 'workspace-context', 'goal-status'].includes(r.actionId)),
+        requests.every((r) =>
+          ['status', 'mutation-status', 'workspace-context', 'goal-status', 'work-context-status'].includes(r.actionId),
+        ),
       );
       const button = goalButton(all, confirmedLabel);
       assert.equal(button.disabled, false);

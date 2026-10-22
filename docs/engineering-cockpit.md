@@ -14,13 +14,52 @@ access keeps the controls disabled. Review the exact payload before approving.
 Each click is a single attempt, with no automatic retry. Engineer executes approved
 updates through native MCP. Primary promotion and print starts are not triggered here.
 
-**Orient and select.** Workspace shows the assigned context, stored Onshape
-connection state, capabilities, timestamps and the next step. Current document,
-workspace and Part Studio names load independently of images through the
-read-only `workspace-context` action. It requires `operator.read`, `liveReads`,
-a single exact binding and OAuth read access. Missing or invalid names fall back
-to IDs. These names describe the current workspace, not a historical revision.
-The Part Studio name is not transferred to an unconfigured Primary.
+**Select a work context (increment 1).** The compact **"Arbeitskontext"** card in
+Workspace and CAD reads `work-context-status`. It shows the confirmed Part,
+document, Onshape workspace, Part Studio, selection revision, observed/current
+microversions, check time and an Onshape link. Missing names remain explicitly
+unavailable. A legacy element-only binding has no selected Part; the page never
+chooses one automatically. **"Weiter zu CAD"** only navigates.
+
+**"Auswahl ändern"** opens a modal selector. The sole bound document is preselected;
+the protected Primary can be selected, while a goal-owned Candidate is visibly
+inspection-only. Search each column; Parts are grouped by Part Studio. The bound,
+unconfigured studio exposes eligible solid Parts, including hidden ones. Other
+studios, unsupported configurations and Part kinds carry an explanation. "Not
+loaded" and "no Parts" are distinct. Same-name Parts retain their secondary Part IDs.
+
+Only selecting a Part requests `work-context-preview` at the catalog's exact
+microversion. This preview is independent of the existing whole-studio CAD render;
+it is never substituted by that render. Unavailable/invalid images offer an explicit
+retry and Onshape link. No preview is cached on the compact card. Invalid or
+unverified views retain their server-reported selection and reason without images;
+a failed status read clears the displayed trusted projection.
+
+**"Auswahl übernehmen"** requires `operator.admin` and sends only the contract's
+identity fields plus the catalog's `expectedSelectionRevision`. Success closes the
+dialog and returns to the compact card. Cancel, close and Escape discard drafts,
+and reopening revalidates and restores the confirmed Part. While adoption is in
+flight, dismissal is disabled until the outcome is known. No adoption happens on
+load, navigation, search, preview or reopening. Preview failure alone does not
+prevent adoption of an otherwise complete, verified catalog choice.
+
+A revision conflict reloads status and shows the winning selection; it never
+retries adoption. A moved observation reloads status and the catalog for another
+review. A stale catalog read retries once, then asks for explicit refresh. Other
+failures explain the distinct recovery step and preserve the confirmed record.
+Uncertain delivery asks for a status check instead of a write retry. Late replies
+are fenced by page generation, connection, request, Part and microversion.
+
+`WorkContextView.interlock` alone controls the context-change interlock. A blocked
+view points to the goal panel; a STOP, expiry or blocked goal is not clearance.
+Resolve uncertain work and explicitly close the old goal as the server allows.
+The selector never changes bindings or creates goals, Candidates or approvals.
+Read-only operators may browse but cannot adopt. Task-level ownership and
+non-Primary sources remain outside increment 1 (ADR I1–I5).
+
+Current CAD inspection names still load separately via the guarded, GET-only
+`workspace-context` action. Those current names describe inspection context, not
+historical goal focus or selected-Part identity.
 
 CAD has a **"Versionen & Branches"** (versions and branches) column with the
 assigned Candidate and Primary. Several payload proposals in one workspace do
@@ -35,7 +74,12 @@ following an action; there is no background goal polling. Ask the Robotics Lead
 to prepare a goal. Before **"Ziel bestätigen & Iteration erlauben"**, review every
 goal/preservation condition, allowed features/operations, target, Candidate plan,
 budget, lifetime, confirmation deadline and displayed goal hash. The explicit
-operator confirmation sends that hash and its nonce unchanged. It requires admin
+operator confirmation sends that hash and its nonce unchanged. When `GoalView.target.focus`
+is present, its Part name, exact Part Studio element ID, Part ID and selection
+revision appear before confirmation. The goal contract has no studio-name field;
+the UI does not borrow a label from a newer selection. Focus expresses intent:
+goal and preservation conditions remain feature-based, and success does not prove
+that only the focused Part changed. It requires admin
 rights, an available capability and an awaiting, unexpired confirmation. Pending
 calls disable goal actions; each click makes one attempt, with no automatic retry.
 
