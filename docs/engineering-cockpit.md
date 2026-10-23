@@ -14,62 +14,78 @@ access keeps the controls disabled. Review the exact payload before approving.
 Each click is a single attempt, with no automatic retry. Engineer executes approved
 updates through native MCP. Primary promotion and print starts are not triggered here.
 
-**Select a work context (increment 1).** The compact **"Arbeitskontext"** card in
-Workspace and CAD reads `work-context-status`. It shows the confirmed Part,
-document, Onshape workspace, Part Studio, selection revision, observed/current
-microversions, check time and an Onshape link. Missing document/workspace/studio
-names show "Name nicht verfügbar" and a
-separate secondary short ID, never an ID presented as a name. Search matches
-available names and actual IDs; a null label is not the text "null". Part names
-remain strict. A legacy element-only binding has no selected Part; the page never
-chooses one automatically. **"Weiter zu CAD"** only navigates.
+**Select a work context (V2, work-context-1.1.0-draft).** The compact
+**"Arbeitskontext"** card is shared by Workspace and CAD. It reads
+`work-context-status`, shows the confirmed Part and provenance, revision/freshness,
+and a checked Onshape link. Missing names have a separate short ID. A legacy
+binding has no inferred Part. **"Weiter zu CAD"** only navigates.
 
-**"Auswahl ändern"** opens a modal selector. The sole bound document is preselected;
-the protected Primary can be selected, while a goal-owned Candidate is visibly
-inspection-only. Search each column; Parts are grouped by Part Studio. The bound,
-unconfigured studio exposes eligible solid Parts, including hidden ones. Other
-studios, unsupported configurations and Part kinds carry an explanation. "Not
-loaded" and "no Parts" are distinct. Same-name Parts retain their secondary Part IDs.
+**"Auswahl ändern"** opens the approved V2 selector. Desktop groups Document and
+Workspace on the left, with grouped Parts and an adjacent preview on the right.
+Mobile uses sequential steps and compact context/change links; preview and adoption
+sit inside the selected Part card. Exactly one **"Schließen"** button stays in a
+bottom footer outside the scrolling content, with no top X or second Cancel.
+Escape discards the local draft and returns focus; an in-flight adoption disables
+dismissal and duplicate dispatch. Successful adoption closes the dialog.
 
-Only selecting a Part requests `work-context-preview` at the catalog's exact
-microversion. The amended contract requires a 256×256 PNG below 65,000 base64
-characters; failed revision reads retain their own error codes. This preview is
-independent of the existing whole-studio CAD render;
-it is never substituted by that render. Unavailable/invalid images offer an explicit
-retry and Onshape link. No preview is cached on the compact card. Invalid or
-unverified views retain their server-reported selection and reason without images;
-a failed status read clears the displayed trusted projection.
+Document search is a real `work-context-documents` request, not local filtering:
+empty initial listing, at least two characters for a query, 300ms debounce, offset
+increments of 20 and "Weitere Dokumente laden" only when hasMore. The bound document
+is first on page zero and explicitly marked **"Zugeordnet"**. Choosing a document
+reads `work-context-workspaces` and clears descendants. Workspaces show the view's
+Primary/Candidate/default/other role and read-only label; choosing one clears Part
+and preview and reads `work-context-parts` for that exact document/workspace.
 
-**"Auswahl übernehmen"** requires `operator.admin` and sends only the contract's
-identity fields plus the catalog's `expectedSelectionRevision`. Success closes the
-dialog and returns to the compact card. Cancel, close and Escape discard drafts,
-and reopening revalidates and restores the confirmed Part. While adoption is in
-flight, dismissal is disabled until the outcome is known. No adoption happens on
-load, navigation, search, preview or reopening. Preview failure alone does not
-prevent adoption of an otherwise complete, verified catalog choice.
+Part queries and studio refinement use the gateway. Hits are grouped by the
+returned studios in provider order. When truncated, refine by studio, then query:
+a query alone cannot reach studios the backend has not scanned. All returned
+studios remain available, including those without hits in this bounded result;
+no hits does not assert an empty studio. Configured bound studios may still return
+inspection-only hits. Short Part IDs, Part Studio, part number and hidden status
+help distinguish same-name Parts. Long/missing names wrap and retain identity.
 
-A revision conflict reloads status and shows the winning selection; it never
-retries adoption. A concurrent store-lock loser
-(`connection_busy_or_state_unavailable`) also reloads status and shows the current
-selection with "Gerade belegt · Status neu geladen" only after a successful read.
-A failed reload stays unavailable. Missing targets and non-Part-Studio targets
-have explicit, distinct operator guidance; neither retries adoption. A moved
-observation reloads status and the catalog for another
-review. A stale catalog read retries once, then asks for explicit refresh. Other
-failures explain the distinct recovery step and preserve the confirmed record.
-Uncertain delivery asks for a status check instead of a write retry. Late replies
-are fenced by page generation, connection, request, Part and microversion.
+Inspection-only rows are clickable for preview. They explain the actual reason:
+foreign document, non-Primary workspace, existing Candidate, unprovisioned studio,
+unsupported configuration or unsupported Part kind. Browsing is not adoption
+authority. Only **selectable:true** plus current view readiness and operator.admin
+can enable **"Dieses Bauteil übernehmen"** inside the selected card; goalEligible
+alone never enables it. Goals remain bound to the provisioned Primary source.
 
-`WorkContextView.interlock` alone controls the context-change interlock. A blocked
-view points to the goal panel; a STOP, expiry or blocked goal is not clearance.
-Resolve uncertain work and explicitly close the old goal as the server allows.
-The selector never changes bindings or creates goals, Candidates or approvals.
-Read-only operators may browse but cannot adopt. Task-level ownership and
-non-Primary sources remain outside increment 1 (ADR I1–I5).
+Part previews carry the full target and observed microversion. **"Studio ansehen"**
+uses the same preview region, labels it **"Part-Studio-Vorschau · kein Einzelbauteil"**
+and accepts partId:null in the reply. **"Bauteilvorschau"** returns to the selected
+Part without moving adoption identity. Studio/return actions focus the new preview
+region so its identity is visible. A studio image never substitutes for a failed
+Part image. Valid PNGs are below 65,000 base64 characters: 256px square for a Part,
+128px square for a studio. Decoder/size/identity/microversion failures suppress the
+image. An optional unavailable image is distinct from unknown adoption readiness.
 
-Current CAD inspection names still load separately via the guarded, GET-only
-`workspace-context` action. Those current names describe inspection context, not
-historical goal focus or selected-Part identity.
+Loading, errors and empty results stay in their document/workspace/Part/preview
+region. Quota, access and rate-limit codes remain distinct; there is no automatic
+429 retry. Adoption makes one explicit attempt using status.selectionRevision and
+the selected hit's full target/revision. Ordinary failures retain the previous
+server record and explain the error at the attempted Part. CAS/Busy reload status,
+show the actual winner and ask for review; unknown status cannot claim success.
+Stale observations refresh results for a new choice, never an automatic write.
+Transport uncertainty asks for status validation rather than blind repetition.
+
+The server view owns interlock and validity. Unknown/unverified status disables
+adoption; a blocked view disables context change and points to the goal panel.
+STOP/expiry alone is not clearance. Invalid/unverified records expose no cached
+preview. Access failures suppress old selection readiness/images. Request fences
+cover session, connection, region request, query/page/parent, full target and
+microversion; per-connection read queues drop obsolete queued work. No drafts or
+preview cache are persisted. **"Stand & technische Details"** contains revision,
+observation time, full preview identity and explicit status/result refresh.
+
+This UI branch uses contract fixtures for offline acceptance. The accepted browsing
+backend at e275f1a is not integrated into the UI branch; deploying this UI before
+backend integration would not establish working browsing. The current UI baseline
+also has a backend readiness-message integration failure (CR-UI-1 in the V2 report).
+No contract/src changes or live acceptance are part of this UI task.
+
+Current inspection names still load separately through `workspace-context` and do
+not replace selected-Part identity or a historical GoalView focus.
 
 CAD has a **"Versionen & Branches"** (versions and branches) column with the
 assigned Candidate and Primary. Several payload proposals in one workspace do
