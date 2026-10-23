@@ -6,7 +6,7 @@ issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#11-browsing-documents-workspaces-and-part-search-work-context-110-draft
 contract-version: work-context-1.1.0-draft
 base-commit: the commit that adds this prompt (branch point of feat/21-selection-ui-v2)
-status: draft
+status: issued
 addressee: Codex onshape-architekt (top-down). Run your product/UX review first, delegate implementation to openclaw-dev, review it yourself.
 ---
 # Selector UX rework: intuitive document → workspace → part flow with real browsing

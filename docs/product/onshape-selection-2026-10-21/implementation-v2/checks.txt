@@ -1,0 +1,158 @@
+COC-CONTEXT-SELECTION-UX-20261022
+2026-10-22; worktree feat/21-selection-ui-v2 at b34ad5d
+
+TYPECHECK exit 0
+
+> @edge-robot/claw-onshape@0.3.0-rc.2 typecheck
+> tsc --noEmit
+
+
+BIOME exit 0
+
+> @edge-robot/claw-onshape@0.3.0-rc.2 check
+> biome ci .
+
+Checked 71 files in 1245ms. No fixes applied.
+
+FOCUSED COCKPIT NODE TESTS exit 0
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 230.646203
+
+FULL NPM TEST exit 1 — unchanged CR-UI-1
+✔ strict sync failure after a successful POST preserves a known candidate without a duplicate POST (10.248972ms)
+✔ confirmed HTTP denials and conflicts are recorded without automatic retry (26.757272ms)
+✔ completed attempts are reused until their exact ID is explicitly acknowledged; results omit feature lists (16.523585ms)
+✔ private receipt storage enforces capacity, bounded reads, strict schema and restart lock fencing (102.277566ms)
+✔ symlinked or unsafe receipt state is refused without provider writes (1.551223ms)
+ℹ tests 217
+ℹ suites 0
+ℹ pass 216
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5704.322139
+
+✖ failing tests:
+
+test at tests/work-context.test.mjs:901:1
+✖ W11 every code the work-context modules emit is in error-codes.json or an existing plugin code (1.469486ms)
+  AssertionError [ERR_ASSERTION]: missing message for document_not_accessible
+      at TestContext.<anonymous> (file:///home/kaos/Projects/01_pib/02_sw/clawonshape-ui/tests/work-context.test.mjs:932:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+FINAL NORMAL BROWSER exit 0
+
+> @edge-robot/claw-onshape@0.3.0-rc.2 test:cockpit
+> npm run build && node scripts/test-cockpit-browser.mjs
+
+
+> @edge-robot/claw-onshape@0.3.0-rc.2 build
+> node scripts/build.mjs
+
+(node:164446) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Serverless Chromium fixture passed. Synthetic screenshots: /tmp/clawonshape-regression-ZJLnrE/goal-ui-{workspace,confirm,active,completed,cad-payload-evidence,print-blocked}-{1440x900,1366x768,390x844}.png
+Selector V2 browser acceptance passed (37 check groups). Screenshots: /tmp/clawonshape-selector-skkhkz
+  X3 document min-2, 300ms debounce, empty initial page, bound first/marked, paging offset 20 and hasMore
+  X2/X5/X6 selected-card adoption, full exact payload, studio/null identity, return to Part preview, compact synchronized Workspace/CAD
+  X3/X5 foreign parent clears descendants, default/readOnly role, explicit workspace in foreign preview, no adoption
+  X4 all six inspection reasons clickable; goalEligible:true never overrides selectable:false; configured studio still enumerates
+  X4 CR-18 all studios on truncated search, explicit studio refinement and server part-number query
+  U1/U2 nullable and long names, strict Part labels, secondary IDs, same-name and hidden Parts, empty relevant regions and responsive layout
+  X5 optional unavailable Part preview, no studio substitute, R1/provider access/quota/rate distinctions preserved
+  X5 studio-unavailable retains selected Part identity and explicit return; PNG length, decoded dimensions and decoder failures suppress images
+  U3 selection_observation_stale: distinct outcome, previous record/winner, no write retry
+  U3 selection_part_missing: distinct outcome, previous record/winner, no write retry
+  U3 selection_part_unsupported: distinct outcome, previous record/winner, no write retry
+  U3 configuration_unsupported: distinct outcome, previous record/winner, no write retry
+  U3 element_not_provisioned: distinct outcome, previous record/winner, no write retry
+  U3 selection_target_not_allowed: distinct outcome, previous record/winner, no write retry
+  U3 selection_revision_conflict: distinct outcome, previous record/winner, no write retry
+  U3 document_not_accessible: distinct outcome, previous record/winner, no write retry
+  U3 provider_quota_exhausted: distinct outcome, previous record/winner, no write retry
+  U3 invalid_arguments: distinct outcome, previous record/winner, no write retry
+  U3 authorization_changed: distinct outcome, previous record/winner, no write retry
+  U3 live_reads_disabled: distinct outcome, previous record/winner, no write retry
+  U3 not_configured: distinct outcome, previous record/winner, no write retry
+  U3 provider_protocol_error: distinct outcome, previous record/winner, no write retry
+  U3 goal_active_conflict: distinct outcome, previous record/winner, no write retry
+  U3 mutation_reconciliation_required: distinct outcome, previous record/winner, no write retry
+  U3 goal_state_invalid: distinct outcome, previous record/winner, no write retry
+  U3 provider_rate_limited: distinct outcome, previous record/winner, no write retry
+  U3 connection_busy_or_state_unavailable: distinct outcome, previous record/winner, no write retry
+  U3 target_not_part_studio: distinct outcome, previous record/winner, no write retry
+  U3 target_missing: distinct outcome, previous record/winner, no write retry
+  X3/X4 §11.5 errors local to documents/workspaces/parts, rate limit never automatically retried
+  U4/U5 view-owned interlocks even without goal, invalid/unverified no cached previews, operator.read only, unchanged literal target.focus and feature-condition note
+  U4/U5/U6 all invalid/unverified/revision-advanced reasons, cleared selection retains revision, focus is rendered before separate goal confirmation
+  U4 authorization failure during another-region search revalidates status and suppresses the old selected-Part preview/readiness
+  U6/X5 fences: newest Part, wrong Part/mv, old page/query, old parent, close/refresh/connection/dispose; per-connection browse serialization
+  X3-X5 late workspace-parent and Part-query replies ignored; obsolete queued parent reads skipped; studio response wins over older Part preview without changing adoption identity
+  U6/X6 pending adoption blocks duplicate/dismissal; uncertain winner status never claims local success
+  X2-X6 complete real-search/page/foreign-parent/studio-refinement/part+studio-preview/adopt/compact/focus journey at all three required viewports; no CAD/goal/approval calls
+
+
+EVIDENCE OPT-IN exit 0
+
+> @edge-robot/claw-onshape@0.3.0-rc.2 test:cockpit
+> npm run build && node scripts/test-cockpit-browser.mjs
+
+
+> @edge-robot/claw-onshape@0.3.0-rc.2 build
+> node scripts/build.mjs
+
+(node:160346) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Serverless Chromium fixture passed. Synthetic screenshots: docs/product/onshape-selection-2026-10-21/implementation-v2/regression/goal-ui-{workspace,confirm,active,completed,cad-payload-evidence,print-blocked}-{1440x900,1366x768,390x844}.png
+Selector V2 browser acceptance passed (36 check groups). Screenshots: docs/product/onshape-selection-2026-10-21/implementation-v2
+  X3 document min-2, 300ms debounce, empty initial page, bound first/marked, paging offset 20 and hasMore
+  X2/X5/X6 selected-card adoption, full exact payload, studio/null identity, return to Part preview, compact synchronized Workspace/CAD
+  X3/X5 foreign parent clears descendants, default/readOnly role, explicit workspace in foreign preview, no adoption
+  X4 all six inspection reasons clickable; goalEligible:true never overrides selectable:false; configured studio still enumerates
+  X4 CR-18 all studios on truncated search, explicit studio refinement and server part-number query
+  U1/U2 nullable and long names, strict Part labels, secondary IDs, same-name and hidden Parts, empty relevant regions and responsive layout
+  X5 optional unavailable Part preview, no studio substitute, R1/provider access/quota/rate distinctions preserved
+  X5 studio-unavailable retains selected Part identity and explicit return; PNG length, decoded dimensions and decoder failures suppress images
+  U3 selection_observation_stale: distinct outcome, previous record/winner, no write retry
+  U3 selection_part_missing: distinct outcome, previous record/winner, no write retry
+  U3 selection_part_unsupported: distinct outcome, previous record/winner, no write retry
+  U3 configuration_unsupported: distinct outcome, previous record/winner, no write retry
+  U3 element_not_provisioned: distinct outcome, previous record/winner, no write retry
+  U3 selection_target_not_allowed: distinct outcome, previous record/winner, no write retry
+  U3 selection_revision_conflict: distinct outcome, previous record/winner, no write retry
+  U3 document_not_accessible: distinct outcome, previous record/winner, no write retry
+  U3 provider_quota_exhausted: distinct outcome, previous record/winner, no write retry
+  U3 invalid_arguments: distinct outcome, previous record/winner, no write retry
+  U3 authorization_changed: distinct outcome, previous record/winner, no write retry
+  U3 live_reads_disabled: distinct outcome, previous record/winner, no write retry
+  U3 not_configured: distinct outcome, previous record/winner, no write retry
+  U3 provider_protocol_error: distinct outcome, previous record/winner, no write retry
+  U3 goal_active_conflict: distinct outcome, previous record/winner, no write retry
+  U3 mutation_reconciliation_required: distinct outcome, previous record/winner, no write retry
+  U3 goal_state_invalid: distinct outcome, previous record/winner, no write retry
+  U3 provider_rate_limited: distinct outcome, previous record/winner, no write retry
+  U3 connection_busy_or_state_unavailable: distinct outcome, previous record/winner, no write retry
+  U3 target_not_part_studio: distinct outcome, previous record/winner, no write retry
+  U3 target_missing: distinct outcome, previous record/winner, no write retry
+  X3/X4 §11.5 errors local to documents/workspaces/parts, rate limit never automatically retried
+  U4/U5 view-owned interlocks even without goal, invalid/unverified no cached previews, operator.read only, unchanged literal target.focus and feature-condition note
+  U4/U5/U6 all invalid/unverified/revision-advanced reasons, cleared selection retains revision, focus is rendered before separate goal confirmation
+  U4 authorization failure during another-region search revalidates status and suppresses the old selected-Part preview/readiness
+  U6/X5 fences: newest Part, wrong Part/mv, old page/query, old parent, close/refresh/connection/dispose; per-connection browse serialization
+  U6/X6 pending adoption blocks duplicate/dismissal; uncertain winner status never claims local success
+  X2-X6 complete real-search/page/foreign-parent/studio-refinement/part+studio-preview/adopt/compact/focus journey at all three required viewports; no CAD/goal/approval calls

@@ -154,7 +154,8 @@ export function goalRevisionLink(goal) {
 }
 
 const css = `
-.coc .coc-selection-dialog{color:#e3ebf4;background:#101c29;border:1px solid #476475;border-radius:12px;width:min(1120px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:24px;overflow:auto}.coc .coc-selection-dialog::backdrop{background:#000b}.coc .coc-selection-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:18px;margin:18px 0}.coc .coc-selection-columns section{min-width:0}.coc .coc-selection-columns button{display:block;width:100%;text-align:left;margin:7px 0;overflow-wrap:anywhere}.coc .coc-selection-columns button[aria-pressed=true]{border-color:#68dbd5;background:#193e45}.coc .coc-selection-dialog input{display:block;width:100%;font:inherit;padding:8px;border:1px solid #476475;border-radius:6px;margin:6px 0 12px}.coc .coc-selection-dialog p,.coc .coc-selection-dialog h3{overflow-wrap:anywhere}.coc .coc-selection-studio{border-top:1px solid #345;padding-top:12px;margin-top:14px}.coc .coc-selection-summary{border-top:1px solid #345;padding-top:16px}.coc .coc-selection-summary img{max-height:180px;width:240px;display:block}@media(max-width:700px){.coc .coc-selection-columns{grid-template-columns:1fr}.coc .coc-selection-dialog{padding:16px}}
+ .coc .coc-selection-dialog{color:#e3ebf4;background:#101e29;border:1px solid #3a5565;border-radius:16px;width:calc(100vw - 48px);max-width:1360px;height:calc(100dvh - 48px);max-height:1000px;padding:0;overflow:hidden}.coc .coc-selection-dialog[open]{display:flex;flex-direction:column}.coc .coc-selection-dialog::backdrop{background:#050d15db}.coc .coc-selector-head{padding:22px 30px 12px}.coc .coc-selector-head h2{font-size:28px}.coc .coc-selector-head p{color:#acc0ce;margin:0}.coc .coc-selector-body{padding:8px 24px 18px;overflow:auto;min-height:0;flex:1}.coc .coc-selector-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px}.coc .coc-selector-context{background:#0b1923;border:1px solid #294351;border-radius:12px;padding:18px}.coc .coc-selector-document-results{max-height:225px;overflow:auto;padding:0 3px}.coc .coc-selector-workspaces{margin-top:24px}.coc .coc-selector-context button{display:block;text-align:left;width:100%;margin:8px 0;padding:12px;overflow-wrap:anywhere}.coc .coc-selector-context button[aria-pressed=true]{background:#183e45;border-color:#65d8d0}.coc .coc-choice-state{display:block;font-size:12px;color:#a9c0cd;margin-top:5px}.coc .coc-selector-part-area{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}.coc .coc-selector-part-list{min-width:0}.coc .coc-selector-studio{margin:18px 0}.coc .coc-selector-studio-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.coc .coc-selector-studio-head h3{font-size:12px;color:#a9c0cd;margin:0;min-width:0}.coc .coc-selector-studio-head button{padding:4px 0;background:none;border:0;color:#68dbd5;white-space:nowrap;min-height:44px}.coc .coc-selector-part-card{border:1px solid #294351;border-radius:12px;padding:12px;margin:10px 0;background:#142632;overflow-wrap:anywhere}.coc .coc-selector-part-card[data-selected=true]{border-color:#68dbd5;background:#193e45}.coc .coc-selector-part-card>button:first-child{border:0;background:none;padding:0;text-align:left;width:100%;min-height:44px}.coc .coc-selector-part-card button[data-focus=adopt-part]{width:100%;background:#60d8ce;color:#082b31;font-weight:700;margin:12px 0 4px;min-height:44px}.coc .coc-selection-preview{background:#0b1923;border:1px solid #294351;border-radius:12px;padding:20px;overflow-wrap:anywhere;min-width:0}.coc .coc-selection-preview img{display:block;width:100%;height:auto;max-height:320px;object-fit:contain;margin:18px 0}.coc .coc-selection-preview>button{margin:8px 8px 8px 0}.coc .coc-selection-preview .coc-revision{font-size:11px;color:#a9c0cd}.coc .coc-selector-footer{display:flex;justify-content:space-between;gap:18px;align-items:center;border-top:1px solid #294351;padding:16px 24px;flex-shrink:0;background:#101e29}.coc .coc-selector-footer p{margin:0;font-size:12px}.coc .coc-selector-footer button{min-width:118px;min-height:44px}.coc .coc-selection-dialog input{display:block;width:100%;font:inherit;background:#0a1822;color:#e3ebf4;border:1px solid #3c5669;border-radius:8px;min-height:44px;padding:10px;margin:8px 0 14px}.coc .coc-selection-dialog label{display:block;font-size:12px;color:#b3c4d0}.coc .coc-selection-dialog p,.coc .coc-selection-dialog h3{overflow-wrap:anywhere}.coc .coc-selector-details{margin-top:16px;color:#a9c0cd}.coc .coc-selector-details button{margin:8px 0}.coc .coc-inspection{color:#e8c995;font-size:12px}.coc .coc-loading{color:#a9c0cd;padding:14px 0}.coc .coc-selector-context-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 10px;background:#142632;border:1px solid #294351;border-radius:12px;padding:12px;margin-bottom:16px;overflow-wrap:anywhere}.coc .coc-selector-context-summary p{margin:0;font-size:12px}.coc .coc-selector-context-summary button{background:none;border:0;color:#68dbd5;padding:8px;font-size:12px}@media(max-width:1000px) and (min-width:701px){.coc .coc-selector-layout{grid-template-columns:220px minmax(0,1fr);gap:16px}.coc .coc-selector-part-area{grid-template-columns:1fr}.coc .coc-selector-head{padding:18px}}@media(max-width:700px){.coc .coc-selection-dialog{width:calc(100vw - 16px);height:calc(100dvh - 16px);max-height:none;margin:8px;border-radius:12px}.coc .coc-selector-head{padding:16px 14px 8px}.coc .coc-selector-head h2{font-size:21px}.coc .coc-selector-head p{font-size:12px}.coc .coc-selector-body{padding:8px 14px 14px}.coc .coc-selector-layout,.coc .coc-selector-part-area{display:block}.coc .coc-selector-context{border:0;padding:0;background:none}.coc .coc-selector-workspaces{margin-top:0}.coc .coc-selector-footer{padding:10px 14px;align-items:end}.coc .coc-selector-footer p{font-size:10px;line-height:1.4}.coc .coc-selection-preview{background:none;border:0;padding:8px 0}.coc .coc-selection-preview img{max-height:140px;margin:6px 0}.coc .coc-selection-preview[data-preview-kind=part]>h3{display:none}.coc .coc-selection-preview>p{font-size:12px;margin-bottom:6px}.coc .coc-selection-preview>button{padding:6px 0;border:0;background:none;color:#68dbd5;font-size:12px}.coc .coc-selector-part-list>h3{font-size:18px}.coc .coc-selector-part-list>label:first-of-type{font-size:0}.coc .coc-selector-part-list>label:first-of-type input{font-size:14px}.coc .coc-selector-document-results{max-height:none}.coc .coc-selection-preview .coc-revision{display:none}.coc .coc-selection-preview[data-preview-kind=studio] .coc-revision{display:block}.coc .coc-selector-part-card{padding:12px}.coc .coc-selector-studio>button{min-height:44px}}
+
 
 .coc{color:#e3ebf4;background:#0c141e;font:14px/1.55 system-ui,sans-serif;border:1px solid #28394a;border-radius:12px;overflow:hidden;min-width:0;color-scheme:dark}.coc *{box-sizing:border-box}.coc h1,.coc h2,.coc h3,.coc p{margin:0 0 12px}.coc h1,.coc .coc-candidate strong{overflow-wrap:anywhere}.coc h1{font-size:27px;line-height:1.25}.coc h2{font-size:17px}.coc h3{font-size:15px}.coc button,.coc select,.coc a.coc-action{font:inherit;border:1px solid #3c5669;border-radius:8px;padding:9px 13px;background:#203141;color:#e3ebf4;cursor:pointer;max-width:100%}.coc button:hover,.coc a.coc-action:hover{background:#294351}.coc button:disabled{opacity:.5;cursor:wait}.coc :focus-visible{outline:3px solid #69e5de;outline-offset:3px}.coc a{color:#68dbd5;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}.coc .coc-muted{color:#a2b5c6}.coc .coc-eyebrow{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#a2b5c6}.coc .coc-top{padding:20px 26px;border-bottom:1px solid #28394a;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}.coc .coc-top strong{font-size:18px}.coc .coc-shell{display:grid;grid-template-columns:180px minmax(0,1fr)}.coc .coc-rail{padding:24px 16px;background:#0b131d;border-right:1px solid #28394a}.coc .coc-rail a{display:block;padding:10px 8px;margin-bottom:8px;text-decoration:none}.coc .coc-rail a:first-of-type{background:#19323d;border-radius:8px}.coc .coc-rail .coc-tools{border-top:1px solid #28394a;margin-top:25px;padding-top:24px}.coc .coc-rail p{font-size:12px}.coc .coc-main{padding:26px;min-width:0}.coc .coc-context p{overflow-wrap:anywhere}.coc .coc-context{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:20px;flex-wrap:wrap}.coc .coc-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:0 0 20px}.coc .coc-candidate{text-align:left;background:#141f2c;min-height:105px;display:flex;flex-direction:column;gap:6px}.coc .coc-candidate[aria-pressed=true]{border-color:#55d4d0;box-shadow:inset 0 0 0 1px #55d4d0;background:#18313b}.coc .coc-candidate strong{font-size:16px}.coc .coc-body{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.coc .coc-panel{background:#141f2c;border:1px solid #28394a;border-radius:12px;padding:20px;min-width:0}.coc .coc-viewer{padding:0;overflow:hidden}.coc .coc-viewhead{padding:16px 20px;background:#192633;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}.coc .coc-modes{display:flex;gap:5px;flex-wrap:wrap}.coc .coc-modes button{padding:5px 10px;font-size:12px}.coc .coc-modes button[aria-pressed=true]{background:#2c4854;color:#68dbd5}.coc .coc-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:radial-gradient(ellipse at center,#1a2d3a,#0f1b26);min-height:330px}.coc .coc-stage.coc-single{grid-template-columns:1fr}.coc figure{margin:0;padding:20px;min-width:0;display:flex;flex-direction:column;gap:14px}.coc figure+figure{border-left:1px dashed #385061}.coc .coc-empty-image{flex:1;min-height:200px;display:grid;place-content:center;text-align:center;padding:24px;color:#a2b5c6;background-image:linear-gradient(#8da9bd08 1px,transparent 1px),linear-gradient(90deg,#8da9bd08 1px,transparent 1px);background-size:28px 28px}.coc figcaption{font-size:12px;overflow-wrap:anywhere}.coc .coc-lower{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-top:18px}.coc .coc-steps{list-style:none;padding:0;margin:20px 0}.coc .coc-steps li{padding:0 0 18px 18px;border-left:2px solid #3d5668}.coc .coc-steps strong,.coc .coc-steps span{display:block}.coc .coc-steps span{font-size:12px;color:#a2b5c6}.coc .coc-next{border:1px solid #315956;background:#17312f;border-radius:8px;padding:14px;margin-top:18px}.coc .coc-notice{padding:12px 16px;border:1px solid #826c43;background:#2b281f;border-radius:8px;margin-bottom:18px;color:#f2d399}.coc dl{margin:0}.coc dt{font-size:12px;color:#a2b5c6;margin-top:12px}.coc dd{margin:3px 0;overflow-wrap:anywhere}.coc pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;font-size:12px}.coc details{margin-top:18px}.coc summary{cursor:pointer;font-weight:600;padding:8px 0}.coc .coc-controls{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.coc .coc-foot{font-size:12px;color:#a2b5c6;margin-top:16px}.coc .coc-badge{color:#68dbd5}.coc .coc-revision{font-family:monospace;font-size:12px;overflow-wrap:anywhere}.coc .coc-parameter{padding:10px 0;border-bottom:1px solid #28394a}.coc .coc-parameter strong{color:#68dbd5}.coc img{width:100%;height:auto;max-height:440px;object-fit:contain}.coc [hidden]{display:none!important}@media(max-width:1250px){.coc .coc-shell{grid-template-columns:1fr}.coc .coc-rail{display:none}.coc .coc-body{grid-template-columns:minmax(0,1fr) 280px}.coc .coc-main{padding:20px}.coc .coc-lower{grid-template-columns:1fr}}@media(max-width:850px){.coc .coc-body{grid-template-columns:1fr}.coc .coc-stage{grid-template-columns:1fr}.coc figure+figure{border-left:0;border-top:1px dashed #385061}.coc .coc-main{padding:14px}.coc h1{font-size:23px}}
 .coc .coc-navigation{display:flex;flex-direction:column;gap:10px}.coc .coc-navigation button{text-align:left;border:0;background:transparent}.coc .coc-navigation button[aria-current=page]{background:#19343f;color:#68dbd5;border-left:3px solid #68dbd5}.coc .coc-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0}.coc .coc-cad-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px}.coc .coc-cad-work{min-width:0}.coc .coc-branches .coc-cards{grid-template-columns:1fr}.coc .coc-cad-work>.coc-panel{margin-bottom:18px}.coc .coc-body{grid-template-columns:minmax(0,1fr) 245px}.coc .coc-lower{grid-template-columns:1fr}.coc h3{overflow-wrap:anywhere}.coc .coc-panel+.coc-panel{margin-top:18px}.coc button:disabled{cursor:not-allowed}.coc .coc-tool-grid>.coc-panel{margin-top:0}
@@ -163,10 +164,19 @@ const css = `
 
 .coc .coc-goal-context{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,3fr);gap:4px 14px}.coc .coc-goal-context dt,.coc .coc-goal-context dd{margin:0}.coc .coc-goal-review{overflow-wrap:anywhere}.coc .coc-goal-progress{font-size:16px;color:#68dbd5;margin-top:16px}.coc #coc-goal ul{padding-left:20px;overflow-wrap:anywhere}@media(max-width:850px){.coc .coc-goal-context{grid-template-columns:1fr}}
 `;
-// Contract work-context-1.0.0-draft. Drafts never leave this page except on explicit adoption.
+// Contract work-context-1.1.0-draft. Browsing is read-only; only explicit adoption persists a selection.
 export const workContextReason = (code) =>
   ({
-    selection_observation_stale: 'Stand hat sich geändert. Katalog aktualisieren und Auswahl erneut prüfen.',
+    document_not_provisioned: 'Anderes Dokument · nur ansehen; keine Zielzuordnung.',
+    workspace_inspection_only: 'Anderer Workspace · nur ansehen; Ziele bleiben Primary-basiert.',
+    document_not_accessible: 'Kein Zugriff auf dieses Dokument. Onshape-Zugriff prüfen oder anderes Dokument wählen.',
+    provider_quota_exhausted: 'Onshape-API-Kontingent erschöpft. Betreiber kontaktieren.',
+    provider_rate_limited: 'Zu viele Anfragen · später erneut versuchen. Keine automatische Wiederholung.',
+    provider_forbidden: 'Dokumentsuche nicht erlaubt. Onshape-Berechtigung prüfen lassen.',
+    provider_unavailable: 'Onshape vorübergehend nicht verfügbar. Später erneut laden.',
+    provider_timeout: 'Onshape antwortet nicht rechtzeitig. Später erneut laden.',
+    part_search_truncated: 'Weitere Treffer vorhanden – Studio auswählen und Suche eingrenzen.',
+    selection_observation_stale: 'Stand hat sich geändert. Treffer aktualisieren und Auswahl erneut prüfen.',
     selection_part_missing: 'Bauteil nicht mehr vorhanden. Bitte erneut auswählen.',
     selection_part_unsupported: 'Bauteilart nicht unterstützt. Ein anderes Volumenbauteil auswählen.',
     part_kind_unsupported: 'Bauteilart nicht unterstützt · nur Volumenbauteile ohne Netz oder abgewickeltes Blech.',
@@ -197,61 +207,140 @@ export const workContextReason = (code) =>
     plugin_unavailable: 'Auswahlstatus nicht verfügbar. Verbindung prüfen und Status aktualisieren.',
   })[code] ?? `Auswahl nicht verfügbar (${code ?? 'unbekannt'}). Status aktualisieren.`;
 
+// Browsing narrows no authority: only a selectable Part and a known WorkContextView can be adopted.
 function createWorkContext({el, button, anchor, panel, root, call, canAdmin, render, alive, ref, showGoal, showCad}) {
   let view,
     statusError,
     statusLoading = false,
-    statusRequest = 0;
+    statusRequest = 0,
+    cardNotice;
   let dialog,
-    draft,
-    catalog,
-    catalogLoading = false,
-    catalogRequest = 0,
-    previewRequest = 0;
-  let preview,
-    previewLoading = false,
-    previewError,
-    message,
+    session,
+    step = 'documents',
     adopting = false,
-    adoptRequest = 0,
-    returnView;
-  let filters = {document: '', workspace: '', part: ''};
-  const matches = (g, connection) => alive(g) && connection === ref();
-  const clearPreview = () => {
-    previewRequest++;
-    preview = undefined;
-    previewLoading = false;
-    previewError = undefined;
-  };
-  const close = (focus = true) => {
-    catalogRequest++;
-    adoptRequest++;
-    clearPreview();
-    draft = catalog = undefined;
-    catalogLoading = adopting = false;
-    if (dialog) {
-      dialog.close();
-      dialog.remove();
-      dialog = undefined;
-    }
-    if (focus) {
-      root.querySelector?.('[data-context-change]')?.focus();
-    }
-  };
-  const reset = () => {
-    close(false);
-    statusRequest++;
-    view = undefined;
-    statusError = undefined;
-    statusLoading = false;
-  };
+    epoch = 0;
+  let documents,
+    documentQuery = '',
+    documentError,
+    documentLoading = false;
+  let selectedDocument,
+    workspaces,
+    workspaceError,
+    workspaceLoading = false,
+    selectedWorkspace;
+  let parts,
+    partQuery = '',
+    studioFilter = '',
+    partError,
+    partLoading = false,
+    selectedPart;
+  let previewTarget,
+    preview,
+    previewError,
+    previewLoading = false,
+    actionMessage,
+    failedPart;
+  let documentTimer, partTimer;
+  const requests = {documents: 0, workspaces: 0, parts: 0, preview: 0};
+  const queues = new Map();
+  const media = globalThis.matchMedia?.('(max-width: 700px)');
+  const mobile = () => media?.matches === true;
+  const known = () => !!view && !statusError && !statusLoading;
+  const locked = () => !known() || view.interlock.blocked;
+  const nameNodes = (name, id) => [
+    el('span', name ?? 'Name nicht verfügbar'),
+    el('span', ` · ${short(id)}`, 'revision'),
+  ];
+  const label = (name) => name ?? 'Name nicht verfügbar';
+  const role = (workspace) =>
+    ({
+      primary: 'Primary geschützt',
+      candidate: 'Candidate · nur ansehen',
+      default: 'Standard-Workspace · nur ansehen',
+      other: 'Anderer Workspace · nur ansehen',
+    })[workspace.role] ?? 'Rolle unbekannt · nur ansehen';
   const goodView = (value) =>
     value &&
     ['none', 'valid', 'invalid', 'unverified'].includes(value.validity) &&
     Number.isSafeInteger(value.selectionRevision) &&
     value.selectionRevision >= 0 &&
     typeof value.interlock?.blocked === 'boolean';
-  const blocked = () => statusLoading || !view || statusError || view.interlock.blocked;
+  const current = (s) => s && session === s && dialog && alive(s.g) && ref() === s.connection;
+  const ticket = (region) => {
+    const s = session,
+      id = ++requests[region],
+      e = epoch;
+    return () => current(s) && requests[region] === id && epoch === e;
+  };
+  // Serialize only browsing reads per connection. Obsolete queued reads never reach the gateway.
+  const browse = (action, extra, valid) => {
+    const connection = session.connection;
+    const result = (queues.get(connection) ?? Promise.resolve()).then(() =>
+      valid() ? call(action, connection, extra) : undefined,
+    );
+    queues.set(
+      connection,
+      result.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return result;
+  };
+  const clearPreview = () => {
+    requests.preview++;
+    previewTarget = preview = previewError = undefined;
+    previewLoading = false;
+  };
+  const clearParts = () => {
+    requests.parts++;
+    clearTimeout(partTimer);
+    parts = selectedPart = failedPart = partError = undefined;
+    partLoading = false;
+    clearPreview();
+  };
+  const clearWorkspace = () => {
+    requests.workspaces++;
+    workspaces = selectedWorkspace = workspaceError = undefined;
+    workspaceLoading = false;
+    partQuery = studioFilter = '';
+    clearParts();
+  };
+  const returnFocus = () => {
+    const entry = root.querySelector?.('[data-context-change]');
+    if (entry?.disabled) {
+      const card = root.querySelector?.('[data-work-context]');
+      card?.setAttribute('tabindex', '-1');
+      card?.focus();
+    } else {
+      entry?.focus();
+    }
+  };
+  const close = (focus = true) => {
+    epoch++;
+    clearTimeout(documentTimer);
+    clearTimeout(partTimer);
+    clearWorkspace();
+    documents = selectedDocument = undefined;
+    documentLoading = false;
+    adopting = false;
+    if (dialog) {
+      const opened = dialog;
+      dialog = undefined;
+      opened.close();
+      opened.remove();
+    }
+    session = undefined;
+    if (focus) {
+      returnFocus();
+    }
+  };
+  const reset = () => {
+    close(false);
+    statusRequest++;
+    view = statusError = cardNotice = undefined;
+    statusLoading = false;
+  };
   const readStatus = async (g, connection) => {
     const request = ++statusRequest;
     statusLoading = true;
@@ -261,7 +350,7 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
     draw();
     try {
       const result = await call('work-context-status', connection);
-      if (!matches(g, connection) || request !== statusRequest) {
+      if (!alive(g) || ref() !== connection || request !== statusRequest) {
         return;
       }
       if (!result.ok || !goodView(result.workContext)) {
@@ -270,501 +359,903 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
       view = result.workContext;
       statusError = undefined;
       if (
-        view.validity !== 'valid' ||
+        view.validity === 'invalid' ||
+        view.validity === 'unverified' ||
         view.interlock.blocked ||
-        (draft &&
-          view.selection?.currentMicroversion &&
-          draft.observedMicroversion !== view.selection.currentMicroversion)
+        (selectedPart &&
+          selectedDocument?.documentId === view.selection?.documentId &&
+          selectedWorkspace?.workspaceId === view.selection.workspaceId &&
+          parts?.observedMicroversion !== view.selection.currentMicroversion)
       ) {
-        draft = catalog = undefined;
-        catalogRequest++;
+        selectedPart = undefined;
         clearPreview();
       }
     } catch (error) {
-      if (!matches(g, connection) || request !== statusRequest) {
+      if (!alive(g) || ref() !== connection || request !== statusRequest) {
         return;
       }
       view = undefined;
       statusError = error.message;
-      draft = catalog = undefined;
-      catalogRequest++;
+      selectedPart = undefined;
       clearPreview();
     } finally {
-      if (matches(g, connection) && request === statusRequest) {
+      if (alive(g) && ref() === connection && request === statusRequest) {
         statusLoading = false;
         render();
         draw();
       }
     }
   };
-  const loadPreview = async (g, connection) => {
-    clearPreview();
-    if (!draft) {
-      draw();
-      return;
-    }
-    const choice = draft,
-      request = previewRequest;
-    previewLoading = true;
-    draw();
-    try {
-      const result = await call('work-context-preview', connection, {
-        elementId: choice.elementId,
-        partId: choice.partId,
-        observedMicroversion: choice.observedMicroversion,
-      });
-      if (!matches(g, connection) || !dialog || request !== previewRequest || draft !== choice) {
-        return;
-      }
-      if (!result.ok) {
-        previewError = result.code ?? 'preview_unavailable';
-        if (previewError !== 'preview_unavailable') {
-          const code = previewError;
-          message = workContextReason(code);
-          draft = catalog = undefined;
-          await readStatus(g, connection);
-          if (code === 'selection_observation_stale' && matches(g, connection) && dialog && !blocked()) {
-            await loadCatalog(g, connection);
-          }
-          return;
-        }
-      } else if (
-        result.preview?.partId === choice.partId &&
-        result.preview.observedMicroversion === choice.observedMicroversion &&
-        result.preview.mimeType === 'image/png' &&
-        typeof result.preview.dataBase64 === 'string' &&
-        result.preview.dataBase64.length < 65000 &&
-        /^[A-Za-z0-9+/]+={0,2}$/.test(result.preview.dataBase64)
-      ) {
-        preview = result.preview;
-      } else {
-        previewError = 'preview_unavailable';
-      }
-    } catch {
-      if (matches(g, connection) && request === previewRequest) {
-        previewError = 'preview_unavailable';
-      }
-    } finally {
-      if (matches(g, connection) && request === previewRequest) {
-        previewLoading = false;
-        draw();
-      }
+  const revalidateReadFailure = async (code) => {
+    if (
+      session &&
+      [
+        'authorization_changed',
+        'reconnect_required',
+        'disconnected',
+        'live_reads_disabled',
+        'not_configured',
+        'oauth_read_scope_missing',
+        'provider_forbidden',
+      ].includes(code)
+    ) {
+      selectedPart = undefined;
+      clearPreview();
+      await readStatus(session.g, session.connection);
     }
   };
-  const loadCatalog = async (g, connection, retry = 0) => {
-    const request = ++catalogRequest;
-    clearPreview();
-    draft = catalog = undefined;
-    catalogLoading = true;
+  const errorCode = (result) => result?.code ?? 'provider_protocol_error';
+  const readDocuments = async (offset = 0, restore = false) => {
+    const s = session,
+      query = documentQuery.trim().normalize('NFC'),
+      valid = ticket('documents');
+    documentLoading = true;
+    documentError = undefined;
+    if (!offset) {
+      documents = undefined;
+    }
     draw();
     try {
-      const result = await call('work-context-catalog', connection);
-      if (!matches(g, connection) || !dialog || request !== catalogRequest) {
+      const result = await browse('work-context-documents', {query, offset}, valid);
+      if (!valid()) {
         return;
       }
-      if (!result.ok) {
-        if (result.code === 'selection_observation_stale' && retry === 0) {
-          message = workContextReason(result.code);
-          await loadCatalog(g, connection, 1);
-          return;
-        }
-        throw new Error(result.code ?? 'provider_protocol_error');
+      if (!result?.ok) {
+        throw new Error(errorCode(result));
       }
-      const next = result.catalog;
+      const page = result.documents;
       if (
-        !next?.document?.preselected ||
-        !validId(next.document.documentId) ||
-        !validId(next.observedMicroversion) ||
-        !Array.isArray(next.workspaces) ||
-        !Array.isArray(next.partStudios) ||
-        !Number.isSafeInteger(next.selectionRevision)
+        page?.query !== query ||
+        page.offset !== offset ||
+        !Array.isArray(page.items) ||
+        typeof page.hasMore !== 'boolean' ||
+        (!offset && page.items[0]?.bound !== true)
       ) {
         throw new Error('provider_protocol_error');
       }
-      // A later status observation invalidates an older catalog even if its request is the newest.
-      const current = view?.selection?.currentMicroversion;
-      if (current && current !== next.observedMicroversion) {
-        throw new Error('selection_observation_stale');
-      }
-      catalog = next;
-      const previous = view?.validity === 'valid' ? view.selection : undefined;
-      const workspace = next.workspaces.find((w) => w.workspaceId === previous?.workspaceId && w.selectable);
-      const studio = next.partStudios.find((s) => s.elementId === previous?.elementId && s.goalEligible);
-      const part = studio?.parts?.find((p) => p.partId === previous?.partId && p.selectable);
-      if (previous && workspace && studio && part) {
-        draft = {
-          documentId: next.document.documentId,
-          workspaceId: workspace.workspaceId,
-          elementId: studio.elementId,
-          partId: part.partId,
-          observedMicroversion: next.observedMicroversion,
-        };
-      }
-      catalogLoading = false;
-      draw();
-      if (draft) {
-        await loadPreview(g, connection);
+      const items = offset ? [...documents.items, ...page.items] : page.items;
+      documents = {...page, items: [...new Map(items.map((item) => [item.documentId, item])).values()]};
+      if (restore && !selectedDocument) {
+        selectedDocument =
+          documents.items.find((item) => item.documentId === view?.selection?.documentId) ?? documents.items[0];
+        await readWorkspaces(selectedDocument, true);
       }
     } catch (error) {
-      if (matches(g, connection) && dialog && request === catalogRequest) {
-        message = workContextReason(error.message);
+      if (valid()) {
+        documentError = error.message;
+        await revalidateReadFailure(error.message);
       }
     } finally {
-      if (matches(g, connection) && request === catalogRequest) {
-        catalogLoading = false;
+      if (current(s) && valid()) {
+        documentLoading = false;
         draw();
       }
     }
   };
-  const adopt = async (g, connection) => {
-    if (!draft || !catalog || blocked() || !canAdmin() || adopting || catalogLoading || previewLoading) {
+  const chooseDocument = async (document) => {
+    if (adopting) {
       return;
     }
-    const request = ++adoptRequest,
-      choice = draft;
-    adopting = true;
-    message = 'Auswahl wird geprüft …';
+    selectedDocument = document;
+    clearWorkspace();
+    actionMessage = undefined;
+    step = 'workspaces';
+    draw();
+    await readWorkspaces(document);
+  };
+  const readWorkspaces = async (document, restore = false) => {
+    const valid = ticket('workspaces');
+    workspaceLoading = true;
+    workspaceError = undefined;
     draw();
     try {
-      const result = await call('work-context-adopt', connection, {
-        expectedSelectionRevision: catalog.selectionRevision,
-        ...choice,
-      });
-      if (!matches(g, connection) || !dialog || request !== adoptRequest) {
+      const result = await browse('work-context-workspaces', {documentId: document.documentId}, valid);
+      if (!valid() || selectedDocument !== document) {
+        return;
+      }
+      if (!result?.ok) {
+        throw new Error(errorCode(result));
+      }
+      if (result.workspaces?.documentId !== document.documentId || !Array.isArray(result.workspaces.items)) {
+        throw new Error('provider_protocol_error');
+      }
+      workspaces = result.workspaces;
+      if (restore) {
+        const previous = workspaces.items.find((item) => item.workspaceId === view?.selection?.workspaceId);
+        const primary = workspaces.items.find((item) => item.role === 'primary');
+        selectedWorkspace = previous ?? primary;
+        if (selectedWorkspace) {
+          await readParts(true);
+        }
+      }
+    } catch (error) {
+      if (valid()) {
+        workspaceError = error.message;
+        await revalidateReadFailure(error.message);
+      }
+    } finally {
+      if (valid()) {
+        workspaceLoading = false;
+        draw();
+      }
+    }
+  };
+  const chooseWorkspace = async (workspace) => {
+    if (adopting) {
+      return;
+    }
+    selectedWorkspace = workspace;
+    clearParts();
+    partQuery = studioFilter = '';
+    actionMessage = undefined;
+    step = 'parts';
+    draw();
+    await readParts();
+  };
+  const readParts = async (restore = false) => {
+    if (!selectedDocument || !selectedWorkspace) {
+      return;
+    }
+    const documentId = selectedDocument.documentId,
+      workspaceId = selectedWorkspace.workspaceId;
+    const query = partQuery.trim().normalize('NFC'),
+      elementId = studioFilter;
+    const valid = ticket('parts');
+    selectedPart = failedPart = undefined;
+    clearPreview();
+    partLoading = true;
+    partError = undefined;
+    draw();
+    try {
+      const result = await browse(
+        'work-context-parts',
+        {documentId, workspaceId, query, ...(elementId ? {elementId} : {})},
+        valid,
+      );
+      if (!valid() || selectedDocument.documentId !== documentId || selectedWorkspace.workspaceId !== workspaceId) {
+        return;
+      }
+      if (!result?.ok) {
+        throw new Error(errorCode(result));
+      }
+      const next = result.parts;
+      if (
+        next?.documentId !== documentId ||
+        next.workspaceId !== workspaceId ||
+        next.query !== query ||
+        !validId(next.observedMicroversion) ||
+        !Array.isArray(next.hits) ||
+        !Array.isArray(next.studios)
+      ) {
+        throw new Error('provider_protocol_error');
+      }
+      if (
+        restore &&
+        view?.validity === 'valid' &&
+        view.selection?.documentId === documentId &&
+        view.selection.workspaceId === workspaceId &&
+        view.selection.currentMicroversion !== next.observedMicroversion
+      ) {
+        throw new Error('selection_observation_stale');
+      }
+      parts = next;
+      partLoading = false;
+      const previous = view?.validity === 'valid' ? view.selection : undefined;
+      if (restore && previous?.documentId === documentId && previous.workspaceId === workspaceId) {
+        selectedPart = next.hits.find(
+          (hit) => hit.elementId === previous.elementId && hit.partId === previous.partId && hit.selectable === true,
+        );
+        if (selectedPart) {
+          step = 'parts';
+          await readPreview(selectedPart);
+        }
+      }
+    } catch (error) {
+      if (valid()) {
+        parts = undefined;
+        partError = error.message;
+        await revalidateReadFailure(error.message);
+      }
+    } finally {
+      if (valid()) {
+        partLoading = false;
+        draw();
+      }
+    }
+  };
+  const readPreview = async (hit, studio, focusResult = false) => {
+    if (!parts || !selectedDocument || !selectedWorkspace || (!hit && !studio)) {
+      return;
+    }
+    clearPreview();
+    const source = parts;
+    const target = {
+      documentId: source.documentId,
+      workspaceId: source.workspaceId,
+      elementId: studio?.elementId ?? hit.elementId,
+      partId: studio ? null : hit.partId,
+      observedMicroversion: source.observedMicroversion,
+      name: studio ? studio.name : hit.name,
+      studioName: studio ? studio.name : source.studios.find((item) => item.elementId === hit.elementId)?.name,
+    };
+    previewTarget = target;
+    previewLoading = true;
+    const valid = ticket('preview');
+    draw();
+    try {
+      const {documentId, workspaceId, elementId, partId, observedMicroversion} = target;
+      const result = await browse(
+        'work-context-preview',
+        {documentId, workspaceId, elementId, ...(partId === null ? {} : {partId}), observedMicroversion},
+        valid,
+      );
+      if (!valid() || parts !== source || previewTarget !== target) {
+        return;
+      }
+      if (!result?.ok) {
+        throw new Error(errorCode(result));
+      }
+      const image = result.preview;
+      if (
+        image?.partId !== partId ||
+        image.observedMicroversion !== observedMicroversion ||
+        image.mimeType !== 'image/png' ||
+        typeof image.dataBase64 !== 'string' ||
+        image.dataBase64.length >= 65000 ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(image.dataBase64)
+      ) {
+        throw new Error('preview_unavailable');
+      }
+      preview = image;
+    } catch (error) {
+      if (valid()) {
+        previewError = error.message;
+        if (error.message !== 'preview_unavailable') {
+          selectedPart = undefined;
+        }
+        if (
+          [
+            'authorization_changed',
+            'reconnect_required',
+            'disconnected',
+            'live_reads_disabled',
+            'not_configured',
+            'oauth_read_scope_missing',
+            'provider_forbidden',
+          ].includes(error.message)
+        ) {
+          view = undefined;
+          statusError = error.message;
+          render();
+        }
+      }
+    } finally {
+      if (valid()) {
+        previewLoading = false;
+        draw();
+        if (focusResult) {
+          const region = dialog.querySelector('[data-focus="preview-region"]');
+          region?.focus({preventScroll: true});
+          region?.scrollIntoView({block: 'start'});
+        }
+      }
+    }
+  };
+  const choosePart = (hit) => {
+    if (adopting || partLoading) {
+      return;
+    }
+    selectedPart = hit;
+    step = 'parts';
+    failedPart = undefined;
+    actionMessage = undefined;
+    void readPreview(hit);
+  };
+  const adoptable = () =>
+    selectedPart?.selectable === true &&
+    parts &&
+    !partLoading &&
+    !previewLoading &&
+    !workspaceLoading &&
+    !documentLoading &&
+    !documentError &&
+    !workspaceError &&
+    !partError &&
+    known() &&
+    view.validity !== 'unverified' &&
+    !view.interlock.blocked &&
+    canAdmin() &&
+    !adopting;
+  const adopt = async () => {
+    if (!adoptable()) {
+      return;
+    }
+    const s = session,
+      source = parts,
+      hit = selectedPart,
+      requestEpoch = epoch;
+    const payload = {
+      expectedSelectionRevision: view.selectionRevision,
+      documentId: source.documentId,
+      workspaceId: source.workspaceId,
+      elementId: hit.elementId,
+      partId: hit.partId,
+      observedMicroversion: source.observedMicroversion,
+    };
+    adopting = true;
+    actionMessage = undefined;
+    draw();
+    try {
+      const result = await call('work-context-adopt', s.connection, payload);
+      if (!current(s) || epoch !== requestEpoch) {
         return;
       }
       if (result.ok && goodView(result.workContext)) {
         view = result.workContext;
         statusError = undefined;
+        cardNotice = 'Arbeitskontext übernommen. Keine CAD-Arbeit gestartet.';
         close(false);
         render();
-        root.querySelector?.('[data-context-change]')?.focus();
+        returnFocus();
         return;
       }
-      const code = result.code ?? 'provider_protocol_error';
-      message = workContextReason(code);
+      const code = errorCode(result);
+      actionMessage = workContextReason(code);
+      failedPart = hit;
+      selectedPart = undefined;
       clearPreview();
-      draft = undefined;
+      await readStatus(s.g, s.connection);
+      if (!current(s)) {
+        return;
+      }
       if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
-        await readStatus(g, connection);
-        if (matches(g, connection) && dialog && request === adoptRequest && view && !statusError) {
+        if (known()) {
+          cardNotice =
+            code === 'selection_revision_conflict'
+              ? 'Andere Auswahl war schneller · bestätigten Arbeitskontext neu geladen. Bitte erneut prüfen.'
+              : 'Gerade belegt · Status neu geladen. Bestätigten Arbeitskontext erneut prüfen.';
           close(false);
           render();
-          const note = root.querySelector?.('[data-context-notice]');
-          if (note) {
-            note.textContent =
-              code === 'connection_busy_or_state_unavailable'
-                ? 'Gerade belegt · Status neu geladen'
-                : `${workContextReason(code)} Gewinner geladen.`;
-          }
-          root.querySelector?.('[data-context-change]')?.focus();
-        } else if (matches(g, connection) && dialog && request === adoptRequest) {
-          message =
-            'Status konnte nicht neu geladen werden. Verbindung prüfen und aktualisieren; nicht erneut übernehmen.';
+          returnFocus();
+        } else {
+          actionMessage = 'Status unbekannt · Übernehmen gesperrt. Verbindung prüfen und Status erneut laden.';
         }
-      } else if (code === 'selection_observation_stale') {
-        await readStatus(g, connection);
-        if (matches(g, connection) && dialog && request === adoptRequest) {
-          await loadCatalog(g, connection);
-        }
-      } else {
-        // Re-read the authoritative validity/interlock after every rejected adoption; never retry the write.
-        await readStatus(g, connection);
+      } else if (code === 'selection_observation_stale' && known()) {
+        await readParts();
       }
     } catch {
-      if (matches(g, connection) && request === adoptRequest) {
-        message = 'Ausgang der Übernahme unklar. Status aktualisieren; nicht erneut übernehmen.';
-        draft = catalog = undefined;
+      if (current(s)) {
+        failedPart = hit;
+        selectedPart = undefined;
         clearPreview();
-        await readStatus(g, connection);
+        actionMessage = 'Ausgang der Übernahme unklar. Status prüfen; nicht erneut übernehmen.';
+        await readStatus(s.g, s.connection);
       }
     } finally {
-      if (matches(g, connection) && request === adoptRequest) {
+      if (current(s)) {
         adopting = false;
         render();
         draw();
       }
     }
   };
-  const nameNodes = (name, id) => [
-    el('span', name ?? 'Name nicht verfügbar'),
-    ...(name == null ? [el('span', ` · ${short(id)}`, 'revision')] : []),
-  ];
+  const errorRegion = (node, code, retry) => {
+    node.append(el('p', workContextReason(code), 'notice'));
+    const again = button('Erneut laden', retry);
+    again.disabled = adopting;
+    node.append(again);
+  };
+  const previewNode = () => {
+    const node = el('section', undefined, 'selection-preview');
+    node.setAttribute('aria-label', 'Vorschau');
+    node.setAttribute('tabindex', '-1');
+    node.setAttribute('data-focus', 'preview-region');
+    node.setAttribute('data-preview-kind', previewTarget?.partId === null ? 'studio' : 'part');
+    if (!previewTarget) {
+      node.append(el('h3', 'Vorschau'), el('p', 'Wähle ein Bauteil oder „Studio ansehen“.'));
+      return node;
+    }
+    const target = previewTarget;
+    node.append(
+      el('p', target.partId === null ? 'Part-Studio-Vorschau · kein Einzelbauteil' : 'Bauteilvorschau', 'eyebrow'),
+      el('h3', label(target.name)),
+      el('p', `${label(selectedDocument.name)} / ${label(selectedWorkspace.name)} / ${label(target.studioName)}`),
+      el('p', `${target.partId === null ? 'Studio' : 'Part'} ${short(target.partId ?? target.elementId)}`, 'revision'),
+    );
+    if (previewLoading) {
+      node.append(el('p', 'Vorschau wird geladen …', 'loading'));
+    } else if (preview) {
+      const image = el('img');
+      image.alt = `${target.partId === null ? 'Part-Studio-Vorschau' : 'Bauteilvorschau'}: ${label(target.name)} · ${target.partId ?? target.elementId}`;
+      image.src = `data:image/png;base64,${preview.dataBase64}`;
+      const shown = preview;
+      const invalidImage = () => {
+        if (preview === shown) {
+          preview = undefined;
+          previewError = 'preview_unavailable';
+          draw();
+        }
+      };
+      image.onerror = invalidImage;
+      image.onload = () => {
+        if (
+          image.naturalWidth !== (target.partId === null ? 128 : 256) ||
+          image.naturalHeight !== (target.partId === null ? 128 : 256)
+        ) {
+          invalidImage();
+        }
+      };
+      node.append(image);
+    } else {
+      node.append(el('p', workContextReason(previewError ?? 'preview_unavailable'), 'notice'));
+    }
+    if (!previewLoading) {
+      const retry = button('Vorschau erneut laden', () => {
+        if (!parts || adopting) {
+          return;
+        }
+        return target.partId === null
+          ? readPreview(
+              undefined,
+              parts.studios.find((item) => item.elementId === target.elementId),
+            )
+          : readPreview(
+              parts.hits.find((item) => item.elementId === target.elementId && item.partId === target.partId),
+              undefined,
+              true,
+            );
+      });
+      retry.disabled = adopting;
+      node.append(retry);
+    }
+    const url = cadLink(target);
+    if (url) {
+      node.append(anchor('In Onshape öffnen ↗', url));
+    }
+    if (target.partId === null && selectedPart) {
+      node.append(button('Bauteilvorschau', () => readPreview(selectedPart, undefined, true)));
+    }
+
+    return node;
+  };
   const draw = () => {
     if (!dialog) {
       return;
     }
     const focused = document.activeElement;
-    const field = focused?.getAttribute?.('data-search');
-    const focusText = focused?.tagName === 'BUTTON' ? focused.textContent : undefined;
-    const selectionStart = focused?.selectionStart;
+    const focusKey = focused?.getAttribute?.('data-focus'),
+      caret = focused?.selectionStart;
+    const bodyScroll = dialog.querySelector?.('.coc-selector-body')?.scrollTop ?? 0;
     dialog.replaceChildren();
     const heading = el('h2', 'Arbeitskontext auswählen');
     heading.id = 'coc-selection-title';
-    const dismiss = button('Schließen', () => close());
-    dismiss.disabled = adopting;
-    dialog.append(
+    const header = el('header', undefined, 'selector-head');
+    header.append(
       heading,
-      dismiss,
-      el('p', 'Eine Auswahl pro Zuordnung · Übernehmen startet keine CAD-Arbeit.', 'muted'),
+      el(
+        'p',
+        mobile()
+          ? 'Dokument → Workspace → Bauteil'
+          : 'Finde dein Dokument, wähle den Workspace und übernimm das passende Bauteil.',
+      ),
     );
-    if (message) {
-      const note = el('p', message, 'notice');
-      note.setAttribute('role', 'status');
-      dialog.append(note);
+    const body = el('div', undefined, 'selector-body');
+    const layout = el('div', undefined, 'selector-layout'),
+      context = el('div', undefined, 'selector-context');
+    const input = (name, value, key, change) => {
+      const labelNode = el('label', name),
+        field = el('input');
+      field.type = 'search';
+      field.maxLength = 100;
+      field.value = value;
+      field.setAttribute('aria-label', name);
+      field.setAttribute('data-focus', key);
+      field.disabled = adopting;
+      field.oninput = () => change(field.value);
+      labelNode.append(field);
+      return labelNode;
+    };
+    const keyed = (text, key, handler) => {
+      const node = button(text, handler);
+      node.setAttribute('data-focus', key);
+      return node;
+    };
+    if (mobile() && selectedDocument && step !== 'documents') {
+      const summary = el('div', undefined, 'selector-context-summary');
+      const documentLabel = el('strong', '1 ');
+      documentLabel.append(...nameNodes(selectedDocument.name, selectedDocument.documentId));
+      summary.append(
+        documentLabel,
+        keyed('Dokument ändern', 'change-document', () => {
+          step = 'documents';
+          draw();
+        }),
+      );
+      if (selectedWorkspace) {
+        const workspaceLabel = el('p', '2 ');
+        workspaceLabel.append(
+          ...nameNodes(selectedWorkspace.name, selectedWorkspace.workspaceId),
+          el('span', ` · ${role(selectedWorkspace)}`),
+        );
+        summary.append(
+          workspaceLabel,
+          keyed('Workspace ändern', 'change-workspace', () => {
+            step = 'workspaces';
+            draw();
+          }),
+        );
+      }
+      body.append(summary);
     }
-    if (blocked()) {
-      dialog.append(
+    const docs = el('section', undefined, 'selector-documents');
+    docs.setAttribute('aria-label', 'Dokumente');
+    docs.hidden = mobile() && step !== 'documents';
+    docs.append(
+      el('h3', '1 Dokument'),
+      input('Dokument suchen', documentQuery, 'document-search', (value) => {
+        documentQuery = value;
+        requests.documents++;
+        clearTimeout(documentTimer);
+        documents = undefined;
+        documentError = undefined;
+        documentLoading = false;
+        if (value.trim().length !== 1) {
+          documentTimer = setTimeout(() => {
+            if (session) {
+              void readDocuments();
+            }
+          }, 300);
+        }
+        draw();
+      }),
+    );
+    if (documentQuery.trim().length === 1) {
+      docs.append(el('p', 'Bitte mindestens zwei Zeichen eingeben.'));
+    }
+    if (documentLoading) {
+      docs.append(el('p', 'Dokumente werden geladen …', 'loading'));
+    }
+    if (documentError) {
+      errorRegion(docs, documentError, () => readDocuments());
+    }
+    const documentResults = el('div', undefined, 'selector-document-results');
+    for (const item of documents?.items ?? []) {
+      const row = keyed('', `document-${item.documentId}`, () => chooseDocument(item));
+      row.disabled = adopting;
+      row.append(
+        ...nameNodes(item.name, item.documentId),
+        el(
+          'span',
+          `${item.bound ? ' · Zugeordnet' : ' · Nur ansehen'}${selectedDocument?.documentId === item.documentId ? ' · ausgewählt' : ''}`,
+          'choice-state',
+        ),
+      );
+      row.setAttribute('aria-pressed', String(selectedDocument?.documentId === item.documentId));
+      documentResults.append(row);
+      if (item.reason) {
+        documentResults.append(el('p', workContextReason(item.reason), 'muted'));
+      }
+    }
+    docs.append(documentResults);
+    if (documents && !documents.items.length) {
+      docs.append(el('p', 'Keine Dokumente gefunden · Suchbegriff ändern.'));
+    }
+    if (documents?.hasMore) {
+      const more = keyed('Weitere Dokumente laden', 'more-documents', () => readDocuments(documents.offset + 20));
+      more.disabled = documentLoading || adopting;
+      docs.append(more);
+    }
+    if (mobile() && selectedDocument) {
+      docs.append(
+        keyed('Weiter zum Workspace', 'continue-workspace', () => {
+          step = 'workspaces';
+          draw();
+        }),
+      );
+    }
+    const spaces = el('section', undefined, 'selector-workspaces');
+    spaces.setAttribute('aria-label', 'Workspaces');
+    spaces.hidden = mobile() && step !== 'workspaces';
+    spaces.append(el('h3', '2 Onshape-Workspace'));
+    if (!selectedDocument) {
+      spaces.append(el('p', 'Wähle zuerst ein Dokument.'));
+    }
+    if (workspaceLoading) {
+      spaces.append(el('p', 'Workspaces werden geladen …', 'loading'));
+    }
+    if (workspaceError) {
+      errorRegion(spaces, workspaceError, () => readWorkspaces(selectedDocument));
+    }
+    if (workspaces?.items.length === 0) {
+      spaces.append(el('p', 'Keine Workspaces verfügbar · Zugriff in Onshape prüfen.'));
+    }
+    for (const item of workspaces?.items ?? []) {
+      const row = keyed('', `workspace-${item.workspaceId}`, () => chooseWorkspace(item));
+      row.disabled = adopting;
+      row.append(
+        ...nameNodes(item.name, item.workspaceId),
+        el(
+          'span',
+          ` · ${role(item)}${item.readOnly ? ' · schreibgeschützt' : ''}${selectedWorkspace?.workspaceId === item.workspaceId ? ' · ausgewählt' : ''}`,
+          'choice-state',
+        ),
+      );
+      row.setAttribute('aria-pressed', String(selectedWorkspace?.workspaceId === item.workspaceId));
+      spaces.append(row);
+      if (item.reason) {
+        spaces.append(el('p', workContextReason(item.reason), 'muted'));
+      }
+    }
+    context.append(docs, spaces);
+    layout.append(context);
+    const area = el('section', undefined, 'selector-part-area');
+    area.setAttribute('aria-label', 'Bauteile');
+    area.hidden = mobile() && step !== 'parts';
+    const list = el('div', undefined, 'selector-part-list');
+    list.append(el('h3', '3 Bauteil auswählen'));
+    list.append(
+      input('Bauteile in allen Part Studios suchen', partQuery, 'part-search', (value) => {
+        step = 'parts';
+        partQuery = value;
+        requests.parts++;
+        clearTimeout(partTimer);
+        selectedPart = undefined;
+        clearPreview();
+        partLoading = true;
+        partTimer = setTimeout(() => {
+          if (session) {
+            void readParts();
+          }
+        }, 300);
+        draw();
+      }),
+    );
+    if (!selectedWorkspace) {
+      list.append(el('p', 'Wähle zuerst einen Workspace.'));
+    }
+    if (partLoading) {
+      list.append(el('p', 'Bauteile werden geladen …', 'loading'));
+    }
+    if (partError) {
+      errorRegion(list, partError, () => readParts());
+    }
+    if (parts?.truncated) {
+      list.append(
         el(
           'p',
-          statusLoading ? 'Auswahlstatus wird geprüft …' : workContextReason(statusError ?? view?.interlock.code),
+          'Weitere Treffer vorhanden – Studio auswählen und Suche eingrenzen. Eine Suche allein erreicht nicht alle bisher ungescannten Studios.',
           'notice',
         ),
       );
     }
-    const reload = button('Katalog aktualisieren', async () => {
-      message = undefined;
-      await readStatus(returnView.g, returnView.connection);
-      if (dialog && !blocked()) {
-        await loadCatalog(returnView.g, returnView.connection);
+    if (parts?.studios.length && (parts.truncated || studioFilter)) {
+      const refinementLabel = el('label', 'Part Studio eingrenzen'),
+        refinement = el('select');
+      refinement.setAttribute('aria-label', 'Part Studio eingrenzen');
+      refinement.setAttribute('data-focus', 'studio-refinement');
+      const all = el('option', 'Alle Part Studios');
+      all.value = '';
+      refinement.append(all);
+      for (const studio of parts.studios) {
+        const option = el('option', `${label(studio.name)} · ${short(studio.elementId)}`);
+        option.value = studio.elementId;
+        refinement.append(option);
+      }
+      refinement.value = studioFilter;
+      refinement.disabled = adopting;
+      refinement.onchange = () => {
+        step = 'parts';
+        studioFilter = refinement.value;
+        void readParts();
+      };
+      refinementLabel.append(refinement);
+      list.append(refinementLabel);
+    }
+    if (parts && !partLoading && !parts.hits.length) {
+      list.append(el('p', 'Keine Bauteile gefunden – Suchbegriff ändern oder Studio auswählen.'));
+    }
+    for (const studio of !partLoading ? (parts?.studios ?? []) : []) {
+      const group = el('section', undefined, 'selector-studio');
+      group.setAttribute('data-studio', studio.elementId);
+      const studioHead = el('div', undefined, 'selector-studio-head');
+      studioHead.append(el('h3', `Part Studio · ${label(studio.name)} · ${short(studio.elementId)}`));
+      const see = keyed('Studio ansehen', `studio-${studio.elementId}`, () => readPreview(undefined, studio, true));
+      see.disabled = adopting;
+      studioHead.append(see);
+      group.append(studioHead);
+      if (studio.reason) {
+        group.append(el('p', workContextReason(studio.reason), 'muted'));
+      }
+      const hits = parts.hits.filter((hit) => hit.elementId === studio.elementId);
+      if (!hits.length) {
+        group.append(el('p', 'Keine Treffer im Ergebnis. Dieses Studio bei Bedarf gezielt durchsuchen.', 'muted'));
+      }
+      for (const hit of hits) {
+        const chosen = selectedPart === hit,
+          card = el('section', undefined, 'selector-part-card');
+        card.setAttribute('data-part', hit.partId);
+        card.setAttribute('data-element', hit.elementId);
+        card.setAttribute('data-selected', String(chosen));
+        const selectPart = keyed('', `part-${hit.elementId}-${hit.partId}`, () => choosePart(hit));
+        selectPart.disabled = adopting;
+        selectPart.append(
+          el('strong', hit.name),
+          el('span', ` · ${short(hit.partId)}`, 'revision'),
+          el('span', chosen ? ' · Ausgewählt' : ' · Vorschau öffnen', 'choice-state'),
+        );
+        selectPart.setAttribute('aria-pressed', String(chosen));
+        card.append(selectPart);
+        if (hit.hidden) {
+          card.append(el('p', 'In Onshape ausgeblendet · Vorschau hier möglich.', 'muted'));
+        }
+        if (hit.partNumber) {
+          card.append(el('p', `Teilenummer ${hit.partNumber}`, 'muted'));
+        }
+        if (hit.selectable !== true) {
+          card.append(el('p', `Nur ansehen · ${workContextReason(hit.reason)}`, 'inspection'));
+        }
+        if (failedPart === hit && actionMessage) {
+          const failure = el('p', actionMessage, 'notice');
+          failure.setAttribute('role', 'status');
+          card.append(failure);
+        }
+        if (chosen) {
+          if (mobile()) {
+            card.append(previewNode());
+          }
+          if (hit.selectable === true) {
+            if (view?.interlock.blocked) {
+              card.append(el('p', workContextReason(view.interlock.code), 'notice'));
+            }
+            if (!known() || view?.validity === 'unverified') {
+              card.append(el('p', 'Status unbekannt oder ungeprüft · Übernehmen gesperrt.', 'notice'));
+            }
+            if (!canAdmin()) {
+              card.append(el('p', 'Übernehmen benötigt operator.admin.', 'muted'));
+            }
+            if (actionMessage) {
+              const message = el('p', actionMessage, 'notice');
+              message.setAttribute('role', 'status');
+              card.append(message);
+            }
+            const accept = keyed(adopting ? 'Wird übernommen …' : 'Dieses Bauteil übernehmen', 'adopt-part', () =>
+              adopt(),
+            );
+            accept.disabled = !adoptable();
+            card.append(accept);
+            if (previewTarget?.partId === null) {
+              card.append(
+                el(
+                  'p',
+                  `Übernehmen betrifft ${hit.name} · ${short(hit.partId)}, nicht das angezeigte Studio.`,
+                  'muted',
+                ),
+              );
+            }
+          }
+        }
+        group.append(card);
+      }
+      list.append(group);
+    }
+    if (actionMessage && !selectedPart && !failedPart) {
+      const message = el('p', actionMessage, 'notice');
+      message.setAttribute('role', 'status');
+      list.append(message);
+    }
+    area.append(list);
+    if (!mobile()) {
+      area.append(previewNode());
+    } else if (!selectedPart && previewTarget) {
+      list.append(previewNode());
+    }
+    layout.append(area);
+    body.append(layout);
+    const details = el('details', undefined, 'selector-details');
+    details.append(el('summary', 'Stand & technische Details'));
+    details.append(
+      el(
+        'p',
+        `Auswahlrevision ${view?.selectionRevision ?? 'unbekannt'} · Stand ${parts?.observedMicroversion ?? 'ungeprüft'} · Beobachtet ${date(parts?.observedAt)}`,
+        'revision',
+      ),
+    );
+    if (previewTarget) {
+      details.append(
+        el(
+          'p',
+          `Vorschauziel: ${previewTarget.documentId} / ${previewTarget.workspaceId} / ${previewTarget.elementId} · ${previewTarget.partId ?? 'Studio'} · Stand ${previewTarget.observedMicroversion}`,
+          'revision',
+        ),
+      );
+    }
+    const reload = keyed('Auswahlstatus und Treffer aktualisieren', 'refresh-selection', async () => {
+      await readStatus(session.g, session.connection);
+      if (session && selectedWorkspace) {
+        await readParts();
       }
     });
     reload.disabled = adopting || statusLoading;
-    dialog.append(reload);
-    if (catalogLoading) {
-      dialog.append(el('p', 'Katalog wird geladen …'));
+    details.append(reload);
+    if (statusError) {
+      details.append(el('p', workContextReason(statusError)));
     }
-    if (catalog) {
-      const columns = el('div', undefined, 'selection-columns');
-      const column = (title, key) => {
-        const node = el('section');
-        node.append(el('h3', title));
-        const label = el('label', `${title} durchsuchen`),
-          input = el('input');
-        input.type = 'search';
-        input.value = filters[key];
-        input.setAttribute('data-search', key);
-        input.setAttribute('aria-label', `${title} durchsuchen`);
-        input.oninput = () => {
-          filters[key] = input.value;
-          draw();
-        };
-        label.append(input);
-        node.append(label);
-        columns.append(node);
-        return node;
-      };
-      const contains = (text, key) => text.toLocaleLowerCase('de').includes(filters[key].toLocaleLowerCase('de'));
-      const documents = column('Dokument', 'document');
-      if (contains([catalog.document.name ?? '', catalog.document.documentId].join(' '), 'document')) {
-        const item = button('', () => {
-          // The sole bound document is already selected; no parent switch exists in increment 1.
-        });
-        item.append(...nameNodes(catalog.document.name, catalog.document.documentId), el('span', ' · vorausgewählt'));
-        item.setAttribute('aria-pressed', 'true');
-        documents.append(item);
-      } else {
-        documents.append(el('p', 'Keine Suchtreffer im zugeordneten Dokument. Suche anpassen.'));
-      }
-      const workspaces = column('Onshape-Workspace', 'workspace');
-      let workspaceCount = 0;
-      for (const workspace of catalog.workspaces) {
-        if (!contains([workspace.name ?? '', workspace.workspaceId].join(' '), 'workspace')) {
-          continue;
-        }
-        workspaceCount++;
-        const item = button('', () => {
-          if (!workspace.selectable || adopting) {
-            return;
-          }
-          draft = undefined;
-          clearPreview();
-          draw();
-        });
-        item.append(
-          ...nameNodes(workspace.name, workspace.workspaceId),
-          el('span', ` · ${workspace.role === 'primary' ? 'geschützter Primary' : 'Candidate'}`),
-        );
-        item.disabled = !workspace.selectable || adopting;
-        item.setAttribute(
-          'aria-pressed',
-          String(workspace.selectable && (!draft || draft.workspaceId === workspace.workspaceId)),
-        );
-        workspaces.append(item);
-        if (workspace.reason) {
-          workspaces.append(el('p', workContextReason(workspace.reason), 'muted'));
-        }
-      }
-      if (!workspaceCount) {
-        workspaces.append(el('p', 'Keine Suchtreffer. Workspace-Suche anpassen.'));
-      }
-      const parts = column('Bauteil', 'part');
-      let count = 0;
-      for (const studio of catalog.partStudios) {
-        const group = el('section', undefined, 'selection-studio');
-        const studioHeading = el('h3', 'Part Studio: ');
-        studioHeading.append(...nameNodes(studio.name, studio.elementId));
-        group.append(studioHeading);
-        if (studio.reason) {
-          group.append(el('p', workContextReason(studio.reason), 'muted'));
-        }
-        if (studio.parts === null) {
-          group.append(el('p', 'Bauteile nicht geladen.'));
-        } else if (studio.parts?.length === 0) {
-          group.append(el('p', 'Keine Bauteile in diesem Part Studio.'));
-        }
-        for (const part of studio.parts ?? []) {
-          if (!contains([studio.name ?? '', studio.elementId, part.name, part.partId].join(' '), 'part')) {
-            continue;
-          }
-          count++;
-          const item = button(`${part.name} · ${part.partId}${part.hidden ? ' · ausgeblendet in Onshape' : ''}`, () => {
-            const workspace = catalog.workspaces.find((w) => w.selectable && w.role === 'primary');
-            if (!part.selectable || !studio.goalEligible || !workspace || adopting) {
-              return;
-            }
-            draft = {
-              documentId: catalog.document.documentId,
-              workspaceId: workspace.workspaceId,
-              elementId: studio.elementId,
-              partId: part.partId,
-              observedMicroversion: catalog.observedMicroversion,
-            };
-            message = undefined;
-            void loadPreview(returnView.g, returnView.connection);
-          });
-          item.replaceChildren(
-            el('span', part.name),
-            el('span', ` · ${part.partId}${part.hidden ? ' · ausgeblendet in Onshape' : ''}`, 'revision'),
-          );
-          item.disabled = !part.selectable || !studio.goalEligible || adopting || !!blocked();
-          item.setAttribute(
-            'aria-pressed',
-            String(draft?.elementId === studio.elementId && draft?.partId === part.partId),
-          );
-          group.append(item);
-          if (part.reason) {
-            group.append(el('p', workContextReason(part.reason), 'muted'));
-          }
-        }
-        if (studio.truncated) {
-          group.append(el('p', 'Liste gekürzt · höchstens 500 Bauteile. Auswahl bei Bedarf in Onshape prüfen.'));
-        }
-        parts.append(group);
-      }
-      if (!count && filters.part) {
-        parts.append(el('p', 'Keine Suchtreffer. Bauteilsuche anpassen.'));
-      }
-      dialog.append(
-        columns,
-        el('p', `Katalogstand ${catalog.observedMicroversion} · ${date(catalog.observedAt)}`, 'revision'),
+    body.append(details);
+    const footer = el('footer', undefined, 'selector-footer');
+    footer.append(el('p', 'Übernehmen setzt deinen Arbeitskontext. Es startet keine CAD-Arbeit.', 'muted'));
+    const dismiss = keyed('Schließen', 'close-selection', () => close());
+    dismiss.disabled = adopting;
+    footer.append(dismiss);
+    dialog.append(header, body, footer);
+    body.scrollTop = bodyScroll;
+    if (focusKey) {
+      const next = [...dialog.querySelectorAll('[data-focus]')].find(
+        (node) => node.getAttribute('data-focus') === focusKey,
       );
-    }
-    const summary = el('section', undefined, 'selection-summary');
-    summary.setAttribute('aria-label', 'Vorläufige Auswahl');
-    if (draft) {
-      const studio = catalog.partStudios.find((s) => s.elementId === draft.elementId);
-      const part = studio?.parts?.find((p) => p.partId === draft.partId);
-      const provenance = el('p');
-      const workspace = catalog.workspaces.find((w) => w.workspaceId === draft.workspaceId);
-      provenance.append(
-        ...nameNodes(catalog.document.name, draft.documentId),
-        el('span', ' / '),
-        ...nameNodes(workspace?.name, draft.workspaceId),
-        el('span', ' / '),
-        ...nameNodes(studio?.name, draft.elementId),
-      );
-      summary.append(el('h3', `${part?.name} · ${draft.partId}`), provenance);
-      if (preview) {
-        const image = el('img');
-        image.src = `data:image/png;base64,${preview.dataBase64}`;
-        image.alt = `Vorschau nur für ${part?.name} · ${draft.partId}`;
-        const shown = preview;
-        image.onload = () => {
-          if (preview === shown && (image.naturalWidth !== 256 || image.naturalHeight !== 256)) {
-            clearPreview();
-            previewError = 'preview_unavailable';
-            draw();
-          }
-        };
-        image.onerror = () => {
-          if (preview === shown) {
-            clearPreview();
-            previewError = 'preview_unavailable';
-            draw();
-          }
-        };
-        summary.append(image);
+      if (next && !next.disabled && next.getClientRects().length) {
+        next.focus({preventScroll: true});
+        if (typeof caret === 'number' && next.tagName === 'INPUT') {
+          next.setSelectionRange(caret, caret);
+        }
       } else {
-        summary.append(
-          el(
-            'p',
-            previewLoading
-              ? 'Bauteilvorschau wird geladen …'
-              : workContextReason(previewError ?? 'preview_unavailable'),
-          ),
-        );
+        [...dialog.querySelectorAll('[data-focus]')]
+          .find((node) => !node.disabled && node.getClientRects().length)
+          ?.focus({preventScroll: true});
       }
-      if (!previewLoading) {
-        summary.append(button('Vorschau erneut laden', () => loadPreview(returnView.g, returnView.connection)));
-      }
-      const url = cadLink(draft);
-      if (url) {
-        summary.append(anchor('Arbeitskontext in Onshape öffnen ↗', url));
-      }
-    } else {
-      summary.append(el('p', 'Wähle genau ein Bauteil. Ohne vollständige Auswahl ist keine Übernahme möglich.'));
-    }
-    dialog.append(summary);
-    const actions = el('div', undefined, 'controls');
-    const accept = button('Auswahl übernehmen', () => adopt(returnView.g, returnView.connection));
-    accept.disabled = !draft || !catalog || !!blocked() || !canAdmin() || adopting || previewLoading || catalogLoading;
-    const cancel = button('Abbrechen', () => close());
-    cancel.disabled = adopting;
-    actions.append(cancel, accept);
-    dialog.append(actions);
-    if (!canAdmin()) {
-      dialog.append(el('p', 'Übernehmen benötigt operator.admin. Lesender Zugriff erlaubt die Auswahlprüfung.'));
-    }
-    if (field) {
-      const input = dialog.querySelector(`[data-search="${field}"]`);
-      input?.focus();
-      if (typeof selectionStart === 'number' && input) {
-        input.setSelectionRange(selectionStart, selectionStart);
-      }
-    } else if (focusText) {
-      const buttons = [...dialog.querySelectorAll('button:not([disabled])')];
-      (buttons.find((node) => node.textContent === focusText) ?? buttons[0])?.focus();
     }
   };
-  const open = (g, connection) => {
-    if (!matches(g, connection) || blocked() || dialog) {
+  const open = async (g, connection) => {
+    if (!alive(g) || ref() !== connection || locked() || dialog) {
       return;
     }
-    returnView = {g, connection};
-    filters = {document: '', workspace: '', part: ''};
-    message = undefined;
-    dialog = el('dialog', undefined, 'selection-dialog');
-    dialog.setAttribute('aria-labelledby', 'coc-selection-title');
-    dialog.oncancel = (event) => {
+    session = {g, connection};
+    epoch++;
+    documentQuery = partQuery = studioFilter = '';
+    actionMessage = undefined;
+    step = 'documents';
+    const opened = el('dialog', undefined, 'selection-dialog');
+    dialog = opened;
+    opened.setAttribute('aria-labelledby', 'coc-selection-title');
+    opened.oncancel = (event) => {
       event.preventDefault();
       if (!adopting) {
         close();
       }
     };
-    const opened = dialog;
-    dialog.onclose = () => {
+    opened.onclose = () => {
       if (dialog === opened && !opened.open) {
         close();
       }
     };
-    dialog.onkeydown = (event) => {
+    opened.onkeydown = (event) => {
       if (event.key !== 'Tab') {
         return;
       }
-      const controls = [...opened.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]')].filter(
-        (node) => node.getClientRects().length,
-      );
+      const controls = [
+        ...opened.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], summary',
+        ),
+      ].filter((node) => node.getClientRects().length);
       const first = controls[0],
         last = controls.at(-1);
       if (
@@ -775,29 +1266,27 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
         (event.shiftKey ? last : first)?.focus();
       }
     };
-    root.append(dialog);
+    root.append(opened);
     draw();
-    dialog.showModal();
-    void (async () => {
-      await readStatus(g, connection);
-      if (dialog === opened && !blocked()) {
-        await loadCatalog(g, connection);
-      }
-    })();
+    opened.showModal();
+    await readStatus(g, connection);
+    if (dialog === opened) {
+      await readDocuments(0, true);
+    }
   };
   const card = (g) => {
     const node = panel('Arbeitskontext');
     node.setAttribute('data-work-context', '');
-    const notice = el('p', '', 'muted');
-    notice.setAttribute('data-context-notice', '');
-    notice.setAttribute('role', 'status');
-    node.append(notice);
+    if (cardNotice) {
+      const notice = el('p', cardNotice, 'notice');
+      notice.setAttribute('role', 'status');
+      node.append(notice);
+    }
     if (statusLoading) {
       node.append(el('p', 'Auswahlstatus wird geprüft …'));
-    } else if (statusError || !view) {
+    } else if (!view || statusError) {
       node.append(el('p', workContextReason(statusError), 'notice'));
     } else {
-      const s = view.selection;
       node.append(
         el(
           'p',
@@ -810,7 +1299,9 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
           'badge',
         ),
       );
+      const s = view.selection;
       if (s) {
+        node.append(el('h3', s.partName));
         const provenance = el('p');
         provenance.append(
           el('span', 'Dokument: '),
@@ -820,9 +1311,8 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
           el('span', ' · Part Studio: '),
           ...nameNodes(s.partStudioName, s.elementId),
         );
+        node.append(provenance);
         node.append(
-          el('h3', s.partName ?? 'Bauteilname nicht verfügbar'),
-          provenance,
           el(
             'p',
             `Part ${s.partId} · Auswahlrevision ${view.selectionRevision} · ausgewählt bei ${s.observedMicroversion} · aktuell ${s.currentMicroversion ?? 'ungeprüft'}`,
@@ -834,7 +1324,7 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
           node.append(anchor('Auswahl in Onshape öffnen ↗', url));
         }
       }
-      node.append(el('p', `Geprüft: ${date(view.observedAt)}`, 'muted'));
+      node.append(el('p', `Status vom ${date(view.observedAt)}`, 'muted'));
       if (view.reason) {
         node.append(el('p', workContextReason(view.reason), 'notice'));
       }
@@ -844,11 +1334,21 @@ function createWorkContext({el, button, anchor, panel, root, call, canAdmin, ren
     }
     const change = button('Auswahl ändern', () => open(g, ref()));
     change.setAttribute('data-context-change', '');
-    change.disabled = !!blocked();
+    change.disabled = !!locked();
     node.append(change, button('Weiter zu CAD', showCad));
     return node;
   };
-  return {card, readStatus, reset};
+  const resized = () => draw();
+  media?.addEventListener('change', resized);
+  return {
+    card,
+    readStatus,
+    reset,
+    dispose() {
+      reset();
+      media?.removeEventListener('change', resized);
+    },
+  };
 }
 
 export default {
@@ -2391,7 +2891,7 @@ export default {
         void load();
         return {
           dispose() {
-            workContext.reset();
+            workContext.dispose();
             clearImage();
             disposed = true;
             generation++;

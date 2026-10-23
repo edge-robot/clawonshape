@@ -1,22 +1,20 @@
-// Offline consumer acceptance against contract fixtures read in place. No provider or gateway IO.
+// V2 consumer acceptance: real browsing gateway shapes, fully intercepted offline.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createEvidenceCapture} from './cockpit-evidence.mjs';
 import {chromium} from 'playwright-core';
-// Independent user-visible outcomes from work-context.md §8, rather than assertions against UI helpers.
-const expectedReasons = {
+import {createEvidenceCapture} from './cockpit-evidence.mjs';
+
+const outcomes = {
   selection_observation_stale: /Stand hat sich geändert/,
   selection_part_missing: /Bauteil nicht mehr vorhanden/,
   selection_part_unsupported: /Bauteilart nicht unterstützt/,
-  part_kind_unsupported: /nur Volumenbauteile ohne Netz/,
   configuration_unsupported: /Konfiguriertes Part Studio nicht unterstützt/,
   element_not_provisioned: /Part Studio nicht für Ziele freigegeben/,
   selection_target_not_allowed: /Auswahl außerhalb der erlaubten Zuordnung/,
-  selection_revision_conflict: /Eine andere Auswahl wurde übernommen/,
-  connection_busy_or_state_unavailable: /Gerade belegt/,
-  target_not_part_studio: /Gebundenes Element ist kein Part Studio · Betreiber prüfen/,
-  target_missing: /Gebundenes Element nicht vorhanden · Betreiber prüfen/,
-  reconnect_required: /Verbindung abgelaufen/,
+  selection_revision_conflict: /Andere Auswahl war schneller/,
+  connection_busy_or_state_unavailable: /Gerade belegt · Status neu geladen/,
+  target_not_part_studio: /Gebundenes Element ist kein Part Studio/,
+  target_missing: /Gebundenes Element nicht vorhanden/,
   preview_unavailable: /Vorschau nicht verfügbar/,
   invalid_arguments: /Auswahlanfrage ungültig/,
   authorization_changed: /Zugriff geändert/,
@@ -24,66 +22,78 @@ const expectedReasons = {
   not_configured: /Keine Zuordnung eingerichtet/,
   provider_protocol_error: /Onshape-Antwort nicht lesbar/,
   goal_active_conflict: /Schließe zuerst das aktuelle Ziel ab/,
-  mutation_reconciliation_required: /Unklaren Änderungs- oder Candidate-Ausgang zuerst abgleichen/,
+  mutation_reconciliation_required: /Unklaren Änderungs- oder Candidate-Ausgang/,
   goal_state_invalid: /Arbeitsstatus nicht lesbar/,
-  candidate_inspection_only: /Candidate · nur Ansicht/,
-  revision_advanced: /Stand neuer als Auswahl/,
+  document_not_accessible: /Kein Zugriff auf dieses Dokument/,
+  provider_quota_exhausted: /Onshape-API-Kontingent erschöpft/,
+  provider_rate_limited: /Zu viele Anfragen · später erneut/,
+  provider_forbidden: /Dokumentsuche nicht erlaubt/,
+  provider_timeout: /Onshape antwortet nicht rechtzeitig/,
+  reconnect_required: /Verbindung abgelaufen/,
 };
-const workContextReason = (code) => {
-  assert(expectedReasons[code], `Missing independent expectation: ${code}`);
-  return expectedReasons[code];
-};
-
 export async function runSelectionBrowser() {
-  const fixtures = {};
-  for (const name of ['catalog', 'view-valid', 'view-invalid', 'view-none', 'adopt-request', 'error-codes']) {
-    fixtures[name] = JSON.parse(await readFile(`docs/interface/work-context-fixtures/${name}.json`, 'utf8'));
+  const F = {};
+  for (const name of [
+    'document-page',
+    'workspace-list',
+    'part-search',
+    'catalog',
+    'view-valid',
+    'view-invalid',
+    'view-none',
+    'adopt-request',
+    'error-codes',
+  ]) {
+    F[name] = JSON.parse(await readFile(`docs/interface/work-context-fixtures/${name}.json`, 'utf8'));
   }
-  const origin = 'https://selection-fixture.test';
   const evidence = await createEvidenceCapture('selector');
-  const output = evidence.directory;
-  const html = `<!doctype html><html lang="de"><meta charset="utf-8"><title>Bauteilauswahl · Offline fixture</title>
+  const origin = 'https://selection-v2-fixture.test';
+  const html = `<!doctype html><html lang="de"><meta charset="utf-8"><title>Selector V2 · Offline</title>
 <style>body{margin:0;background:#090f17;color:#e3ebf4;font:14px system-ui}#demo{padding:8px 18px;color:#f2d399}#app{max-width:1800px;margin:auto}</style>
 <div id="demo">DEMONSTRATION · synthetische Daten · kein Live-CAD-Nachweis</div><div id="app"></div>
 <script type="module">
 import ui from '/ui.js';import {data,status,workspaceContext,goalFixture} from '/fixture.js';
-window.F=${JSON.stringify(fixtures)};
-// Schematic per-Part PNGs prove response identity, never actual geometry.
-window.pngs=Object.fromEntries(['JHD','JHH','JIF','JIG','JKD'].map((id,index)=>{
- const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;const c=canvas.getContext('2d');c.scale(256/280,256/180);
- c.fillStyle='#0c1823';c.fillRect(0,0,280,180);c.strokeStyle=['#68dbd5','#d9ae70','#97cafa','#c3a5e5','#d78787'][index];c.lineWidth=3;
- c.beginPath();c.moveTo(50+index*4,55);c.lineTo(145,25);c.lineTo(220,65);c.lineTo(220,110);c.lineTo(125,140);c.lineTo(50+index*4,105);c.closePath();c.stroke();
- c.beginPath();c.ellipse(137+index*3,65,23,12,0,0,Math.PI*2);c.stroke();
- c.fillStyle='#e3ebf4';c.font='13px system-ui';c.fillText('SYNTHETISCH · '+id,60,164);
- return [id,canvas.toDataURL('image/png').split(',')[1]];
-}));window.calls=[];window.pending=[];window.errors={};window.delay={};window.connection={canAdmin:true};
-window.reset=()=>{
- window.catalog=structuredClone(F.catalog);window.view=structuredClone(F['view-none']);window.errors={};window.delay={};window.calls=[];window.goals={ok:true,goal:goalFixture(),history:[]};
- window.catalog.partStudios[0].truncated=true;
-};window.reset();
+window.F=${JSON.stringify(F)};window.calls=[];window.pending=[];window.errors={};window.delay={};window.connection={canAdmin:true};
+window.variant='normal';window.mv='a'.repeat(24);window.view=structuredClone(F['view-none']);window.goals={ok:true,goal:goalFixture(),history:[]};
+window.png=(size,id)=>{const c=document.createElement('canvas');c.width=c.height=size;const p=c.getContext('2d');p.fillStyle='#0b1923';p.fillRect(0,0,size,size);p.strokeStyle=id==='JIG'?'#d9ae70':'#80cbdc';p.lineWidth=3;p.beginPath();p.moveTo(size*.15,size*.35);p.lineTo(size*.6,size*.18);p.lineTo(size*.85,size*.44);p.lineTo(size*.85,size*.68);p.lineTo(size*.4,size*.84);p.lineTo(size*.15,size*.6);p.closePath();p.stroke();p.beginPath();p.ellipse(size*.53,size*.38,size*.08,size*.04,0,0,Math.PI*2);p.stroke();p.fillStyle='#e3ebf4';p.font=Math.max(10,size/20)+'px system-ui';p.fillText('SYNTHETISCH · '+id,size*.15,size*.95);return c.toDataURL('image/png').split(',')[1];};
 window.gateway=async args=>{
- window.calls.push(structuredClone(args));let result;
- const action=args.actionId,p=args.payload;
- if(window.errors[action]){result={ok:false,code:window.errors[action],message:'Synthetic error'};}
- else if(action==='status')result=status;
- else if(action==='mutation-status')result=data;
- else if(action==='workspace-context')result=workspaceContext;
- else if(action==='goal-status')result=window.goals;
- else if(action==='work-context-status')result={ok:true,workContext:structuredClone(window.view)};
- else if(action==='work-context-catalog')result={ok:true,catalog:structuredClone(window.catalog)};
- else if(action==='work-context-preview')result={ok:true,preview:{mimeType:'image/png',dataBase64:window.pngs[p.partId],partId:p.partId,observedMicroversion:p.observedMicroversion}};
- else if(action==='work-context-adopt'){
-  const studio=window.catalog.partStudios.find(s=>s.elementId===p.elementId),part=studio.parts.find(p2=>p2.partId===p.partId);
-  window.view=structuredClone(F['view-valid']);window.view.selectionRevision=p.expectedSelectionRevision+1;
-  Object.assign(window.view.selection,{partId:part.partId,partName:part.name,observedMicroversion:p.observedMicroversion,currentMicroversion:p.observedMicroversion});
-  window.catalog.selectionRevision=window.view.selectionRevision;result={ok:true,workContext:structuredClone(window.view)};
- } else if(action==='work-context-clear'){
-  window.view={...structuredClone(F['view-none']),selectionRevision:p.expectedSelectionRevision+1};result={ok:true,workContext:structuredClone(window.view)};
- } else throw Error('Unexpected method: '+action);
- if(window.delay[action]){
-  const pending={action,payload:structuredClone(p),result};window.pending.push(pending);
-  await new Promise(resolve=>pending.release=resolve);result=pending.result;
- }
+ const a=args.actionId,p=args.payload;window.calls.push({...structuredClone(args),time:Date.now()});let result;
+ if(window.errors[a])result={ok:false,code:window.errors[a]};
+ else if(a==='status')result={...status,connections:['owner-rest','other-rest']};
+ else if(a==='mutation-status')result=data;
+ else if(a==='workspace-context')result=workspaceContext;
+ else if(a==='goal-status')result=window.goals;
+ else if(a==='work-context-status')result={ok:true,workContext:structuredClone(window.view)};
+ else if(a==='work-context-documents'){
+  const page=structuredClone(F['document-page']);page.query=p.query;page.offset=p.offset;
+  if(p.offset){page.items=[{documentId:'3'.repeat(24),name:'More Mounts',bound:false,goalEligible:false,reason:'document_not_provisioned'}];page.hasMore=false;}
+  if(window.variant==='nullable')page.items.forEach(d=>d.name=null);
+  if(window.variant==='long')page.items[0].name='Langer Dokumentname '.repeat(18);
+  result={ok:true,documents:page};
+ }else if(a==='work-context-workspaces'){
+  const list=structuredClone(F['workspace-list']);list.documentId=p.documentId;
+  if(p.documentId!==F['catalog'].document.documentId){list.items=[{workspaceId:'9'.repeat(24),name:'Library default',role:'default',readOnly:true,goalEligible:false,reason:'document_not_provisioned'}];}
+  if(window.variant==='nullable')list.items.forEach(w=>w.name=null);
+  if(window.variant==='empty-workspaces')list.items=[];
+  result={ok:true,workspaces:list};
+ }else if(a==='work-context-parts'){
+  const parts=structuredClone(F['part-search']);parts.documentId=p.documentId;parts.workspaceId=p.workspaceId;parts.query=p.query;parts.observedMicroversion=window.mv;
+  parts.hits.push(...F.catalog.partStudios[0].parts.filter(h=>!parts.hits.some(h2=>h2.partId===h.partId)).map(h=>({...h,elementId:F.catalog.partStudios[0].elementId,partNumber:null})));
+  let reason=p.documentId!==F.catalog.document.documentId?'document_not_provisioned':p.workspaceId==='c'.repeat(24)?'candidate_inspection_only':p.workspaceId!=='e'.repeat(24)?'workspace_inspection_only':null;
+  if(reason)parts.hits.forEach(h=>{h.selectable=false;h.reason=reason;});
+  if(window.variant==='configured'){parts.studios[0].reason='configuration_unsupported';parts.hits.filter(h=>h.elementId===parts.studios[0].elementId).forEach(h=>{h.selectable=false;h.reason='configuration_unsupported';});}
+  if(window.variant==='not-selectable'){parts.hits.forEach(h=>{h.selectable=false;h.reason='part_kind_unsupported';});}
+  if(window.variant==='nullable')parts.studios.forEach(s=>s.name=null);
+  if(window.variant==='truncated'){parts.truncated=true;parts.truncatedReason='part_search_truncated';if(!p.elementId)parts.hits=parts.hits.filter(h=>h.elementId===parts.studios[0].elementId);}
+  if(window.variant==='empty-parts')parts.hits=[];
+  if(p.elementId)parts.hits=parts.hits.filter(h=>h.elementId===p.elementId);
+  if(p.query)parts.hits=parts.hits.filter(h=>(h.name+' '+(h.partNumber??'')).toLocaleLowerCase().includes(p.query.toLocaleLowerCase()));
+  result={ok:true,parts};
+ }else if(a==='work-context-preview')result={ok:true,preview:{mimeType:'image/png',dataBase64:window.png(p.partId?256:128,p.partId??'STUDIO'),partId:p.partId??null,observedMicroversion:p.observedMicroversion}};
+ else if(a==='work-context-adopt'){
+  const old=structuredClone(F['view-valid']);old.selectionRevision=p.expectedSelectionRevision+1;Object.assign(old.selection,{partId:p.partId,partName:p.partId==='JIG'?'Clamp right':p.partId==='JIF'?'Clamp left':'Bracket',observedMicroversion:p.observedMicroversion,currentMicroversion:p.observedMicroversion});window.view=old;result={ok:true,workContext:structuredClone(old)};
+ }else throw Error('Unexpected method '+a);
+ if(window.delay[a]){const pending={action:a,payload:structuredClone(p),result};window.pending.push(pending);await new Promise(r=>pending.release=r);result=pending.result;}
  return {ok:true,result};
 };
 ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.mount(document.querySelector('#app'),{signal:new AbortController().signal,host:{connection:window.connection,request(method,args){if(method!=='plugins.sessionAction')throw Error('Unexpected route');return window.gateway(args);}}});}}});
@@ -93,13 +103,13 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
     headless: true,
   });
   const page = await browser.newPage({viewport: {width: 1440, height: 900}});
-  const pageErrors = [],
-    rejected = [];
-  page.on('pageerror', (e) => pageErrors.push(e.message));
+  const errors = [],
+    escaped = [];
+  page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== origin || !['/', '/ui.js', '/fixture.js'].includes(url.pathname)) {
-      rejected.push(url.href);
+      escaped.push(url.href);
       await route.abort();
       return;
     }
@@ -118,36 +128,46 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
             ),
     });
   });
-  const dialog = page.getByRole('dialog', {name: 'Arbeitskontext auswählen'});
-  const card = page.locator('[data-work-context]');
+  const dialog = page.getByRole('dialog', {name: 'Arbeitskontext auswählen'}),
+    card = page.locator('[data-work-context]');
+  const focus = (key) => dialog.locator(`[data-focus="${key}"]`);
+  const part = (id, e = F.catalog.partStudios[0].elementId) =>
+    dialog.locator(`[data-part="${id}"][data-element="${e}"]`);
+  const preview = dialog.getByRole('region', {name: 'Vorschau', exact: true});
   const change = () => card.getByRole('button', {name: 'Auswahl ändern', exact: true});
   const refresh = () => page.getByRole('button', {name: 'Aktualisieren', exact: true}).click();
-  const part = (id) => dialog.getByRole('button').filter({hasText: new RegExp(` · ${id}(?: ·|$)`)});
   const ready = async () => {
     await change().waitFor();
     await page.waitForFunction(() => !document.querySelector('[data-context-change]').disabled);
-  };
-  const open = async () => {
-    await change().click();
-    await dialog.getByText('Part Studio: Mount Plate', {exact: true}).waitFor();
-  };
-  const selected = async (id) => {
-    await part(id).click();
-    await dialog.getByRole('img', {name: new RegExp(` · ${id}$`)}).waitFor();
-    await page.waitForFunction((id) => {
-      const i = document.querySelector('dialog img');
-      return (
-        i?.complete &&
-        i.naturalWidth === 256 &&
-        i.naturalHeight === 256 &&
-        i.src === `data:image/png;base64,${window.pngs[id]}`
-      );
-    }, id);
   };
   const reset = async () => {
     await page.goto(origin);
     await ready();
   };
+  const open = async () => {
+    await change().click();
+    await page.waitForFunction(
+      () =>
+        window.calls.some((c) => c.actionId === 'work-context-parts') &&
+        !document.querySelector('dialog').textContent.includes('Dokumente werden geladen'),
+    );
+  };
+  const enterParts = async () => {
+    if (await focus('continue-workspace').isVisible()) {
+      await focus('continue-workspace').click();
+      await focus(`workspace-${F.catalog.workspaces[0].workspaceId}`).click();
+    }
+    await dialog.getByRole('searchbox', {name: 'Bauteile in allen Part Studios suchen', exact: true}).waitFor();
+    await page.waitForFunction(() => !document.querySelector('dialog').textContent.includes('Bauteile werden geladen'));
+  };
+  const select = async (id, e) => {
+    await part(id, e).getByRole('button').first().click();
+    await preview.getByRole('img', {name: new RegExp(` · ${id}$`)}).waitFor();
+    await preview.getByRole('img').evaluate((i) => i.decode());
+  };
+  const close = () => focus('close-selection').click();
+  const noAdopt = async () =>
+    assert.equal(await dialog.getByRole('button', {name: 'Dieses Bauteil übernehmen', exact: true}).count(), 0);
   const capture = async (name) => {
     for (const [width, height] of [
       [1440, 900],
@@ -155,21 +175,22 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
       [390, 844],
     ]) {
       await page.setViewportSize({width, height});
-      assert(
-        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-        `${name}: page fits ${width}`,
-      );
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       if (await dialog.count()) {
-        assert(await dialog.evaluate((d) => d.scrollWidth <= d.clientWidth), `${name}: dialog fits ${width}`);
-        await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).scrollIntoViewIfNeeded();
-        assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isVisible());
-        await dialog.evaluate((d) => (d.scrollTop = 0));
+        assert(await dialog.evaluate((d) => d.scrollWidth <= d.clientWidth));
+        const footer = dialog.locator('.coc-selector-footer');
+        assert(await focus('close-selection').isVisible());
+        assert(await footer.evaluate((f) => f.getBoundingClientRect().bottom <= innerHeight));
+        assert(
+          await dialog
+            .locator('.coc-selector-body')
+            .evaluate((b) => b.getBoundingClientRect().bottom <= b.nextElementSibling.getBoundingClientRect().top + 1),
+        );
+      } else {
+        await card.scrollIntoViewIfNeeded();
+        assert.equal(await card.locator('img,input,select').count(), 0);
       }
-      await evidence.screenshot(page, `${name}-${width}x${height}.png`);
-      if (await dialog.count()) {
-        await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).scrollIntoViewIfNeeded();
-        await evidence.screenshot(page, `${name}-${width}x${height}-review.png`);
-      }
+      await evidence.screenshot(page, `v2-${name}-${width}x${height}.png`);
     }
     await page.setViewportSize({width: 1440, height: 900});
   };
@@ -182,95 +203,81 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
       ),
       ['work-context-status'],
     );
-    assert.equal(await card.locator('img,select,input').count(), 0);
-    await capture('01-before');
     await open();
-    assert.equal(
-      await dialog
-        .getByRole('button', {name: 'Camera Mount · vorausgewählt', exact: true})
-        .getAttribute('aria-pressed'),
-      'true',
+    await enterParts();
+    assert.equal(await dialog.getByRole('button', {name: 'Schließen', exact: true}).count(), 1);
+    assert.equal(await dialog.getByRole('button', {name: 'Abbrechen', exact: true}).count(), 0);
+    assert.equal(await focus('adopt-part').count(), 0);
+    const docs = dialog.getByRole('region', {name: 'Dokumente', exact: true});
+    assert((await docs.getByRole('button').first().getAttribute('aria-pressed')) === 'true');
+    assert.match(await docs.getByRole('button').first().textContent(), /Zugeordnet/);
+    const initial = await page.evaluate(
+      () => window.calls.filter((c) => c.actionId === 'work-context-documents').length,
     );
-    assert(await dialog.getByRole('button', {name: 'goal-candidate · Candidate', exact: true}).isDisabled());
-    assert(await dialog.getByRole('button', {name: 'Main · geschützter Primary', exact: true}).isEnabled());
-    assert(await part('JKD').isDisabled());
-    assert(await part('JHH').isEnabled());
-    assert.equal(await part('JHD').count(), 1);
-    assert.equal(await part('JHH').count(), 1);
-    for (const code of fixtures['error-codes'].viewReasons.filter(
-      (c) => !['revision_advanced', 'configuration_unsupported'].includes(c),
-    )) {
-      assert(await dialog.getByText(workContextReason(code), {exact: true}).first().isVisible(), code);
-    }
-    assert.equal(await dialog.getByText('Bauteile nicht geladen.', {exact: true}).count(), 1);
-    assert.equal(await dialog.getByText('Keine Bauteile in diesem Part Studio.', {exact: true}).count(), 0);
-    assert(await dialog.getByText(/Liste gekürzt/).isVisible());
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    for (const name of ['Dokument', 'Onshape-Workspace', 'Bauteil']) {
-      const input = dialog.getByRole('searchbox', {name: `${name} durchsuchen`, exact: true});
-      await input.fill('no-such-result');
-      assert(
-        await dialog
-          .getByText(/Keine Suchtreffer/)
-          .first()
-          .isVisible(),
-      );
-      await input.fill('');
-    }
-    const search = dialog.getByRole('searchbox', {name: 'Bauteil durchsuchen', exact: true});
-    await search.fill('Bracket');
-    await search.evaluate((input) => input.setSelectionRange(2, 2));
-    await page.keyboard.type('X');
-    assert.equal(await search.inputValue(), 'BrXacket');
-    assert.equal(await search.evaluate((input) => input.selectionStart), 3);
-    await search.fill('');
-    await selected('JIF');
-    const previewCall = await page.evaluate(() => window.calls.find((c) => c.actionId === 'work-context-preview'));
-    assert.deepEqual(previewCall.payload, {
-      connectionRef: 'owner-rest',
-      elementId: fixtures.catalog.partStudios[0].elementId,
-      partId: 'JIF',
-      observedMicroversion: fixtures.catalog.observedMicroversion,
-    });
+    await dialog.getByRole('searchbox', {name: 'Dokument suchen', exact: true}).fill('m');
+    await page.waitForTimeout(350);
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-documents').length),
+      initial,
+    );
+    const searchStart = Date.now();
+    await focus('document-search').fill('mo');
+    await page.waitForTimeout(120);
+    await focus('document-search').fill('mount');
+    await page.waitForTimeout(120);
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-documents').length),
+      initial,
+    );
+    await focus('more-documents').waitFor();
+    const searched = await page.evaluate(() =>
+      window.calls.filter((c) => c.actionId === 'work-context-documents').at(-1),
+    );
+    assert.equal(searched.payload.query, 'mount');
+    assert(searched.time - searchStart >= 300);
+    assert.equal(searched.payload.offset, 0);
+    await focus('more-documents').click();
+    await docs.getByText(/More Mounts/).waitFor();
+    assert.equal(await focus('more-documents').count(), 0);
     assert.equal(
       await page.evaluate(
-        () =>
-          window.calls.filter((c) =>
-            ['render', 'goal-confirm', 'candidate-prepare', 'mutation-approve'].includes(c.actionId),
-          ).length,
+        () => window.calls.filter((c) => c.actionId === 'work-context-documents').at(-1).payload.offset,
       ),
-      0,
+      20,
     );
-    await capture('02-dialog');
-    // Native modal traps focus, has visible keyboard focus, and Escape discards.
-    await dialog.getByRole('button', {name: 'Abbrechen', exact: true}).focus();
-    await page.keyboard.press('Tab');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Auswahl übernehmen');
-    await page.keyboard.press('Tab');
-    assert(await dialog.evaluate((d) => d.contains(document.activeElement)));
-    assert(await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle !== 'none'));
-    await page.keyboard.press('Escape');
-    assert.equal(await dialog.count(), 0);
-    assert(await change().evaluate((n) => n === document.activeElement));
-    assert(await card.getByText('Wähle ein Bauteil für deine CAD-Aufgabe.', {exact: true}).isVisible());
-    await open();
-    assert.equal(await part('JIF').getAttribute('aria-pressed'), 'false');
-    await selected('JIF');
-    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
+    checks.push(
+      'X3 document min-2, 300ms debounce, empty initial page, bound first/marked, paging offset 20 and hasMore',
+    );
+    await select('JIF');
+    assert.equal(await part('JIF').getByRole('button', {name: 'Dieses Bauteil übernehmen', exact: true}).count(), 1);
+    await capture('part');
+    await dialog
+      .locator(`[data-studio="${F['part-search'].studios[1].elementId}"]`)
+      .getByRole('button', {name: 'Studio ansehen', exact: true})
+      .click();
+    await preview.getByRole('img', {name: /Part-Studio-Vorschau/}).waitFor();
+    assert(await preview.getByText('Part-Studio-Vorschau · kein Einzelbauteil', {exact: true}).isVisible());
+    assert.equal(await part('JIF').getAttribute('data-selected'), 'true');
+    assert(await preview.evaluate((n) => n === document.activeElement));
+    const studioCall = await page.evaluate(() =>
+      window.calls.filter((c) => c.actionId === 'work-context-preview').at(-1),
+    );
+    assert.equal(studioCall.payload.documentId, F.catalog.document.documentId);
+    assert.equal(studioCall.payload.workspaceId, F.catalog.workspaces[0].workspaceId);
+    assert(!Object.hasOwn(studioCall.payload, 'partId'));
+    await capture('studio');
+    await preview.getByRole('button', {name: 'Bauteilvorschau', exact: true}).click();
+    await preview.getByRole('img', {name: / · JIF$/}).waitFor();
+    await focus('adopt-part').click();
     await dialog.waitFor({state: 'detached'});
-    assert.deepEqual(
-      await page.evaluate(() => window.calls.find((c) => c.actionId === 'work-context-adopt').payload),
-      fixtures['adopt-request'].input ?? {
-        connectionRef: 'owner-rest',
-        ...Object.fromEntries(Object.entries(fixtures['adopt-request']).filter(([k]) => k !== '_comment')),
-      },
-    );
+    assert.deepEqual(await page.evaluate(() => window.calls.find((c) => c.actionId === 'work-context-adopt').payload), {
+      connectionRef: 'owner-rest',
+      ...Object.fromEntries(Object.entries(F['adopt-request']).filter(([k]) => k !== '_comment')),
+    });
     assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
     assert.equal(await card.locator('img,input,select').count(), 0);
     assert(await change().evaluate((n) => n === document.activeElement));
-    await capture('03-adopted');
-    const selectedLink = await card.getByRole('link', {name: 'Auswahl in Onshape öffnen ↗'}).getAttribute('href');
-    assert.equal(selectedLink, fixtures['view-valid'].selection.onshapeUrl);
+    await capture('compact');
     await page
       .getByRole('navigation', {name: 'Arbeitsbereich'})
       .getByRole('button', {name: 'CAD', exact: true})
@@ -280,290 +287,296 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
       .getByRole('navigation', {name: 'Arbeitsbereich'})
       .getByRole('button', {name: 'Workspace', exact: true})
       .click();
-    for (const dismiss of ['Abbrechen', 'Schließen', 'Escape']) {
-      await open();
-      await dialog.getByRole('img').waitFor();
-      assert.equal(await part('JIF').getAttribute('aria-pressed'), 'true');
-      await selected('JIG');
-      if (dismiss === 'Escape') {
-        await page.keyboard.press('Escape');
-      } else {
-        await dialog.getByRole('button', {name: dismiss, exact: true}).click();
-      }
-      assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
-      assert(await change().evaluate((n) => n === document.activeElement));
-    }
-    await refresh();
-    await ready();
-    assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
     checks.push(
-      'U1/U2/U6: bounds, search, null vs empty, hidden/same-name IDs, keyboard, explicit adopt, compact Workspace/CAD, restore and cancel/close/Escape',
+      'X2/X5/X6 selected-card adoption, full exact payload, studio/null identity, return to Part preview, compact synchronized Workspace/CAD',
     );
-    // Empty and configured variants stay within the bound studio; null is never presented as an empty catalog.
-    await reset();
-    await page.evaluate(() => (window.catalog.partStudios[0].parts = []));
-    await open();
-    assert.equal(await dialog.getByText('Keine Bauteile in diesem Part Studio.', {exact: true}).count(), 1);
-    assert.equal(await dialog.getByText('Bauteile nicht geladen.', {exact: true}).count(), 1);
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    await capture('02-empty-studio');
-    await reset();
-    await page.evaluate(() =>
-      Object.assign(window.catalog.partStudios[0], {
-        goalEligible: false,
-        reason: 'configuration_unsupported',
-        parts: null,
-      }),
-    );
-    await open();
-    assert(await dialog.getByText(workContextReason('configuration_unsupported')).isVisible());
-    assert.equal(await dialog.getByText('Bauteile nicht geladen.', {exact: true}).count(), 2);
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    await capture('02-configured-studio');
-    // CR-2: missing labels never become names, and their separate IDs remain searchable.
-    for (const [width, height] of [
+    for (const [w, h] of [
       [1440, 900],
       [1366, 768],
       [390, 844],
     ]) {
-      await page.setViewportSize({width, height});
-      await reset();
-      await page.evaluate(() => {
-        window.catalog.document.name = null;
-        window.catalog.workspaces.forEach((w) => {
-          w.name = null;
-        });
-        window.catalog.partStudios.forEach((s) => {
-          s.name = null;
-        });
-        window.view = structuredClone(window.F['view-valid']);
-        window.catalog.selectionRevision = 1;
-        Object.assign(window.view.selection, {documentName: null, workspaceName: null, partStudioName: null});
-      });
-      await refresh();
-      await ready();
-      for (const id of ['01234567', 'eeeeeeee', 'fedcba98']) {
-        assert(
-          await card
-            .locator('.coc-revision')
-            .filter({hasText: new RegExp(` · ${id}$`)})
-            .isVisible(),
-        );
+      await page.setViewportSize({width: w, height: h});
+      await open();
+      await enterParts();
+      assert.equal(await part('JIF').getAttribute('data-selected'), 'true');
+      if (w === 390) {
+        assert.equal(await part('JIF').getByRole('region', {name: 'Vorschau'}).count(), 1);
+        await focus('change-document').click();
+        await focus('document-search').waitFor();
       }
-      assert.equal(await card.getByText('Name nicht verfügbar', {exact: true}).count(), 3);
-      await change().click();
-      await dialog.getByRole('heading', {name: 'Part Studio: Name nicht verfügbar · fedcba98', exact: true}).waitFor();
-      await dialog.getByRole('img', {name: / · JIF$/}).waitFor();
-      assert.equal(
-        await dialog.locator('.coc-selection-summary').getByText('Name nicht verfügbar', {exact: true}).count(),
-        3,
-      );
-      const columns = dialog.locator('.coc-selection-columns > section');
-      for (const [column, name, id] of [
-        [0, 'Dokument', '01234567'],
-        [1, 'Onshape-Workspace', 'eeeeeeee'],
-        [2, 'Bauteil', 'fedcba98'],
-      ]) {
-        const input = dialog.getByRole('searchbox', {name: `${name} durchsuchen`, exact: true});
-        await input.fill('null');
-        assert(
-          await columns
-            .nth(column)
-            .getByText(/Keine Suchtreffer/)
-            .isVisible(),
-        );
-        await input.fill(id);
-        if (column < 2) {
-          assert.equal(await columns.nth(column).getByRole('button').count(), 1);
-          assert(
-            await columns
-              .nth(column)
-              .locator('.coc-revision')
-              .filter({hasText: ` · ${id}`})
-              .isVisible(),
-          );
-        } else {
-          assert(await part('JIF').isVisible());
-        }
-        await input.fill('');
-      }
-      assert(!/\bnull\b/.test(await dialog.textContent()));
-      assert(await part('JIF').isVisible());
-      assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isEnabled());
+      await focus('close-selection').focus();
+      await page.keyboard.press('Tab');
+      assert(await dialog.evaluate((d) => d.contains(document.activeElement)));
+      assert(await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle !== 'none'));
+      await page.keyboard.press('Escape');
+      assert.equal(await dialog.count(), 0);
+      assert(await change().evaluate((n) => n === document.activeElement));
+      await open();
+      await enterParts();
+      await select('JIG');
+      await close();
+      assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
     }
-    await capture('13-null-names');
-    checks.push(
-      'F1 CR-2: nullable names in all columns, compact card and summary; separate short IDs; null is not searchable; Part names unchanged at all three viewports',
+    await page.setViewportSize({width: 1440, height: 900});
+    await reset();
+    await open();
+    await enterParts();
+    await focus(`document-${F['document-page'].items[1].documentId}`).click();
+    await focus(`workspace-${'9'.repeat(24)}`).waitFor();
+    assert.equal(await dialog.locator('[data-part]').count(), 0);
+    assert.equal(await preview.getByRole('img').count(), 0);
+    await focus(`workspace-${'9'.repeat(24)}`).click();
+    await select('JIF');
+    await noAdopt();
+    assert(
+      await part('JIF')
+        .getByText(/Anderes Dokument/)
+        .isVisible(),
     );
-    // Every new/reused code has a separately asserted outcome and preserves the record on failure.
+    const foreign = await page.evaluate(
+      () => window.calls.filter((c) => c.actionId === 'work-context-preview').at(-1).payload,
+    );
+    assert.equal(foreign.workspaceId, '9'.repeat(24));
+    assert.equal(foreign.documentId, F['document-page'].items[1].documentId);
+    await capture('inspection-document');
+    checks.push(
+      'X3/X5 foreign parent clears descendants, default/readOnly role, explicit workspace in foreign preview, no adoption',
+    );
+    for (const [ws, reason] of [
+      ['c', 'Candidate'],
+      ['d', 'Anderer Workspace'],
+    ]) {
+      await reset();
+      await open();
+      await focus(`workspace-${ws.repeat(24)}`).click();
+      await select('JIF');
+      await noAdopt();
+      assert(await part('JIF').getByText(new RegExp(reason)).isVisible());
+    }
+    for (const [id, e, reason] of [
+      ['JFD', F['part-search'].studios[1].elementId, /nicht für Ziele freigegeben/],
+      ['JKD', undefined, /Bauteilart nicht unterstützt/],
+    ]) {
+      await reset();
+      await open();
+      await select(id, e);
+      await noAdopt();
+      assert(await part(id, e).getByText(reason).isVisible());
+    }
+    await reset();
+    await page.evaluate(() => (window.variant = 'configured'));
+    await open();
+    await select('JIF');
+    await noAdopt();
+    assert(
+      await part('JIF')
+        .getByText(/Konfiguriertes/)
+        .isVisible(),
+    );
+    await reset();
+    await page.evaluate(() => (window.variant = 'not-selectable'));
+    await open();
+    await select('JIF');
+    await noAdopt();
+    checks.push(
+      'X4 all six inspection reasons clickable; goalEligible:true never overrides selectable:false; configured studio still enumerates',
+    );
+    await reset();
+    await page.evaluate(() => (window.variant = 'truncated'));
+    await open();
+    await dialog.getByText(/Weitere Treffer vorhanden/).waitFor();
+    const unscanned = F['part-search'].studios[1].elementId;
+    assert.equal(await dialog.locator(`[data-studio="${unscanned}"]`).count(), 1);
+    await focus('studio-refinement').selectOption(unscanned);
+    await part('JFD', unscanned).waitFor();
+    assert.equal(
+      await page.evaluate(
+        () => window.calls.filter((c) => c.actionId === 'work-context-parts').at(-1).payload.elementId,
+      ),
+      unscanned,
+    );
+    await focus('part-search').fill('FB-0042');
+    await part('JFD', unscanned).waitFor();
+    await page.waitForTimeout(350);
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-parts').at(-1).payload.query),
+      'FB-0042',
+    );
+    await capture('refinement');
+    checks.push('X4 CR-18 all studios on truncated search, explicit studio refinement and server part-number query');
+    await reset();
+    await page.evaluate(() => (window.variant = 'empty-parts'));
+    await open();
+    await dialog.getByText(/Keine Bauteile gefunden/).waitFor();
+    await noAdopt();
+    await reset();
+    await page.evaluate(() => (window.variant = 'empty-workspaces'));
+    await change().click();
+    await dialog.getByText(/Keine Workspaces verfügbar/).waitFor();
+    await reset();
+    await page.evaluate(() => (window.variant = 'nullable'));
+    await open();
+    assert(await docs.getByText('Name nicht verfügbar', {exact: true}).first().isVisible());
+    assert.equal(await docs.getByText(/\bnull\b/).count(), 0);
+    await select('JIF');
+    await capture('missing-names');
+    await reset();
+    await page.evaluate(() => (window.variant = 'long'));
+    await open();
+    await select('JIF');
+    await capture('long-names');
+    checks.push(
+      'U1/U2 nullable and long names, strict Part labels, secondary IDs, same-name and hidden Parts, empty relevant regions and responsive layout',
+    );
+    for (const id of ['JHD', 'JHH']) {
+      await reset();
+      await open();
+      await select(id);
+      assert.equal(await part(id).getAttribute('data-selected'), 'true');
+    }
+    // Unavailable images are optional, but a studio is never a substitute and read errors keep their code.
+    await reset();
+    await open();
+    await page.evaluate(() => (window.errors['work-context-preview'] = 'preview_unavailable'));
+    await part('JIF').getByRole('button').first().click();
+    await preview.getByText(outcomes.preview_unavailable).waitFor();
+    assert.equal(await preview.getByRole('img').count(), 0);
+    assert(await focus('adopt-part').isEnabled());
+    await capture('preview-unavailable');
     for (const code of [
-      ...fixtures['error-codes'].plugin,
-      ...fixtures['error-codes'].reused,
+      'reconnect_required',
+      'document_not_accessible',
+      'provider_quota_exhausted',
+      'provider_rate_limited',
+      'provider_forbidden',
+      'authorization_changed',
+    ]) {
+      await reset();
+      await open();
+      await page.evaluate((c) => (window.errors['work-context-preview'] = c), code);
+      await part('JIF').getByRole('button').first().click();
+      await preview.getByText(outcomes[code]).waitFor();
+      await noAdopt();
+    }
+    checks.push(
+      'X5 optional unavailable Part preview, no studio substitute, R1/provider access/quota/rate distinctions preserved',
+    );
+    await reset();
+    await open();
+    await select('JIF');
+    await page.evaluate(() => (window.errors['work-context-preview'] = 'preview_unavailable'));
+    await dialog
+      .locator(`[data-studio="${F['part-search'].studios[1].elementId}"]`)
+      .getByRole('button', {name: 'Studio ansehen', exact: true})
+      .click();
+    await preview.getByText(outcomes.preview_unavailable).waitFor();
+    assert(await preview.getByText('Part-Studio-Vorschau · kein Einzelbauteil', {exact: true}).isVisible());
+    assert.equal(await part('JIF').getAttribute('data-selected'), 'true');
+    assert(
+      await part('JIF')
+        .getByText(/nicht das angezeigte Studio/)
+        .isVisible(),
+    );
+    await page.evaluate(() => delete window.errors['work-context-preview']);
+    await preview.getByRole('button', {name: 'Bauteilvorschau', exact: true}).click();
+    await preview.getByRole('img', {name: / · JIF$/}).waitFor();
+    for (const invalid of ['oversize', 'dimensions', 'decode']) {
+      await reset();
+      await open();
+      await page.evaluate(() => (window.delay['work-context-preview'] = true));
+      await part('JIF').getByRole('button').first().click();
+      await page.waitForFunction(() => window.pending.length === 1);
+      await page.evaluate((mode) => {
+        const p = window.pending[0];
+        p.result.preview.dataBase64 =
+          mode === 'oversize' ? 'A'.repeat(65000) : mode === 'dimensions' ? window.png(128, 'JIF') : 'bm90IHBuZw==';
+        p.release();
+      }, invalid);
+      await preview.getByText(outcomes.preview_unavailable).waitFor();
+      assert.equal(await preview.getByRole('img').count(), 0);
+    }
+    checks.push(
+      'X5 studio-unavailable retains selected Part identity and explicit return; PNG length, decoded dimensions and decoder failures suppress images',
+    );
+    // U3: old adoption codes plus CAS/Busy. Start with an existing confirmed Part to prove retention.
+    for (const code of [
+      ...F['error-codes'].plugin.filter((c) => c !== 'preview_unavailable'),
+      ...F['error-codes'].reused,
       'connection_busy_or_state_unavailable',
       'target_not_part_studio',
       'target_missing',
     ]) {
       await reset();
-      await open();
-      await selected('JIF');
-      if (code === 'preview_unavailable') {
-        await page.evaluate((c) => (window.errors['work-context-preview'] = c), code);
-        await part('JIG').click();
-        await dialog.getByText(workContextReason(code), {exact: true}).waitFor();
-        assert.equal(await dialog.getByRole('img').count(), 0);
-        await capture('04-preview-unavailable');
-        await page.evaluate(() => delete window.errors['work-context-preview']);
-        await dialog.getByRole('button', {name: 'Vorschau erneut laden', exact: true}).click();
-        await dialog.getByRole('img').waitFor();
-      } else {
-        await page.evaluate((c) => {
-          window.errors['work-context-adopt'] = c;
-          if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(c)) {
-            window.view = structuredClone(window.F['view-valid']);
-            window.view.selection.partId = 'JIG';
-            window.view.selection.partName = 'Clamp right';
-            window.view.selectionRevision = 7;
-            window.catalog.selectionRevision = 7;
-          }
-          if (c === 'selection_observation_stale') {
-            window.catalog.observedMicroversion = 'b'.repeat(24);
-          }
-          if (['goal_active_conflict', 'mutation_reconciliation_required', 'goal_state_invalid'].includes(c)) {
-            window.view.interlock = {blocked: true, code: c, goalId: null};
-          }
-        }, code);
-        await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-        if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
-          await dialog.waitFor({state: 'detached'});
-          assert(await card.getByRole('heading', {name: 'Clamp right', exact: true}).isVisible());
-          assert(
-            await card
-              .getByText(
-                code === 'connection_busy_or_state_unavailable'
-                  ? 'Gerade belegt · Status neu geladen'
-                  : /Gewinner geladen/,
-                {exact: true},
-              )
-              .isVisible(),
-          );
-          assert(await card.getByText(/Auswahlrevision 7/).isVisible());
-          await capture(code === 'connection_busy_or_state_unavailable' ? '12-busy-winner' : '05-revision-winner');
-        } else {
-          await dialog.getByText(workContextReason(code), {exact: true}).first().waitFor();
-          await page.waitForFunction(
-            () => !document.querySelector('[data-work-context]').textContent.includes('Auswahlstatus wird geprüft'),
-          );
-          assert.equal(await dialog.getByRole('img').count(), 0, code);
-          assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled(), code);
-          if (code === 'selection_observation_stale') {
-            await dialog.getByText(/Katalogstand bbbbbbbb/).waitFor();
-            assert.equal(await part('JIF').getAttribute('aria-pressed'), 'false');
-            await selected('JIG');
-            assert.equal(
-              await page.evaluate(
-                () =>
-                  window.calls.filter((c) => c.actionId === 'work-context-preview').at(-1).payload.observedMicroversion,
-              ),
-              'b'.repeat(24),
-            );
-            await capture('06-stale-reviewed');
-          }
-        }
-        assert.equal(
-          await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-adopt').length),
-          1,
-          `${code}: no write retry`,
-        );
-        if (!['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
-          assert.equal(await page.evaluate(() => window.view.selection), null, `${code}: old record retained`);
-        }
-      }
-      checks.push(`U3 ${code}: ${workContextReason(code)}`);
-    }
-    // Failed adoption keeps a non-empty confirmed record, including after a different draft.
-    await reset();
-    await page.evaluate(() => {
-      window.view = structuredClone(window.F['view-valid']);
-      window.catalog.selectionRevision = 1;
-    });
-    await refresh();
-    await ready();
-    await open();
-    await selected('JIG');
-    await page.evaluate(() => (window.errors['work-context-adopt'] = 'selection_target_not_allowed'));
-    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-    await dialog.getByText(workContextReason('selection_target_not_allowed')).waitFor();
-    assert.equal(await page.evaluate(() => window.view.selection.partId), 'JIF');
-    await page.keyboard.press('Escape');
-    assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
-    checks.push('U3 failed adoption preserves the existing non-empty confirmed record');
-    for (const code of ['target_not_part_studio', 'target_missing']) {
-      await reset();
       await page.evaluate(() => {
         window.view = structuredClone(window.F['view-valid']);
-        window.catalog.selectionRevision = 1;
       });
       await refresh();
       await ready();
       await open();
-      await selected('JIG');
-      await page.evaluate((c) => (window.errors['work-context-adopt'] = c), code);
-      await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-      await dialog.getByText(workContextReason(code)).first().waitFor();
-      assert.equal(await page.evaluate(() => window.view.selection.partId), 'JIF');
+      await select('JIG');
+      await page.evaluate((c) => {
+        window.errors['work-context-adopt'] = c;
+        if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(c)) {
+          window.view.selection.partId = 'JHH';
+          window.view.selection.partName = 'Winning bracket';
+          window.view.selectionRevision = 7;
+        }
+        if (c === 'selection_observation_stale') {
+          window.mv = 'b'.repeat(24);
+          window.view.selection.currentMicroversion = window.mv;
+        }
+      }, code);
+      await focus('adopt-part').click();
+      if (['selection_revision_conflict', 'connection_busy_or_state_unavailable'].includes(code)) {
+        await dialog.waitFor({state: 'detached'});
+        assert(await card.getByRole('heading', {name: 'Winning bracket', exact: true}).isVisible());
+        assert(await card.getByText(outcomes[code]).isVisible());
+        assert(await card.getByText(/Auswahlrevision 7/).isVisible());
+      } else {
+        await dialog.getByText(outcomes[code]).first().waitFor();
+        assert.equal(await page.evaluate(() => window.view.selection.partId), 'JIF');
+      }
       assert.equal(
         await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-adopt').length),
         1,
       );
+      checks.push(`U3 ${code}: distinct outcome, previous record/winner, no write retry`);
     }
-    await reset();
-    await open();
-    await selected('JIF');
-    await page.evaluate(() => {
-      window.errors['work-context-adopt'] = 'connection_busy_or_state_unavailable';
-      window.errors['work-context-status'] = 'goal_state_invalid';
-    });
-    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-    await dialog.getByText(/Status konnte nicht neu geladen werden/).waitFor();
-    assert.equal(await card.getByText('Gerade belegt · Status neu geladen', {exact: true}).count(), 0);
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    assert.equal(await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-adopt').length), 1);
-    checks.push(
-      'F2 CR-4/CR-7: both target errors preserve non-empty selection; busy loser reloads winner; failed reload cannot claim success; no write retries',
-    );
-    await reset();
-    await page.evaluate(() => {
-      window.catalog.workspaces = window.catalog.workspaces.filter((w) => w.role === 'primary');
-      window.view = {...window.view, selectionRevision: 9};
-      window.catalog.selectionRevision = 9;
-    });
-    await refresh();
-    await ready();
-    await open();
-    assert.equal(await dialog.getByRole('button', {name: /Candidate/}).count(), 0);
-    await selected('JIF');
-    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-    await dialog.waitFor({state: 'detached'});
-    assert.equal(
-      await page.evaluate(
-        () => window.calls.find((c) => c.actionId === 'work-context-adopt').payload.expectedSelectionRevision,
-      ),
-      9,
-    );
-    assert(await card.getByText(/Auswahlrevision 10/).isVisible());
-    checks.push('CR-6/CR-8: no inferred Candidate row; cleared selection keeps its CAS revision');
-    // Catalog stale read retries once, then remains explicit. Reload recovery is a read, never adoption.
-    await reset();
-    await page.evaluate(() => (window.errors['work-context-catalog'] = 'selection_observation_stale'));
-    await change().click();
-    await dialog.getByText(workContextReason('selection_observation_stale'), {exact: true}).waitFor();
-    await page.waitForFunction(() => window.calls.filter((c) => c.actionId === 'work-context-catalog').length === 2);
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    await page.evaluate(() => delete window.errors['work-context-catalog']);
-    await dialog.getByRole('button', {name: 'Katalog aktualisieren', exact: true}).click();
-    await part('JIF').waitFor();
-    checks.push('U3 stale catalog retries once; explicit catalog recovery');
-    // Views alone drive invalidity/interlock, irrespective of the unrelated goal-status fixture.
+    for (const action of ['work-context-documents', 'work-context-workspaces', 'work-context-parts']) {
+      for (const code of [
+        'document_not_accessible',
+        'provider_quota_exhausted',
+        'provider_rate_limited',
+        'invalid_arguments',
+        'provider_protocol_error',
+        'live_reads_disabled',
+        'reconnect_required',
+        'authorization_changed',
+      ]) {
+        await reset();
+        await page.evaluate(({a, c}) => (window.errors[a] = c), {a: action, c: code});
+        await change().click();
+        await dialog.getByText(outcomes[code]).first().waitFor();
+        assert(
+          await dialog
+            .getByRole('region', {
+              name:
+                action === 'work-context-documents'
+                  ? 'Dokumente'
+                  : action === 'work-context-workspaces'
+                    ? 'Workspaces'
+                    : 'Bauteile',
+              exact: true,
+            })
+            .getByText(outcomes[code])
+            .isVisible(),
+        );
+        const n = await page.evaluate((a) => window.calls.filter((c) => c.actionId === a).length, action);
+        await page.waitForTimeout(30);
+        assert.equal(await page.evaluate((a) => window.calls.filter((c) => c.actionId === a).length, action), n);
+      }
+    }
+    checks.push('X3/X4 §11.5 errors local to documents/workspaces/parts, rate limit never automatically retried');
     for (const code of ['goal_active_conflict', 'mutation_reconciliation_required', 'goal_state_invalid']) {
       await reset();
       await page.evaluate((c) => {
@@ -572,50 +585,28 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
         window.goals = {ok: true, goal: null, history: []};
       }, code);
       await refresh();
-      await card.getByText(workContextReason(code), {exact: true}).waitFor();
+      await card.getByText(outcomes[code]).waitFor();
       assert(await change().isDisabled());
       assert.equal(await card.locator('img').count(), 0);
-      await capture(`07-interlock-${code}`);
-      await card.getByRole('button', {name: 'Zum Zielbereich', exact: true}).click();
-      assert(await page.locator('#coc-goal').evaluate((n) => n === document.activeElement));
     }
-    for (const [validity, reason] of [
-      ['invalid', 'selection_part_missing'],
-      ['invalid', 'selection_part_unsupported'],
-      ['invalid', 'configuration_unsupported'],
-      ['unverified', 'authorization_changed'],
-      ['unverified', 'live_reads_disabled'],
-      ['unverified', 'provider_protocol_error'],
-      ['valid', 'revision_advanced'],
-    ]) {
+    for (const validity of ['invalid', 'unverified']) {
       await reset();
-      await open();
-      await selected('JIF');
-      await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
-      await dialog.waitFor({state: 'detached'});
-      await page.evaluate(
-        ({validity, reason}) => {
-          window.view.validity = validity;
-          window.view.reason = reason;
-          window.view.selection.currentMicroversion = 'b'.repeat(24);
-          window.catalog.observedMicroversion = 'b'.repeat(24);
-        },
-        {validity, reason},
-      );
+      await page.evaluate((v) => {
+        window.view = structuredClone(window.F['view-valid']);
+        window.view.validity = v;
+        window.view.reason = 'selection_part_missing';
+      }, validity);
       await refresh();
-      await card.getByText(workContextReason(reason), {exact: true}).waitFor();
-      assert.equal(await page.locator('img').count(), 0);
-      assert(await change().isEnabled());
-      if (validity !== 'valid') {
-        await capture(`08-${validity}-${reason}`);
-        await open();
-        assert.equal(await dialog.getByRole('img').count(), 0);
-        assert.equal(await part('JIF').getAttribute('aria-pressed'), 'false');
-      } else {
-        await capture('09-revision-advanced');
-      }
-      checks.push(`U4 ${validity}/${reason}: view reason, no cached image, interlock independent`);
+      await ready();
+      assert.equal(await card.locator('img').count(), 0);
+      await open();
+      assert.equal(await preview.getByRole('img').count(), 0);
     }
+    await reset();
+    await page.evaluate(() => (window.connection.canAdmin = false));
+    await open();
+    await select('JIF');
+    assert(await focus('adopt-part').isDisabled());
     await reset();
     await page.evaluate(() => {
       window.goals.goal.target.focus = {
@@ -631,184 +622,266 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
       .getByRole('button', {name: 'CAD', exact: true})
       .click();
     const goal = page.locator('#coc-goal');
-    await goal.getByRole('heading', {name: 'Bauteil-Fokus: <b>Clamp left</b>', exact: true}).waitFor();
-    assert(await goal.getByText(/Ziel- und Erhaltungsbedingungen bleiben featurebasiert/).isVisible());
+    assert(await goal.getByRole('heading', {name: 'Bauteil-Fokus: <b>Clamp left</b>', exact: true}).isVisible());
     assert.equal(await goal.locator('b').count(), 0);
+    assert(await goal.getByText(/bleiben featurebasiert/).isVisible());
+    checks.push(
+      'U4/U5 view-owned interlocks even without goal, invalid/unverified no cached previews, operator.read only, unchanged literal target.focus and feature-condition note',
+    );
+    for (const [validity, reason] of [
+      ['invalid', 'selection_part_unsupported'],
+      ['invalid', 'configuration_unsupported'],
+      ['unverified', 'authorization_changed'],
+      ['unverified', 'live_reads_disabled'],
+      ['unverified', 'provider_protocol_error'],
+      ['valid', 'revision_advanced'],
+    ]) {
+      await reset();
+      await page.evaluate(
+        ({validity, reason}) => {
+          window.view = structuredClone(window.F['view-valid']);
+          window.view.validity = validity;
+          window.view.reason = reason;
+          window.view.selection.currentMicroversion = 'b'.repeat(24);
+          window.mv = 'b'.repeat(24);
+        },
+        {validity, reason},
+      );
+      await refresh();
+      await ready();
+      assert.equal(await card.locator('img').count(), 0);
+      assert(
+        await card.getByText(reason === 'revision_advanced' ? /Stand neuer als Auswahl/ : outcomes[reason]).isVisible(),
+      );
+      if (validity === 'unverified') {
+        await open();
+        await select('JIF');
+        assert(await focus('adopt-part').isDisabled());
+      }
+    }
+    await reset();
+    await page.evaluate(() => {
+      window.view.selectionRevision = 9;
+    });
+    await refresh();
+    await ready();
+    await open();
+    await select('JIF');
+    await focus('adopt-part').click();
+    await dialog.waitFor({state: 'detached'});
+    assert.equal(
+      await page.evaluate(
+        () => window.calls.find((c) => c.actionId === 'work-context-adopt').payload.expectedSelectionRevision,
+      ),
+      9,
+    );
+    assert(await card.getByText(/Auswahlrevision 10/).isVisible());
+    await reset();
+    await page.evaluate(
+      () =>
+        (window.goals.goal.target.focus = {
+          partId: 'JIF',
+          partName: 'Clamp left',
+          elementId: window.goals.goal.target.elementId,
+          selectionRevision: 1,
+        }),
+    );
+    await refresh();
+    await page
+      .getByRole('navigation', {name: 'Arbeitsbereich'})
+      .getByRole('button', {name: 'CAD', exact: true})
+      .click();
     assert(
-      await goal.evaluate((n) => {
-        const heading = [...n.querySelectorAll('h3')].find((n) => n.textContent.startsWith('Bauteil-Fokus'));
-        const confirm = [...n.querySelectorAll('button')].find(
-          (n) => n.textContent === 'Ziel bestätigen & Iteration erlauben',
+      await page.locator('#coc-goal').evaluate((n) => {
+        const h = [...n.querySelectorAll('h3')].find((e) => e.textContent.startsWith('Bauteil-Fokus'));
+        const b = [...n.querySelectorAll('button')].find(
+          (e) => e.textContent === 'Ziel bestätigen & Iteration erlauben',
         );
-        return !!(heading.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return !!(h.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
       }),
     );
-    await capture('10-goal-focus');
-    checks.push('U5 target.focus literal name, exact Part Studio element, feature-condition limit before confirmation');
-    // Async preview race: release newer first, then older; response identity includes microversion and Part.
+    checks.push(
+      'U4/U5/U6 all invalid/unverified/revision-advanced reasons, cleared selection retains revision, focus is rendered before separate goal confirmation',
+    );
+    await reset();
+    await open();
+    await select('JIF');
+    await page.evaluate(() => (window.errors['work-context-documents'] = 'authorization_changed'));
+    await focus('document-search').fill('new');
+    await docs.getByText(outcomes.authorization_changed).waitFor();
+    assert.equal(await preview.getByRole('img').count(), 0);
+    await noAdopt();
+    checks.push(
+      'U4 authorization failure during another-region search revalidates status and suppresses the old selected-Part preview/readiness',
+    );
+    // Late requests: queue serialization plus fences for query/page, parent, context and preview identity.
     await reset();
     await open();
     await page.evaluate(() => (window.delay['work-context-preview'] = true));
-    await part('JHD').click();
-    await part('JHH').click();
-    await page.waitForFunction(() => window.pending.length === 2);
-    await page.evaluate(() => window.pending[1].release());
-    await dialog.getByRole('img', {name: / · JHH$/}).waitFor();
-    assert.equal(
-      await dialog.getByRole('img').getAttribute('src'),
-      await page.evaluate(() => `data:image/png;base64,${window.pngs.JHH}`),
-    );
-    await page.evaluate(() => window.pending[0].release());
-    await page.waitForTimeout(30);
-    assert.equal(await dialog.getByRole('img', {name: / · JHD$/}).count(), 0);
-    for (const wrong of ['microversion', 'part']) {
-      await part('JIG').click();
-      await page.waitForFunction(() => window.pending.length >= 3);
-      await page.evaluate((w) => {
-        const p = window.pending.at(-1);
-        if (w === 'microversion') {
-          p.result.preview.observedMicroversion = 'b'.repeat(24);
-        } else {
-          p.result.preview.partId = 'JIF';
-        }
-        p.release();
-      }, wrong);
-      await dialog.getByText(workContextReason('preview_unavailable'), {exact: true}).waitFor();
-      assert.equal(await dialog.getByRole('img').count(), 0);
-    }
-    await capture('11-wrong-preview-reply');
-    await dialog.getByRole('button', {name: 'Abbrechen', exact: true}).click();
-    // Provider/authorization errors on preview invalidate the draft, unlike a simple unavailable image.
-    for (const code of [
-      'authorization_changed',
-      'selection_part_missing',
-      'selection_observation_stale',
-      'reconnect_required',
-      'target_missing',
-    ]) {
+    await part('JIF').getByRole('button').first().click();
+    await page.waitForFunction(() => window.pending.length === 1);
+    await part('JIG').getByRole('button').first().click();
+    await page.evaluate(() => {
+      window.delay['work-context-preview'] = false;
+      window.pending[0].release();
+    });
+    await preview.getByRole('img', {name: / · JIG$/}).waitFor();
+    assert.equal(await preview.getByRole('img', {name: / · JIF$/}).count(), 0);
+    for (const wrong of ['part', 'microversion']) {
       await reset();
       await open();
-      await page.evaluate((c) => {
-        window.errors['work-context-preview'] = c;
-        if (c === 'selection_observation_stale') {
-          window.catalog.observedMicroversion = 'b'.repeat(24);
+      await page.evaluate(() => (window.delay['work-context-preview'] = true));
+      await part('JIF').getByRole('button').first().click();
+      await page.waitForFunction(() => window.pending.length === 1);
+      await page.evaluate((w) => {
+        const r = window.pending[0];
+        if (w === 'part') {
+          r.result.preview.partId = 'JIG';
+        } else {
+          r.result.preview.observedMicroversion = 'b'.repeat(24);
         }
-      }, code);
-      await part('JIF').click();
-      await dialog.getByText(workContextReason(code)).first().waitFor();
-      assert.equal(await dialog.getByRole('img').count(), 0);
-      assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-      if (code === 'selection_observation_stale') {
-        await dialog.getByText(/Katalogstand bbbbbbbb/).waitFor();
-      }
+        r.release();
+      }, wrong);
+      await preview.getByText(outcomes.preview_unavailable).waitFor();
+      assert.equal(await preview.getByRole('img').count(), 0);
     }
-    // Dismissal cannot promise rollback after adoption was already dispatched.
     await reset();
     await open();
-    await selected('JIF');
-    await page.evaluate(() => (window.delay['work-context-adopt'] = true));
-    await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).click();
+    await page.evaluate(() => (window.delay['work-context-documents'] = true));
+    await focus('more-documents').click();
     await page.waitForFunction(() => window.pending.length === 1);
-    assert(await dialog.getByRole('button', {name: 'Abbrechen', exact: true}).isDisabled());
-    assert(await dialog.getByRole('button', {name: 'Schließen', exact: true}).isDisabled());
+    await focus('document-search').fill('new query');
+    await page.waitForTimeout(350);
+    await page.evaluate(() => {
+      window.delay['work-context-documents'] = false;
+      window.pending[0].result.documents.items[0].name = 'OLD PAGE';
+      window.pending[0].release();
+    });
+    await focus('more-documents').waitFor();
+    assert.equal(await docs.getByText(/OLD PAGE/).count(), 0);
+    await reset();
+    await open();
+    await page.evaluate(() => (window.delay['work-context-parts'] = true));
+    await focus('part-search').fill('left');
+    await page.waitForFunction(() => window.pending.length === 1);
+    await focus(`workspace-${'c'.repeat(24)}`).click();
+    assert.equal(await preview.getByRole('img').count(), 0);
+    await page.evaluate(() => {
+      window.delay['work-context-parts'] = false;
+      window.pending[0].release();
+    });
+    await part('JIF').waitFor();
+    await noAdopt();
+    assert(
+      await part('JIF')
+        .getByText(/Candidate/)
+        .isVisible(),
+    );
+    for (const operation of ['close', 'refresh', 'connection', 'dispose']) {
+      await reset();
+      await open();
+      await page.evaluate(() => (window.delay['work-context-preview'] = true));
+      await part('JIF').getByRole('button').first().click();
+      await page.waitForFunction(() => window.pending.length === 1);
+      if (operation === 'close') {
+        await close();
+      } else if (operation === 'dispose') {
+        await page.evaluate(() => window.mounted.dispose());
+      } else if (operation === 'connection') {
+        await page.evaluate(() => {
+          const s = document.querySelector('[aria-label="Onshape-Verbindung"]');
+          s.value = 'other-rest';
+          s.dispatchEvent(new Event('change'));
+        });
+      } else {
+        await page.evaluate(() => document.querySelector('.coc-main>.coc-controls button').click());
+      }
+      await page.evaluate(() => window.pending[0].release());
+      await page.waitForTimeout(30);
+      assert.equal(await page.locator('dialog img').count(), 0);
+    }
+    checks.push(
+      'U6/X5 fences: newest Part, wrong Part/mv, old page/query, old parent, close/refresh/connection/dispose; per-connection browse serialization',
+    );
+    await reset();
+    await page.evaluate(() => (window.delay['work-context-workspaces'] = true));
+    await change().click();
+    await page.waitForFunction(() => window.pending.length === 1);
+    await focus(`document-${F['document-page'].items[1].documentId}`).click();
+    await focus(`document-${F.catalog.document.documentId}`).click();
+    await page.evaluate(() => {
+      window.delay['work-context-workspaces'] = false;
+      window.pending[0].result.workspaces.items[0].name = 'OLD WORKSPACE';
+      window.pending[0].release();
+    });
+    await focus(`workspace-${'e'.repeat(24)}`).waitFor();
+    assert.equal(await dialog.getByText(/OLD WORKSPACE/).count(), 0);
+    await focus(`workspace-${'e'.repeat(24)}`).click();
+    await select('JIF');
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-workspaces').length),
+      2,
+    );
+    await reset();
+    await open();
+    await page.evaluate(() => (window.delay['work-context-parts'] = true));
+    await focus('part-search').fill('left');
+    await page.waitForFunction(() => window.pending.length === 1);
+    await focus('part-search').fill('right');
+    await page.waitForTimeout(350);
+    await page.evaluate(() => {
+      window.delay['work-context-parts'] = false;
+      window.pending[0].release();
+    });
+    await part('JIG').waitFor();
+    assert.equal(await part('JIF').count(), 0);
+    assert.equal(await focus('part-search').inputValue(), 'right');
+    await reset();
+    await open();
+    await page.evaluate(() => (window.delay['work-context-preview'] = true));
+    await part('JIF').getByRole('button').first().click();
+    await page.waitForFunction(() => window.pending.length === 1);
+    await dialog
+      .locator(`[data-studio="${F['part-search'].studios[1].elementId}"]`)
+      .getByRole('button', {name: 'Studio ansehen', exact: true})
+      .click();
+    await page.evaluate(() => {
+      window.delay['work-context-preview'] = false;
+      window.pending[0].release();
+    });
+    await preview.getByRole('img', {name: /Part-Studio-Vorschau/}).waitFor();
+    assert.equal(await preview.getByRole('img', {name: / · JIF$/}).count(), 0);
+    assert.equal(await part('JIF').getAttribute('data-selected'), 'true');
+    checks.push(
+      'X3-X5 late workspace-parent and Part-query replies ignored; obsolete queued parent reads skipped; studio response wins over older Part preview without changing adoption identity',
+    );
+
+    await reset();
+    await open();
+    await select('JIF');
+    await page.evaluate(() => (window.delay['work-context-adopt'] = true));
+    await focus('adopt-part').click();
+    await page.waitForFunction(() => window.pending.length === 1);
+    assert(await focus('close-selection').isDisabled());
+    assert(await dialog.getByRole('button', {name: 'Wird übernommen …', exact: true}).isDisabled());
     await page.keyboard.press('Escape');
     assert.equal(await dialog.count(), 1);
     await page.evaluate(() => window.pending[0].release());
     await dialog.waitFor({state: 'detached'});
-    assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
-    checks.push(
-      'U3/U6 preview access/membership/stale errors invalidate draft; pending adopt blocks dismissal and closes on success',
-    );
-    for (const invalid of ['size', 'dimensions']) {
-      await reset();
-      await open();
-      await page.evaluate(() => (window.delay['work-context-preview'] = true));
-      await part('JIF').click();
-      await page.waitForFunction(() => window.pending.length === 1);
-      await page.evaluate((kind) => {
-        const p = window.pending[0];
-        const c = document.createElement('canvas');
-        c.width = 280;
-        c.height = 180;
-        p.result.preview.dataBase64 = kind === 'size' ? 'A'.repeat(65000) : c.toDataURL('image/png').split(',')[1];
-        p.release();
-      }, invalid);
-      await dialog.getByText(workContextReason('preview_unavailable')).waitFor();
-      assert.equal(await dialog.getByRole('img').count(), 0);
-    }
-    checks.push(
-      'CR-3/CR-5: 256px PNG decoding, 65000-character/wrong-dimension rejection; preview R1 read codes retain their own outcomes',
-    );
-    // Pending preview cannot survive cancel, refresh, invalid status or disposal.
-    for (const action of ['cancel', 'refresh', 'dispose']) {
-      await reset();
-      await open();
-      await page.evaluate(() => (window.delay['work-context-preview'] = true));
-      await part('JIF').click();
-      await page.waitForFunction(() => window.pending.length === 1);
-      if (action === 'cancel') {
-        await page.keyboard.press('Escape');
-      } else if (action === 'refresh') {
-        await page.evaluate(() => document.querySelector('.coc-main>.coc-controls button').click());
-      } else {
-        await page.evaluate(() => window.mounted.dispose());
-      }
-      await page.evaluate(() => window.pending[0].release());
-      await page.waitForTimeout(30);
-      assert.equal(await page.locator('img').count(), 0);
-    }
-    // Catalog late reply across cancel/reopen, and a newest reply with the wrong current microversion.
+    assert.equal(await page.evaluate(() => window.calls.filter((c) => c.actionId === 'work-context-adopt').length), 1);
     await reset();
-    await page.evaluate(() => (window.delay['work-context-catalog'] = true));
-    await change().click();
-    await page.waitForFunction(() => window.pending.length === 1);
-    await page.keyboard.press('Escape');
-    await change().click();
-    await page.waitForFunction(() => window.pending.length === 2);
-    await page.evaluate(() => {
-      window.pending[1].release();
-      window.pending[0].result.catalog.document.name = 'OLD CATALOG';
-      window.pending[0].release();
-    });
-    await part('JIF').waitFor();
-    assert.equal(await dialog.getByText(/OLD CATALOG/).count(), 0);
-    await reset();
-    await page.evaluate(() => {
-      window.view = structuredClone(window.F['view-valid']);
-      window.catalog.selectionRevision = 1;
-      window.delay['work-context-catalog'] = true;
-    });
-    await refresh();
-    await ready();
-    await change().click();
-    await page.waitForFunction(() => window.pending.length === 1);
-    await page.evaluate(() => {
-      window.pending[0].result.catalog.observedMicroversion = 'b'.repeat(24);
-      window.pending[0].release();
-    });
-    await dialog.getByText(workContextReason('selection_observation_stale'), {exact: true}).waitFor();
-    assert.equal(await part('JIF').count(), 0);
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    checks.push(
-      'U3/U6 async: newer preview wins; wrong Part/microversion suppressed; cancel/refresh/dispose fences; old catalog discarded; wrong catalog microversion blocked',
-    );
-    // Read-only operator can inspect but cannot adopt, and status failure clears previous trusted projection.
-    await reset();
-    await page.evaluate(() => (window.connection.canAdmin = false));
     await open();
-    await selected('JIF');
-    assert(await dialog.getByRole('button', {name: 'Auswahl übernehmen', exact: true}).isDisabled());
-    await reset();
+    await select('JIF');
     await page.evaluate(() => {
-      window.view = structuredClone(window.F['view-valid']);
-      window.errors['work-context-status'] = 'authorization_changed';
+      window.errors['work-context-adopt'] = 'connection_busy_or_state_unavailable';
+      window.errors['work-context-status'] = 'goal_state_invalid';
     });
-    await refresh();
-    await card.getByText(workContextReason('authorization_changed'), {exact: true}).waitFor();
-    assert(await change().isDisabled());
-    assert.equal(await card.getByRole('heading', {name: 'Clamp left', exact: true}).count(), 0);
-    checks.push('U4 status failure clears trusted selection; read-only operator cannot adopt');
-    // Exercise the whole adoption/cancel/keyboard journey at every required viewport, not only screenshots.
+    await focus('adopt-part').click();
+    await dialog.getByText(/Status unbekannt · Übernehmen gesperrt/).waitFor();
+    await noAdopt();
+    checks.push(
+      'U6/X6 pending adoption blocks duplicate/dismissal; uncertain winner status never claims local success',
+    );
     for (const [width, height] of [
       [1440, 900],
       [1366, 768],
@@ -817,30 +890,71 @@ ui.activate({ui:{registerNavigation(){},registerPage(page){window.mounted=page.m
       await page.setViewportSize({width, height});
       await reset();
       await open();
-      await selected('JIG');
-      const dismiss = dialog.getByRole('button', {name: 'Schließen', exact: true});
-      await dismiss.focus();
+      await focus('document-search').fill('mount');
+      await focus('more-documents').waitFor();
+      await focus('more-documents').click();
+      await docs.getByText(/More Mounts/).waitFor();
+      await focus(`document-${F['document-page'].items[1].documentId}`).click();
+      await focus(`workspace-${'9'.repeat(24)}`).click();
+      await select('JIF');
+      await noAdopt();
+      if (width === 390) {
+        await focus('change-document').click();
+      }
+      await focus(`document-${F.catalog.document.documentId}`).click();
+      await page.evaluate(() => (window.variant = 'truncated'));
+      await focus(`workspace-${'e'.repeat(24)}`).click();
+      await focus('studio-refinement').selectOption(F['part-search'].studios[1].elementId);
+      await select('JFD', F['part-search'].studios[1].elementId);
+      await noAdopt();
+      if (width === 390) {
+        await focus('change-workspace').click();
+      }
+      await page.evaluate(() => (window.variant = 'normal'));
+      await focus(`workspace-${'e'.repeat(24)}`).click();
+      await select('JIF');
+      await dialog
+        .locator(`[data-studio="${F['part-search'].studios[1].elementId}"]`)
+        .getByRole('button', {name: 'Studio ansehen', exact: true})
+        .click();
+      await preview.getByRole('img', {name: /Part-Studio-Vorschau/}).waitFor();
+      assert(await preview.evaluate((n) => n === document.activeElement));
+      await preview.getByRole('button', {name: 'Bauteilvorschau', exact: true}).click();
+      await preview.getByRole('img', {name: / · JIF$/}).waitFor();
+      await focus('close-selection').focus();
+      await page.keyboard.press('Tab');
+      assert(await dialog.evaluate((d) => d.contains(document.activeElement)));
       await page.keyboard.press('Shift+Tab');
-      assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Auswahl übernehmen');
-      await page.keyboard.press('Enter');
+      assert(await focus('close-selection').evaluate((n) => n === document.activeElement));
+      await focus('adopt-part').click();
       await dialog.waitFor({state: 'detached'});
-      assert(await card.getByRole('heading', {name: 'Clamp right', exact: true}).isVisible());
+      assert(await card.getByRole('heading', {name: 'Clamp left', exact: true}).isVisible());
       assert(await change().evaluate((n) => n === document.activeElement));
-      await open();
-      assert.equal(await part('JIG').getAttribute('aria-pressed'), 'true');
-      await selected('JIF');
-      await page.keyboard.press('Escape');
-      assert(await card.getByRole('heading', {name: 'Clamp right', exact: true}).isVisible());
-      assert(await change().evaluate((n) => n === document.activeElement));
+      assert.equal(
+        await page.evaluate(
+          () =>
+            window.calls.filter((c) =>
+              ['render', 'goal-confirm', 'candidate-prepare', 'mutation-approve'].includes(c.actionId),
+            ).length,
+        ),
+        0,
+      );
     }
     checks.push(
-      'U1/U2/U6 full choose/adopt/compact/reopen/cancel journey and backward focus wrapping at all three required viewports',
+      'X2-X6 complete real-search/page/foreign-parent/studio-refinement/part+studio-preview/adopt/compact/focus journey at all three required viewports; no CAD/goal/approval calls',
     );
-    assert.deepEqual(pageErrors, []);
-    assert.deepEqual(rejected, []);
-    console.log(`Selector browser acceptance passed (${checks.length} checks). Screenshots: ${output}`);
-    for (const check of checks) {
-      console.log(`  ${check}`);
+    await reset();
+    await open();
+    await focus('document-search').fill('mount');
+    await focus('more-documents').waitFor();
+    await capture('documents');
+    assert.deepEqual(errors, []);
+    assert.deepEqual(escaped, []);
+    console.log(
+      `Selector V2 browser acceptance passed (${checks.length} check groups). Screenshots: ${evidence.directory}`,
+    );
+    for (const c of checks) {
+      console.log(`  ${c}`);
     }
     return checks;
   } finally {
