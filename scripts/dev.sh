@@ -60,7 +60,7 @@ args=(
   # Own repo read-write ...
   -v "$REPO:$OWN:rw"
   # ... with real runtime state and secrets hidden ...
-  --mount "type=tmpfs,destination=$OWN/state,tmpfs-mode=0700"
+  --mount "type=tmpfs,destination=$OWN/state,tmpfs-mode=0700,notmpcopyup,U=true"
   # ... and architect-owned paths read-only on top.
   "$(ro "$REPO/docs/interface" "$OWN/docs/interface")"
   "$(ro "$REPO/tests/contract" "$OWN/tests/contract")"
@@ -77,6 +77,16 @@ args=(
   "$(ro "$FOREIGN" "$W/onshape-mcp")"
   -w "$OWN"
 )
+
+# A container whose processes died without podman noticing (launcher killed together with
+# conmon) stays "running" forever and cannot be removed without force; clear those first.
+for c in $(podman ps -q --filter "name=^$NAME_PREFIX-"); do
+  pid=$(podman inspect -f '{{.State.Pid}}' "$c" 2>/dev/null) || continue
+  if [[ "$pid" -le 0 || ! -d "/proc/$pid" ]]; then
+    echo "dev.sh: removing stale container $c (process $pid is gone)" >&2
+    podman rm -f "$c" >/dev/null || true
+  fi
+done
 
 [[ $# -gt 0 ]] || set -- bash
 # Herdr recognises agents by argv[0]; podman hides the containerised claude process from
