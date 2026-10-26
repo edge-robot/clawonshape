@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/work-context.md#12-robust-part-sear
 contract-version: work-context-1.2.0-draft
 foreign-repo-commit: de4ad9d   # onshape-mcp (read-only mount); no server change
 base-commit: the commit that adds this prompt
-status: issued
+status: done   # accepted 2026-10-26 (report 8e1d40f); W11/W14 red state fixed by the architect (draft-1.2.0 fixtures)
 supersedes: docs/prompts/2026-10-26-robust-part-search-call-accounting.md (interrupted; §12 implementation deferred)
 ---
 # Closure K2: call-cost baseline of the deployed behaviour (#22, narrowed)

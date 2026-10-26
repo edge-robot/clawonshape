@@ -1,5 +1,5 @@
 {
-  "_comment": "work-context.md §8, §11.5 and §12.3; new plugin codes of this contract",
+  "_comment": "work-context.md §8 and §11.5; new plugin codes of this contract",
   "plugin": [
     "selection_observation_stale",
     "selection_part_missing",
@@ -10,8 +10,7 @@
     "selection_revision_conflict",
     "preview_unavailable",
     "document_not_accessible",
-    "provider_quota_exhausted",
-    "provider_response_too_large"
+    "provider_quota_exhausted"
   ],
   "reused": [
     "invalid_arguments",
@@ -22,9 +21,7 @@
     "goal_active_conflict",
     "mutation_reconciliation_required",
     "goal_state_invalid",
-    "provider_rate_limited",
-    "provider_not_found",
-    "provider_forbidden"
+    "provider_rate_limited"
   ],
   "viewReasons": [
     "candidate_inspection_only",

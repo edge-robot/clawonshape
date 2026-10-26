@@ -1,0 +1,65 @@
+{
+  "_comment": "work-context.md §11.3/§12.1 PartSearch in the bound Primary, query 'clamp': hits across two studios; only the bound studio is selectable",
+  "documentId": "0123456789abcdef01234567",
+  "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+  "observedMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+  "query": "clamp",
+  "studios": [
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "name": "Mount Plate",
+      "goalEligible": true,
+      "reason": null,
+      "configurationChecked": true,
+      "scan": "scanned",
+      "scanError": null,
+      "skippedEntries": 0
+    },
+    {
+      "elementId": "abababababababababababab",
+      "name": "Fasteners",
+      "goalEligible": false,
+      "reason": "element_not_provisioned",
+      "configurationChecked": false,
+      "scan": "scanned",
+      "scanError": null,
+      "skippedEntries": 0
+    }
+  ],
+  "hits": [
+    {
+      "elementId": "abababababababababababab",
+      "partId": "JFD",
+      "name": "Clamp bolt",
+      "partNumber": "FB-0042",
+      "bodyType": "solid",
+      "hidden": false,
+      "selectable": false,
+      "reason": "element_not_provisioned"
+    },
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "partId": "JIF",
+      "name": "Clamp left",
+      "partNumber": null,
+      "bodyType": "solid",
+      "hidden": false,
+      "selectable": true,
+      "reason": null
+    },
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "partId": "JIG",
+      "name": "Clamp right",
+      "partNumber": null,
+      "bodyType": "solid",
+      "hidden": false,
+      "selectable": true,
+      "reason": null
+    }
+  ],
+  "truncated": false,
+  "truncatedReason": null,
+  "failedStudios": 0,
+  "observedAt": 1761140000000
+}

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Contract-Version | `work-context-1.2.0-draft` (requires `goal-workflow.md` ≥ `goal-1.2.0-draft`; no server contract change) |
-| Status | **draft**: 1.1.0 deployed (0.3.0-rc.3, live acceptance 2026-10-26 in progress); §12 (1.2.0, robust part search and call accounting, [#22](https://github.com/edge-robot/clawonshape/issues/22)) not implemented |
+| Status | **draft**: 1.1.0 deployed (0.3.0-rc.3, live acceptance 2026-10-26 in progress); §12 (1.2.0, robust part search and call accounting, [#22](https://github.com/edge-robot/clawonshape/issues/22)) deferred at closure; call-cost baseline measured (§12.6) |
 | Owner | onshape-architekt (only the architect edits this file and `work-context-fixtures/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-2026-10-21: Task-scoped Onshape workspace and part selection", increment 1 |
 | Issues | [edge-robot/clawonshape#21](https://github.com/edge-robot/clawonshape/issues/21) (this contract, backend), [#17](https://github.com/edge-robot/clawonshape/issues/17) (selector UI, consumer), [#18](https://github.com/edge-robot/clawonshape/issues/18) (goal hand-off), [edge-robot/onshape-mcp#9](https://github.com/edge-robot/onshape-mcp/issues/9) (no server change in increment 1) |
@@ -437,6 +437,16 @@ acceptance 2026-10-26 (`docs/evidence/2026-10-26-selector-v2-and-goal-live-accep
 
 §1–§11 stay valid except where this section says otherwise. Adoption bounds (§1, §5) are unchanged.
 
+**Status: deferred at project closure (2026-10-26, ADR-2026-10-26).** Only the §12.6 call-cost baseline
+has been measured (K2, `tests/rest-calls.test.mjs`). The deployed code implements §1–§11.
+
+The §12 fixture shapes live in `work-context-fixtures/draft-1.2.0/`:
+- `part-search.json` and `error-codes.json` with the new fields;
+- `part-search-partial.json`.
+
+They replace the fixtures of the same names only when §12 is implemented. Until then, the tests read
+the 1.1.0 fixtures in `work-context-fixtures/`.
+
 ### 12.1 Per-studio scan status
 
 `PartSearch.studios[]` gains three fields:
@@ -556,13 +566,38 @@ upper bound:
 - adopt;
 - clear.
 
-*(Table to be filled from the implementation report.)*
+Measured baseline of the deployed code (0.3.0-rc.3 @ `667f01c`). Source: K2 report
+`docs/prompts/2026-10-26-closure-call-cost-baseline.report.md`, asserted as upper bounds in
+`tests/rest-calls.test.mjs`. The setup is two Part Studios unless noted, a fresh token, and "sel." means with
+an adopted selection.
+
+| Action | Cold | Warm |
+|---|---:|---:|
+| dashboard load (no sel. / sel.) | 3 / 9 | 3 / 9 |
+| selector open (no sel. / sel.) | 8 / 16 | 2 / 9 |
+| `work-context-status` (sel.) / `onshape_status` (sel.) / adopt | 6 / 6 / 6 | 6 / 6 / 6 |
+| document search page / workspace list | 1 / 1–2 | 0 / 0 |
+| part search, bound Primary, 2 / 5 / 21 studios | 6 / 9 / 23 | 2 / 2 / 2 |
+| part search after a new Primary revision (5 studios) | 9 | 2 |
+| part preview / studio preview | 3 / 3 | 1 / 1 |
+| cockpit CAD view / `onshape_render` / `onshape_inspect` | 6 / 6 / 3 | 6 / 6 / 3 |
+| goal propose (sel.) / confirm / verify | 4 / 1 / 1 | – |
+| example operator session (load, open, 3 searches, preview, adopt, CAD view, reload) | **40** | **46** |
+
+The main cost drivers:
+- status revalidation is uncached (6 calls per call);
+- every search costs 2 R1 calls;
+- a new revision triggers a full studio rescan;
+- failures are not cached;
+- each token refresh empties the cache.
+
+Agent calls through onshape-mcp are not included.
 
 ### 12.7 Tests (offline) W19–W24
 
 | # | Test |
 |---|---|
-| W19 | one studio fails (oversize, protocol, 403, 404): `scan: "failed"` with `scanError`, other studios' hits returned, `failedStudios` counted; equals `part-search-partial.json` |
+| W19 | one studio fails (oversize, protocol, 403, 404): `scan: "failed"` with `scanError`, other studios' hits returned, `failedStudios` counted; equals `draft-1.2.0/part-search-partial.json` |
 | W20 | entry tolerance: invalid entries skipped and counted, valid ones listed; adopt of a skipped part → `selection_part_missing`; catalog/status of the bound studio survive one invalid foreign entry |
 | W21 | R4 above 16 MiB → `provider_response_too_large`, read aborted early; R6/R7/R2 oversize → search-wide `provider_response_too_large` |
 | W22 | negative cache: a repeated search at the same `mv` makes no R4 call for a failed studio; a new `mv` re-reads it; 403/404 not cached |
