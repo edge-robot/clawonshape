@@ -13,6 +13,68 @@ Product priority update: Increment 0 connectivity/onboarding and Increment 1
 Discord read/render take precedence over MCP mutation work. ADR-008–011 record
 the implemented product slice; ADR-001–007's plane/security boundaries remain.
 
+## ADR-2026-10-26: Project closure: Onshape REST quota and large models limit the pib use case
+
+Status: **Accepted** (record of the closure assessment; user decision 2026-10-26).
+Issues: [#23](https://github.com/edge-robot/clawonshape/issues/23) (closure),
+[#22](https://github.com/edge-robot/clawonshape/issues/22) (part search on large documents and call
+accounting, deferred).
+Evidence: `docs/evidence/2026-10-26-selector-v2-and-goal-live-acceptance.md` (F2, API usage),
+call-cost baseline from the K2 report (`docs/prompts/2026-10-26-closure-call-cost-baseline.report.md`).
+
+### Context
+
+- The project closes with the stack deployed as plugin 0.3.0-rc.3 and server `cc67472-goal-grant-curl`.
+- The delivered workflow can be demonstrated on the **Camera Mount Plate** document:
+  - Discord → Lead → Engineer;
+  - goal confirmation;
+  - bounded feature changes in a Candidate;
+  - verification and the result in the channel;
+  - the dashboard cockpit and the work-context selector.
+- Handling of real **pib models** was a stated goal (`docs/product/pib-user-journey.md`), and it was
+  not demonstrated. Two blockers were observed:
+  1. **Large documents.** In a real pib document, part search fails as a whole
+     (`provider_protocol_error`). Plausible causes:
+     - per-studio part lists above the read limit;
+     - part entries that fail strict validation, e.g. imported parts.
+
+     The plugin could not tell which (#22).
+  2. **REST quota.** The Onshape plan allows **2,500 API calls per year**. By 2026-10-26 about 800
+     were used. One short dashboard session (reconnect, selector, part-search attempts on a large
+     document) used 112 calls. The plugin had no call accounting to attribute them.
+- Inspecting a large model costs one R4 request per Part Studio and revision. Every edit changes the
+  revision and invalidates revision-pinned caches. Agent-driven CAD work through onshape-mcp adds
+  calls that only the agent's behaviour bounds.
+
+### Decision
+
+1. **The demo stays on the Camera Mount Plate.** The pib model use case is documented as not
+   demonstrated, with the blockers above. No new features are started at closure.
+2. **The REST quota is assessed as a long-term show stopper** for agentic CAD work on real pib models
+   with the current plan. Rough budget at today's per-action costs:
+   - an annual cap of 2,500 calls supports only a few hundred dashboard interactions;
+   - or a few dozen agent goal runs;
+   - that is too little for routine engineering on multi-studio models.
+3. Work-context contract §12 (`work-context-1.2.0-draft`: robust per-studio search, entry tolerance,
+   call accounting, quota economy) stays the accepted design for a continuation. Only the call-cost
+   baseline is measured at closure (K2). Implementation is deferred, and #22 stays open.
+
+### Options for a continuation (not decided)
+
+| Option | Effect on the quota | Cost and risk |
+|---|---|---|
+| A. Higher Onshape plan or API allowance (Enterprise, partner terms) | removes the hard cap | licence cost; needs clarification with Onshape |
+| B. Call economy in the plugin and server (§12, element-level revision keys, no rescans) | reduces calls per action, does not remove the cap | already designed; moderate effort |
+| C. Snapshot-based analysis: one export or translation per revision (Parasolid/STEP), local geometry processing | decouples inspection of large models from per-studio reads | new local CAD-processing component; export jobs also count |
+| D. Event-driven freshness (Onshape webhooks for document changes) instead of revision probes | avoids R1 checks | needs a reachable webhook endpoint; contradicts the no-public-endpoint stance of onshape-mcp |
+| E. Narrower agent tooling for large models (bounded inspect budget per goal) | bounds the agent-driven share | limits agent capability |
+
+### Consequences
+
+- The final presentation states the limit and these options openly (#23, X1).
+- `spec.md` gets an as-built status that marks the pib journey as not delivered (#19, X2).
+- Every future live test records the Onshape usage counter before and after each step.
+
 ## ADR-2026-10-21: Task-scoped Onshape workspace and part selection
 
 Status: **Accepted for increment 1** (2026-10-22, user decisions I1–I5 below, after

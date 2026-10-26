@@ -7,7 +7,7 @@ architecture-ref: clawonshape/docs/interface/work-context.md#12-robust-part-sear
 contract-version: work-context-1.2.0-draft
 foreign-repo-commit: cc67472   # onshape-mcp (read-only mount); no server change
 base-commit: 42f438d
-status: issued
+status: superseded   # interrupted 2026-10-26 (devcontainer died); narrowed to docs/prompts/2026-10-26-closure-call-cost-baseline.md at project closure; §12 implementation deferred (#22 open)
 ---
 # Robust part search and REST call accounting (#22, contract 1.2.0)
 
