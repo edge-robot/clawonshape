@@ -1,5 +1,5 @@
 {
-  "_comment": "work-context.md §11.3 PartSearch in the bound Primary, query 'clamp': hits across two studios; only the bound studio is selectable",
+  "_comment": "work-context.md §11.3/§12.1 PartSearch in the bound Primary, query 'clamp': hits across two studios; only the bound studio is selectable",
   "documentId": "0123456789abcdef01234567",
   "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
   "observedMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
@@ -10,14 +10,20 @@
       "name": "Mount Plate",
       "goalEligible": true,
       "reason": null,
-      "configurationChecked": true
+      "configurationChecked": true,
+      "scan": "scanned",
+      "scanError": null,
+      "skippedEntries": 0
     },
     {
       "elementId": "abababababababababababab",
       "name": "Fasteners",
       "goalEligible": false,
       "reason": "element_not_provisioned",
-      "configurationChecked": false
+      "configurationChecked": false,
+      "scan": "scanned",
+      "scanError": null,
+      "skippedEntries": 0
     }
   ],
   "hits": [
@@ -54,5 +60,6 @@
   ],
   "truncated": false,
   "truncatedReason": null,
+  "failedStudios": 0,
   "observedAt": 1761140000000
 }

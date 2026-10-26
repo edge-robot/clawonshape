@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Contract-Version | `work-context-1.1.0-draft` (requires `goal-workflow.md` ≥ `goal-1.2.0-draft`; no server contract change) |
-| Status | **draft**: 1.0.0 deployed (0.3.0-rc.2); §11 browsing (1.1.0) implemented (`ea04c3f`), not deployed |
+| Contract-Version | `work-context-1.2.0-draft` (requires `goal-workflow.md` ≥ `goal-1.2.0-draft`; no server contract change) |
+| Status | **draft**: 1.1.0 deployed (0.3.0-rc.3, live acceptance 2026-10-26 in progress); §12 (1.2.0, robust part search and call accounting, [#22](https://github.com/edge-robot/clawonshape/issues/22)) not implemented |
 | Owner | onshape-architekt (only the architect edits this file and `work-context-fixtures/`) |
 | ADR | [`docs/ADR.md`](../ADR.md) → "ADR-2026-10-21: Task-scoped Onshape workspace and part selection", increment 1 |
 | Issues | [edge-robot/clawonshape#21](https://github.com/edge-robot/clawonshape/issues/21) (this contract, backend), [#17](https://github.com/edge-robot/clawonshape/issues/17) (selector UI, consumer), [#18](https://github.com/edge-robot/clawonshape/issues/18) (goal hand-off), [edge-robot/onshape-mcp#9](https://github.com/edge-robot/onshape-mcp/issues/9) (no server change in increment 1) |
@@ -425,12 +425,164 @@ Reused: `provider_rate_limited` (429, "später erneut", no retry loop), `invalid
   R6 403 stays `provider_forbidden`; R4 keeps its provider codes. The 402 mapping lives inside the
   browsing methods; `src/http.ts` and other callers are unchanged.
 
+## 12. Robust part search and REST call accounting (`work-context-1.2.0-draft`)
+
+Issue: [edge-robot/clawonshape#22](https://github.com/edge-robot/clawonshape/issues/22). Source: live
+acceptance 2026-10-26 (`docs/evidence/2026-10-26-selector-v2-and-goal-live-acceptance.md`, F2):
+
+- part search in a large real document failed as a whole with `provider_protocol_error`, and the
+  cause could not be determined;
+- the Onshape usage counter rose by 112 calls during one short dashboard session, against a plan
+  cap of **2,500 API calls per year**.
+
+§1–§11 stay valid except where this section says otherwise. Adoption bounds (§1, §5) are unchanged.
+
+### 12.1 Per-studio scan status
+
+`PartSearch.studios[]` gains three fields:
+
+```json
+{"elementId": "24-hex", "name": "string|null", "goalEligible": true, "reason": null, "configurationChecked": true,
+ "scan": "scanned|not_scanned|failed", "scanError": null, "skippedEntries": 0}
+```
+
+- `scanned`: R4 (and R3 where §11 requires it) succeeded; hits of this studio are included.
+- `not_scanned`: beyond the scan limit (§12.4) or excluded by an `elementId` refinement. It
+  contributes no hits.
+- `failed`: the R4 (or R3) read for this studio failed with a **studio-local** code. These codes are
+  `provider_response_too_large`, `provider_protocol_error`, `provider_not_found` and
+  `provider_forbidden`. `scanError` carries the code. The search continues with the next studio.
+- **Search-wide** failures still fail the whole method and stop further reads at once:
+  - R1 or R2 failures;
+  - `provider_quota_exhausted` (402);
+  - `provider_rate_limited` (429);
+  - `reconnect_required` (401 or token);
+  - `authorization_changed`;
+  - a changed R1 recheck (`selection_observation_stale`).
+- A `failed` bound studio makes every part of that studio non-adoptable. `catalog`, `status` and
+  `adopt` keep their 1.0 failure behaviour for the bound studio (§5.2), with the entry tolerance of
+  §12.2.
+- New top-level field `failedStudios` (integer): the count of studios with `scan: "failed"`. The UI
+  shows the affected studios as "nicht lesbar" and keeps all other hits usable.
+
+### 12.2 Entry tolerance for R4
+
+- Response-level shape errors still fail the studio (`provider_protocol_error`):
+  - not an array;
+  - more than `PART_RESPONSE_LIMIT` entries;
+  - invalid JSON.
+- An **individual** entry that fails validation is **skipped and counted** (`skippedEntries`); it
+  never fails the response. The checks are:
+  - part ID pattern;
+  - duplicate `partId`;
+  - name empty, above 200 characters, or containing control or format characters;
+  - missing or invalid `bodyType`;
+  - non-boolean `isHidden`.
+- Skipped entries do not appear as hits and cannot be adopted. Adopting or revalidating a part
+  whose entry is skipped yields `selection_part_missing`.
+- This applies to every R4 projection: `catalog`, `status`, `adopt` and `parts`. It applies to R4
+  entries only; R1, R2, R6 and R7 keep their validation.
+
+### 12.3 Oversize code
+
+- New code `provider_response_too_large`: a provider response exceeded the byte limit of its read.
+  Before 1.2.0 this mapped to `provider_protocol_error`.
+- In the browsing methods it is studio-local for R4 (§12.1). It is search-wide for R6, R7 and R2.
+- UI text: "Onshape-Antwort zu groß".
+- The R4 byte limit is raised from 4 MiB to **16 MiB**. The read stays streamed and aborts as soon
+  as the limit is exceeded. Only the projection is cached, never the raw body.
+
+### 12.4 Call economy (quota)
+
+- **Automatic scan limit:** a part search without `elementId` scans at most **10** Part Studios
+  (was 20), in R2 order. The bound studio, when present, is scanned first. Remaining studios are
+  `not_scanned`, and `truncatedReason: "part_search_truncated"` applies as in §11.4. A refinement
+  to one `elementId` scans exactly that studio.
+- **Negative cache:** a studio-local deterministic failure is cached under the same `mv` key and
+  partition as a success. This applies to `provider_response_too_large` and
+  `provider_protocol_error`. Repeating the search or pressing "Erneut laden" at the same `mv` makes
+  no new R4 call for that studio. `provider_not_found` and `provider_forbidden` are not cached.
+- **Stop on quota signals:** after 402 or 429 the method makes no further provider call. Every
+  queued browsing read of the same connection is rejected with the same code; it is not sent.
+- No new automatic reads: no read may be added to page load, focus or visibility events, and no
+  polling.
+
+### 12.5 REST call accounting
+
+- Every outbound Onshape request of the plugin passes one counter. This includes the cockpit,
+  inspection, render, goal, work-context and OAuth requests.
+- The counter is keyed by:
+  - a route **template**: IDs replaced by `{d}`, `{w}`, `{m}`, `{e}`, `{p}`; no query string;
+  - the method;
+  - the status class (`2xx`, `4xx`, `5xx`, `error`).
+- OAuth token endpoint requests are counted under their own template `oauth/token` and kept apart
+  from API calls.
+- The counter lives in memory only. It counts since plugin start, per connection.
+- After each gateway method or agent tool invocation that made at least one provider request, the
+  plugin logs one info line:
+
+  ```
+  claw-onshape rest-calls action=<gateway method or tool name> calls=<n> total=<since start> routes=<template>:<n>,...
+  ```
+
+  The line contains no IDs, names, tokens or response content.
+- **Diagnostics:** every `provider_protocol_error` and `provider_response_too_large` in the
+  work-context and browsing paths logs one warn line:
+
+  ```
+  claw-onshape provider-check action=<...> read=<R1..R8> check=<check name> [bytes=<n>] [index=<entry index>] [field=<field name>]
+  ```
+
+  It contains no values from the response. Skipped entries (§12.2) are summarised per studio as
+  `check=entry_skipped count=<n> fields=<field>:<n>,...`.
+- These lines are the evidence for WC11. They count only the plugin's own requests. Requests that
+  agents make through onshape-mcp are not covered and are tracked separately.
+
+### 12.6 Call-cost table (normative budget)
+
+The implementation report MUST provide the measured number of provider calls (cold cache / warm
+cache) for each dashboard action. The architect records the table here, and tests assert it as an
+upper bound:
+
+- dashboard load of the Engineer cockpit;
+- `work-context-status`;
+- `work-context-catalog`;
+- document search page;
+- workspace list;
+- part search (bound Primary, N studios);
+- part search (other document);
+- part preview;
+- studio preview;
+- adopt;
+- clear.
+
+*(Table to be filled from the implementation report.)*
+
+### 12.7 Tests (offline) W19–W24
+
+| # | Test |
+|---|---|
+| W19 | one studio fails (oversize, protocol, 403, 404): `scan: "failed"` with `scanError`, other studios' hits returned, `failedStudios` counted; equals `part-search-partial.json` |
+| W20 | entry tolerance: invalid entries skipped and counted, valid ones listed; adopt of a skipped part → `selection_part_missing`; catalog/status of the bound studio survive one invalid foreign entry |
+| W21 | R4 above 16 MiB → `provider_response_too_large`, read aborted early; R6/R7/R2 oversize → search-wide `provider_response_too_large` |
+| W22 | negative cache: a repeated search at the same `mv` makes no R4 call for a failed studio; a new `mv` re-reads it; 403/404 not cached |
+| W23 | 402/429 stop: no further calls in the method; queued reads rejected without dispatch |
+| W24 | call accounting: counter by template/method/status class, log line format without IDs/values, diagnostics lines, and the §12.6 budgets as upper bounds |
+
+### 12.8 Open live checks
+
+| ID | Check |
+|---|---|
+| WC12 | the large real document: which check failed (diagnostic line), `scan` states, and the call count of one part search |
+| WC13 | per-action call counts in the live log match §12.6; total for one full selector journey |
+
 ## Accepted interpretations (ts-plugin-dev report 2026-10-22, CR-1–CR-8)
 
 - **CR-1 R0 label reads.** `GET /api/v10/documents/{d}` and `GET /api/v10/documents/d/{d}/workspaces`
   (the `workspace-context` reads) supply labels only, never identity or revision evidence.
 - **CR-2 Nullable names.** `Catalog.document.name`, `workspaces[].name` and `partStudios[].name` are
   `string | null` (missing or invalid label). Part names stay strict (`provider_protocol_error`).
+  *Superseded for R4 entries by §12.2 (1.2.0): an invalid entry is skipped, not the whole response.*
 - **CR-3 Preview size.** The preview is a 256×256 PNG in one `dataBase64` string below 65 000
   characters (OpenClaw plugin JSON string limit); larger → `preview_unavailable`.
 - **CR-4** A bound element that is not a Part Studio at `mv` → `target_not_part_studio` in catalog and
@@ -448,6 +600,17 @@ Reused: `provider_rate_limited` (429, "später erneut", no retry loop), `invalid
   `reason: "goal_state_invalid"`, `selection: null`.
 
 ## Changelog
+
+- `work-context-1.2.0-draft` (2026-10-26): §12 from live finding F2 (#22):
+  - per-studio scan status (`scan`, `scanError`, `skippedEntries`, `failedStudios`);
+  - R4 entry tolerance (supersedes CR-2 for R4 entries);
+  - `provider_response_too_large` and the R4 limit raised to 16 MiB;
+  - quota economy: automatic scan limit 10 (was 20), negative cache, stop on 402/429;
+  - REST call accounting and diagnostics log lines;
+  - call-cost table; tests W19–W24; live checks WC12–WC13.
+
+  Additive for the view; behaviour change for the scan limit, for oversize mapping and for strict R4
+  entries.
 
 - `work-context-1.1.0-draft` amended (2026-10-22): §11.8 accepted interpretations CR-15–CR-22 from the
   browsing backend report (no MUST changed).
