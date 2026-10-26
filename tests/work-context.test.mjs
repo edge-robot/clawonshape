@@ -6,14 +6,33 @@ import assert from 'node:assert/strict';
 import {mkdir, mkdtemp, readdir, readFile, rm, stat, unlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {deflateSync} from 'node:zlib';
 import {randomUUID} from 'node:crypto';
-import {admin, BASE, binding, D, E, goalHarness, P, proposeVector, vector} from './fixtures/goal.mjs';
+import {admin, BASE, binding, D, E, P, proposeVector, vector} from './fixtures/goal.mjs';
+import {
+  browseSetup,
+  CANDIDATE,
+  contract,
+  count,
+  dashboardActions,
+  EXPERIMENT,
+  FASTENERS,
+  json,
+  kinds,
+  MV2,
+  OTHER_BRANCH,
+  OTHER_DOC,
+  OTHER_MAIN,
+  png,
+  READ_ADMIN,
+  recorded,
+  saveToken,
+  setup,
+  strip,
+  T1,
+} from './fixtures/work-context-rest.mjs';
 import {registerDashboard} from '../dist/dashboard.js';
 import {credentials} from '../dist/credentials.js';
 import {connectionOwner, parseConfig} from '../dist/config.js';
-import {crc32} from '../dist/render.js';
-import {RestClient} from '../dist/rest.js';
 import {bindingKey, projectParts} from '../dist/work-context.js';
 import {canonicalJson, goalHash, validateScope} from '../dist/goal-scope.js';
 import {closeGoal, confirmGoal, goalStatus, stopGoal} from '../dist/goal-service.js';
@@ -24,223 +43,7 @@ import {messages} from '../dist/readiness.js';
 import {delegateRender, signResult} from '../dist/delegation.js';
 import plugin from '../dist/index.js';
 
-const T0 = 1761116400000;
-const T1 = 1761116460000;
-const CANDIDATE = 'c'.repeat(24);
-const MV2 = 'b'.repeat(24);
 const VIEW_GOAL_ID = '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b';
-const READ_ADMIN = ['operator.read', 'operator.admin'];
-
-const contract = async (name) =>
-  JSON.parse(await readFile(new URL(`../docs/interface/work-context-fixtures/${name}`, import.meta.url), 'utf8'));
-const recorded = async (name) =>
-  JSON.parse(await readFile(new URL(`./fixtures/work-context/${name}`, import.meta.url), 'utf8'));
-const strip = ({_comment, ...rest}) => rest;
-const json = (value, status = 200) =>
-  new Response(JSON.stringify(value), {status, headers: {'Content-Type': 'application/json'}});
-
-function png(size) {
-  const chunk = (kind, data) => {
-    const bytes = Buffer.alloc(data.length + 12);
-    bytes.writeUInt32BE(data.length);
-    bytes.write(kind, 4);
-    data.copy(bytes, 8);
-    bytes.writeUInt32BE(crc32(bytes.subarray(4, -4)), bytes.length - 4);
-    return bytes;
-  };
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(size);
-  header.writeUInt32BE(size, 4);
-  header[8] = 8;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', header),
-    chunk('IDAT', deflateSync(Buffer.alloc((size + 1) * size))),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-// Fake Onshape REST (GET R1–R8 and the document/workspace labels). Logs every request with its method.
-const HEX = '[a-f0-9]{24}';
-async function fakeOnshape(h) {
-  const data = {
-    document: await recorded('document.json'),
-    workspaces: await recorded('workspaces.json'),
-    elements: await recorded('elements-partstudio.json'),
-    configuration: await recorded('configuration.json'),
-    configured: await recorded('configuration-configured.json'),
-    parts: new Map([[BASE, await recorded('parts.json')]]),
-    // §11 browsing: R6 page, other documents' labels and workspaces, parts of non-bound Part Studios.
-    search: await recorded('documents-search.json'),
-    documents: new Map(),
-    documentWorkspaces: new Map(),
-    elementParts: new Map([['ab'.repeat(12), await recorded('parts-fasteners.json')]]),
-  };
-  const state = {
-    // R1 answers of the bound Primary: the first entries are consumed one per read; the last one sticks.
-    microversions: [BASE],
-    // R1 answers of any other workspace, keyed "documentId/workspaceId"; default BASE.
-    otherMicroversions: new Map(),
-    isConfigured: false,
-    fail: {},
-    image: png(256),
-    studioImage: png(128),
-    onRequest: undefined,
-    inFlight: 0,
-    maxInFlight: 0,
-  };
-  const calls = [];
-  const kindOf = (route, search) => {
-    if (route === 'documents') {
-      return 'r6';
-    }
-    if (new RegExp(`^documents/${HEX}$`).test(route)) {
-      return 'document';
-    }
-    if (new RegExp(`^documents/d/${HEX}/workspaces$`).test(route)) {
-      return 'workspaces';
-    }
-    if (new RegExp(`^documents/d/${HEX}/w/${HEX}/currentmicroversion$`).test(route)) {
-      return 'r1';
-    }
-    if (new RegExp(`^documents/d/${HEX}/m/${HEX}/elements$`).test(route)) {
-      assert.equal(search, '?elementType=PARTSTUDIO');
-      return 'r2';
-    }
-    if (new RegExp(`^elements/d/${HEX}/m/${HEX}/e/${HEX}/configuration$`).test(route)) {
-      return 'r3';
-    }
-    if (new RegExp(`^parts/d/${HEX}/m/${HEX}/e/${HEX}$`).test(route)) {
-      assert.equal(search, '');
-      return 'r4';
-    }
-    if (new RegExp(`^parts/d/${HEX}/m/${HEX}/e/${HEX}/partid/[^/]+/shadedviews$`).test(route)) {
-      return 'r5';
-    }
-    if (new RegExp(`^partstudios/d/${HEX}/m/${HEX}/e/${HEX}/shadedviews$`).test(route)) {
-      return 'r8';
-    }
-    return assert.fail(`unexpected REST ${route}`);
-  };
-  const respond = (kind, route, u) => {
-    if (state.fail[kind]) {
-      return json({message: 'fixture failure'}, state.fail[kind]);
-    }
-    const mv = /\/m\/([a-f0-9]{24})\//.exec(route)?.[1];
-    const [documentId, workspaceId] = [
-      /\/d\/([a-f0-9]{24})/.exec(route)?.[1],
-      /\/w\/([a-f0-9]{24})\//.exec(route)?.[1],
-    ];
-    const elementId = /\/e\/([a-f0-9]{24})/.exec(route)?.[1];
-    switch (kind) {
-      case 'r6':
-        return json(data.search);
-      case 'document': {
-        const id = route.slice('documents/'.length);
-        return json(id === D ? data.document : (data.documents.get(id) ?? {id, name: null}));
-      }
-      case 'workspaces':
-        return json(documentId === D ? data.workspaces : (data.documentWorkspaces.get(documentId) ?? []));
-      case 'r1':
-        if (documentId === D && workspaceId === P) {
-          return json({
-            microversion: state.microversions.length > 1 ? state.microversions.shift() : state.microversions[0],
-          });
-        }
-        return json({microversion: state.otherMicroversions.get(`${documentId}/${workspaceId}`) ?? BASE});
-      case 'r2':
-        return json(data.elements);
-      case 'r3':
-        return json(state.isConfigured ? data.configured : data.configuration);
-      case 'r4':
-        return json(
-          elementId === E ? (data.parts.get(mv) ?? data.parts.get(BASE)) : (data.elementParts.get(elementId) ?? []),
-        );
-      case 'r8':
-        assert(u.searchParams.get('outputWidth') === '128' && u.searchParams.get('pixelSize') === '0');
-        return json({images: [state.studioImage.toString('base64')]});
-      default:
-        assert(u.searchParams.get('outputWidth') === '256' && u.searchParams.get('pixelSize') === '0');
-        return json({images: [state.image.toString('base64')]});
-    }
-  };
-  const fetcher = async (url, init = {}) => {
-    const u = new URL(String(url));
-    if (u.host === 'clawonshape-mcp:8080') {
-      return h.ctx.fetcher(url, init);
-    }
-    assert.equal(u.host, 'cad.onshape.com', `unexpected host ${u.host}`);
-    assert.equal(init.redirect, 'error');
-    const method = init.method ?? 'GET';
-    const route = u.pathname.replace(/^\/api\/v10\//, '');
-    const kind = kindOf(route, u.search);
-    calls.push({method, kind, route, search: u.search});
-    state.inFlight += 1;
-    state.maxInFlight = Math.max(state.maxInFlight, state.inFlight);
-    try {
-      await state.onRequest?.(kind, route);
-      return respond(kind, route, u);
-    } finally {
-      state.inFlight -= 1;
-    }
-  };
-  return {data, state, calls, fetcher};
-}
-
-async function saveToken(root, b = binding, accessToken = 'fixture-access-DO-NOT-LOG') {
-  const store = await credentials(root, b.connectionRef, connectionOwner(b));
-  await store.save({
-    accessToken,
-    refreshToken: 'fixture-refresh-DO-NOT-LOG',
-    expiresAt: Date.now() + 3600000,
-    resource: 'https://cad.onshape.com/api/',
-    scopes: ['OAuth2Read'],
-  });
-}
-
-function dashboardActions(h, config) {
-  const actions = [];
-  registerDashboard(
-    {
-      session: {controls: {registerSessionAction: (a) => actions.push(a)}},
-      registerHttpRoute: () => {},
-      lifecycle: {registerRuntimeLifecycle: () => {}},
-      runtime: {state: {resolveStateDir: () => h.root}, config: {current: () => ({})}},
-    },
-    config,
-    undefined,
-    h.ctx.fetcher,
-    h.now,
-  );
-  return async (id, payload = {}, scopes = READ_ADMIN) =>
-    (await actions.find((a) => a.id === id).handler({payload, client: {scopes}})).result;
-}
-
-async function setup(t, options = {}) {
-  const h = await goalHarness({clock: T0, ...options});
-  t.after(() => h.cleanup());
-  const rest = await fakeOnshape(h);
-  t.mock.method(globalThis, 'fetch', rest.fetcher);
-  await saveToken(h.root, options.binding ?? binding);
-  let config = h.ctx.config;
-  const call = dashboardActions(h, () => config);
-  // The goal service reaches the work-context reads (focus, §7) through the same fake REST.
-  const reads = new RestClient(async () => 'fixture-access-DO-NOT-LOG', rest.fetcher);
-  Object.assign(h.client, {
-    partStudiosAt: (b, mv) => reads.partStudiosAt(b, mv),
-    configuredAt: (b, mv) => reads.configuredAt(b, mv),
-    partsAt: (b, mv) => reads.partsAt(b, mv),
-  });
-  return {
-    h,
-    rest,
-    call,
-    setConfig: (next) => {
-      config = next;
-    },
-    config: () => config,
-  };
-}
 
 const adoptRequest = async (overrides = {}) => ({...strip(await contract('adopt-request.json')), ...overrides});
 const recordPath = (h, b = binding) => join(h.root, 'claw-onshape', 'work-context', `${bindingKey(b)}.json`);
@@ -1006,24 +809,6 @@ test('W11 every code the work-context modules emit is in error-codes.json or an 
 
 // ---------------------------------------------------------------------------------------------------------------------
 // work-context-1.1.0-draft §11 browsing: W12–W18.
-const OBSERVED_AT = 1761140000000;
-const OTHER_DOC = '1111111111111111111111aa';
-const OTHER_MAIN = '1111111111111111111111ee';
-const OTHER_BRANCH = '1111111111111111111111ff';
-const EXPERIMENT = 'd'.repeat(24);
-const FASTENERS = 'ab'.repeat(12);
-
-async function browseSetup(t, options) {
-  const s = await setup(t, options);
-  s.h.advance(OBSERVED_AT - s.h.now());
-  s.rest.data.documentWorkspaces.set(OTHER_DOC, [
-    {id: OTHER_MAIN, documentId: OTHER_DOC, name: 'Main', isReadOnly: false},
-    {id: OTHER_BRANCH, documentId: OTHER_DOC, name: 'release', isReadOnly: true, protectionRule: 'MERGE'},
-  ]);
-  return s;
-}
-const kinds = (s) => s.rest.calls.map((c) => c.kind);
-const count = (s, kind) => s.rest.calls.filter((c) => c.kind === kind).length;
 
 test('W12 documents: page 0 pins the bound document, drops folders and trash, no owner data; equals document-page.json', async (t) => {
   const s = await browseSetup(t);
