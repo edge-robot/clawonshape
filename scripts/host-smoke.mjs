@@ -13,7 +13,7 @@ try {
   process.stdout.write('Native plugin info reports loaded. This does not test an agent turn or provider access.\n');
 } catch {
   process.stderr.write(
-    'Native loading check unavailable or failed. Verify OpenClaw 2026.9.9 installation and plugin diagnostics.\n',
+    'Native loading check unavailable or failed. Verify the OpenClaw installation (supported versions: peerDependencies.openclaw in package.json) and plugin diagnostics.\n',
   );
   process.exitCode = 1;
 }
