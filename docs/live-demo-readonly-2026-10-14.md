@@ -146,7 +146,7 @@ Real Discord end-to-end:
 - Fresh independent match at 07:30:56.726Z; result signature accepted by Lead.
 - Lead receives width **50 mm**, feature F37MrGsqQOiSdYi_0, status **OK**,
   microversion b83ee0a0efcda65537780ef8 and completes its turn.
-- [Actual Discord reply](https://discord.com/channels/1475244093541191822/1553026145803436056/1559830901922205696)
+- [Actual Discord reply](https://discord.com/channels/<discord-guild-id>/<discord-lead_channel-id>/1559830901922205696)
   `1559830901922205696`, observed via Discord REST at 07:31:07.275Z.
   Approximate request-to-answer duration: 35 seconds.
 
