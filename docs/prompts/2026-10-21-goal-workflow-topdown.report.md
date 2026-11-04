@@ -14,7 +14,7 @@ not full goal-workflow acceptance, a deployment, or a real CAD/print demonstrati
 
 ## Entry state, ownership and capacity
 
-Verified repository `/home/kaos/Projects/01_pib/02_sw/clawonshape`, branch
+Verified repository `<workspace>/clawonshape`, branch
 `demo/gateway-native-read-20261014`, HEAD
 `b63a82b3fb7eac3241d16c18516db372fdf6a5aa`, one worktree. Preserved the existing
 shared changes, including the completed Operator repair. Its report was read and

@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: demo/gateway-native-read-20261014
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape   # devcontainer: /workspaces/clawonshape
+worktree: <workspace>/clawonshape   # devcontainer: /workspaces/clawonshape
 issue: edge-robot/clawonshape#12
 architecture-ref: clawonshape/docs/ADR.md#adr-2026-10-16-proof-based-mutation-release-prepared-for-verifiable-presentations
 contract-version: 0.4.0-draft

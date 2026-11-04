@@ -8,7 +8,7 @@ Status: implemented and offline verified; **architect review pending**; uncommit
 ## Workspace and authority
 
 All implementation, dependency installation, builds and checks used only the existing
-`/home/kaos/Projects/01_pib/02_sw/clawonshape-ui` worktree on `feat/21-selection-ui`.
+`<workspace>/clawonshape-ui` worktree on `feat/21-selection-ui`.
 Initial and final HEAD: `613553c9dd1b5e1f9a6a92d5e22ae135cf68ac39`.
 Implementation base: the same commit; prompt base `ae7a05f` is an ancestor.
 Initial `git status --short` was empty; no user modifications were present or overwritten.
@@ -140,8 +140,8 @@ implemented backend, and later product/live acceptance under separate authority.
 
 Commit list: **none**. HEAD remains `613553c9dd1b5e1f9a6a92d5e22ae135cf68ac39`.
 The linked worktree Git directory is
-`/home/kaos/Projects/01_pib/02_sw/clawonshape/.git/worktrees/clawonshape-ui`,
-with common directory `/home/kaos/Projects/01_pib/02_sw/clawonshape/.git`.
+`<workspace>/clawonshape/.git/worktrees/clawonshape-ui`,
+with common directory `<workspace>/clawonshape/.git`.
 Those administrative paths are read-only under this session's configured permissions
 and lie in the explicitly excluded main checkout. The handoff permits leaving changes
 uncommitted when commit authority is unavailable. No Git write or permission expansion

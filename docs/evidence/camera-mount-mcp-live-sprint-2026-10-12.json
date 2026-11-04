@@ -150,8 +150,8 @@
     },
     "browserAuthenticationConfirmed": true,
     "screenshotEvidence": {
-      "mcpSettings": "/home/kaos/Pictures/screenshot-2026-10-12_16-24-41.png",
-      "dashboard": "/home/kaos/Pictures/screenshot-2026-10-12_16-22-41.png",
+      "mcpSettings": "~/Pictures/screenshot-2026-10-12_16-24-41.png",
+      "dashboard": "~/Pictures/screenshot-2026-10-12_16-22-41.png",
       "nativeSignInButtonVisible": false,
       "pluginDashboardExpected": false,
       "reason": "Isolated diagnostic runtime has no plugins installed; native CLI used for consent"

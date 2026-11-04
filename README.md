@@ -1,63 +1,86 @@
 # Claw-Onshape
 
-**[spec.md](spec.md) is the sole normative product requirements source.**
-It defines the intended multi-team CAD-to-print product and bounded goal workflow.
-This README provides installation and operating guidance.
+Claw-Onshape is a native [OpenClaw](https://docs.openclaw.ai/) plugin that connects a small
+OpenClaw agent team to [Onshape](https://www.onshape.com/) CAD. A **Robotics Lead** takes
+requests in Discord and delegates them over signed A2A to a **Mechanical Engineer**, which reads,
+renders and (within approved goals) edits Onshape Part Studios through the self-hosted
+[onshape-mcp](https://github.com/edge-robot/onshape-mcp) server.
 
-Claw-Onshape is a native OpenClaw 2026.9.9 plugin for reading and rendering Onshape CAD context. The accepted inspection path is Discord → Robotics Lead → signed A2A → Mechanical Engineer → native Onshape MCP. Claw-Onshape owns credentials and independently verifies feature observations; the existing REST render path delivers pinned PNGs.
+- **[spec.md](spec.md)** is the normative product specification.
+- **[docs/README.md](docs/README.md)** is the documentation index (normative docs vs. history).
+- Status: project closed on 2026-10-26 with the Camera Mount Plate workflow as the delivered demo
+  ([ADR-2026-10-26](docs/ADR.md), [closure plan](docs/project-closure-2026-10-26.md)).
 
-Repository/status notes (historical observations; not a live runtime check):
+## The stack
 
-- Read/render flow is accepted for one configured owner.
-- Gateway-owned native MCP feature reads pass, including hole diameter inspection. Candidate mutation is implemented but has not yet passed live write acceptance; the deployed target remains read-only.
-- The Engineering Cockpit is a read-only overview and review page. A separate, collapsed Operator actions section preserves the existing guarded `mutation-approve`, `mutation-reconcile` and `candidate-prepare` actions until Discord approval proofs ship (P3b, #11). Engineer performs approved feature updates through native MCP; no agent creation tool is granted.
-- The native cockpit now has Workspace, CAD and 3D Print views in the working tree. Current labels load through guarded, GET-only workspace metadata independently of PNGs. Goal iteration and automated print preparation remain blocked; browser/live acceptance is open.
-- Deployment and configuration reconciliation are owned by Clawake.
-- Native dashboard and CLI share the same OAuth connection lifecycle.
+Three repositories, checked out side by side in one workspace directory (`<workspace>`):
 
-Start here:
+| Repository | Role |
+|---|---|
+| [edge-robot/clawonshape](https://github.com/edge-robot/clawonshape) (this repo) | OpenClaw plugin, agent roles and workspaces, team inventory `deploy/team.json`, interface contract |
+| [edge-robot/onshape-mcp](https://github.com/edge-robot/onshape-mcp) | MCP server for Onshape (fork of [altendky/onshape-mcp](https://github.com/altendky/onshape-mcp)); built into the `clawonshape-mcp` image |
+| [edge-robot/clawake](https://github.com/edge-robot/clawake) | Deployment and lifecycle manager: renders Podman Quadlets, installs plugins, restarts, upgrades |
 
-- [Engineering Cockpit](docs/engineering-cockpit.md) — workspace, Candidate selection, CAD views, evidence and next steps
+Supported version combinations are listed in the compatibility matrix,
+[docs/interface/onshape-mcp.md §9](docs/interface/onshape-mcp.md#9-versioning-and-compatibility).
+Deploy only a row marked **accepted**.
 
-- [Live read evidence](docs/dashboard-connection-fix-2026-10-14.md) — Gateway-owned hole inspection and request-policy repair
-- [docs/product-mvp-status.md](docs/product-mvp-status.md) — current product acceptance and known gaps
-- [agents/mechanical-engineer/workspace/AGENTS.md](agents/mechanical-engineer/workspace/AGENTS.md) — engineer role and onboarding
-- [agents/robotics-lead/workspace/AGENTS.md](agents/robotics-lead/workspace/AGENTS.md) — A2A and delegation contract
-- [docs/mcp-dashboard-readiness.md](docs/mcp-dashboard-readiness.md) — dashboard and MCP status
-- [spec.md](spec.md) — sole normative product specification
+## Getting started from a fresh checkout
 
-## Documented operating slice
+Prerequisites: Linux with systemd user services and lingering, rootless Podman, `git`, `uv`,
+Node ≥ 24.16, `openssl`; a Discord bot and server; an Onshape account with a registered OAuth app
+and a model provider account for the agents.
 
-- `onshape_status`: connection readiness and capability summary
-- `onshape_inspect`: configured document/workspace/element inspection
-- `onshape_render`: pinned PNG render of the configured Part Studio element
-- signed native A2A delegation from Lead to Engineer
-- private OAuth secret handling and local connection storage
+```sh
+mkdir -p <workspace> && cd <workspace>
+git clone https://github.com/edge-robot/clawonshape.git
+git clone https://github.com/edge-robot/onshape-mcp.git
+git clone https://github.com/edge-robot/clawake.git
+uv sync --project clawake
+uv run --project clawake clawake validate -c clawonshape/deploy/team.json
+```
+
+`deploy/team.json` contains no host paths: Clawake resolves `${CLAWAKE_PROJECT_ROOT}` to this
+checkout. Machine-specific values live outside the repositories:
+
+| File | Content |
+|---|---|
+| `~/.config/clawake/clawonshape/site.json` (0600) | Discord guild/channel/user IDs, Onshape document IDs (`${site:…}` references) |
+| `~/.config/clawake/clawonshape/pins.json` (0600) | image digests and plugin tarball checksums (Clawake runtime pins) |
+| `clawonshape/state/` (git-ignored) | secrets, OAuth connections, runtime state, built packages |
+
+The full guided procedure, from preflight to the first end-to-end Discord request, is the
+onboarding runbook [docs/prompts/2026-10-19-team-onboarding.md](docs/prompts/2026-10-19-team-onboarding.md),
+executed by the operator agent [.claude/agents/team-onboarding-agent.md](.claude/agents/team-onboarding-agent.md).
+Use the version pins of the accepted matrix row, not the ones quoted in the runbook. In short:
+
+1. Build the MCP image (`deploy/onshape-mcp/build.sh`) and pack the plugin from a clean
+   `git archive` (`npm ci && npm test && npm pack`).
+2. Write `site.json`, `pins.json` and the secrets under `state/secrets/`.
+3. `clawake onshape-mcp`, `clawake setup`, `clawake sync-plugins`: always preview first, then
+   `--execute`.
+4. Connect Onshape through the plugin dashboard (see *OAuth and dashboard onboarding* below).
+5. Mention the Lead in the team's Discord channel.
+
+## Develop the plugin
+
+```sh
+npm ci
+npm run typecheck
+npm test
+npx biome ci .
+npm pack
+```
+
+The plugin is developed against the OpenClaw version in `devDependencies` and accepts the
+`peerDependencies` range.
 
 ## What is explicitly not enabled
 
-- unapproved CAD writes, writes to protected Primary, merge, publish, or print
+- unapproved CAD writes, writes to the protected Primary workspace, merge, publish, or print
 - unapproved MCP writes or dynamic FeatureScript work
-- arbitrary user/self-service multi-user onboarding
+- arbitrary self-service multi-user onboarding
 - any bypass of the trusted requester and binding checks
-
-## Quick install
-
-Use Node 24+ and the pinned OpenClaw host.
-
-```sh
-npm install --cache /tmp/clawonshape-npm-cache
-npm run typecheck
-npm test
-npm pack --cache /tmp/clawonshape-npm-cache
-openclaw plugins install ./edge-robot-claw-onshape-0.2.7.tgz
-```
-
-Validate the installed plugin with:
-
-```sh
-openclaw plugins info claw-onshape --json
-```
 
 ## Required configuration
 
@@ -175,3 +198,8 @@ See [workspace/state migration](docs/workspace-state-migration-2026-10-14.md) fo
 paths, preview/apply commands, native skill export/import, backups and acceptance.
 
 See [free engineering tasks and Candidate execution](docs/free-engineering-tasks-2026-10-14.md) for the implemented native write workflow and its acceptance limits.
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE). onshape-mcp is dual-licensed MIT OR Apache-2.0;
+Clawake is MIT-licensed.

@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/21-work-context-selection
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape (container: /workspaces/clawonshape)
+worktree: <workspace>/clawonshape (container: /workspaces/clawonshape)
 issue: edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/ADR.md#adr-2026-10-21-task-scoped-onshape-workspace-and-part-selection
 contract-version: work-context-1.0.0-draft; goal-1.2.0-draft; server contract 1.2.0-draft (unchanged)

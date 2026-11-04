@@ -522,7 +522,7 @@ replace the interim proof without changing the plane boundaries.
 
 ### Decided parameters (2026-10-16)
 
-- **Approvers:** initially only Discord user `1382988369553915990`. The approver set is configuration,
+- **Approvers:** initially only Discord user `<approver-discord-id>`. The approver set is configuration,
   separate from the requester binding, and is **shown in the OpenClaw dashboard now**; editing it from
   the dashboard is a later increment (until then it is changed through Clawake inventory).
 - **Proof lifetime:** 15 minutes from issuance.

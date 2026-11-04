@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/21-selection-ui-v2
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape-ui
+worktree: <workspace>/clawonshape-ui
 issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#11-browsing-documents-workspaces-and-part-search-work-context-110-draft
 contract-version: work-context-1.1.0-draft
@@ -139,7 +139,7 @@ The dialog has exactly one way out at the bottom.
 
 ## Branch and worktree rules
 
-Work in `/home/kaos/Projects/01_pib/02_sw/clawonshape-ui` on `feat/21-selection-ui-v2` only. Leave
+Work in `<workspace>/clawonshape-ui` on `feat/21-selection-ui-v2` only. Leave
 the changes uncommitted; the bottom-up architect commits them after review with:
 
 - the trailers `Refs: edge-robot/clawonshape#17`, `Refs: edge-robot/clawonshape#21`,

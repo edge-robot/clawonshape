@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: demo/gateway-native-read-20261014
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape   # devcontainer: /workspaces/clawonshape
+worktree: <workspace>/clawonshape   # devcontainer: /workspaces/clawonshape
 issue: edge-robot/clawonshape#5, edge-robot/clawonshape#10
 architecture-ref: clawonshape/docs/ADR.md#adr-review-2026-10-15-candidate-mutation-runs-through-the-native-mcp-client-and-onshape-mcp-admission-not-a-plugin-side-mcp-factory
 contract-version: 0.3.0-draft

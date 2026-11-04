@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/21-work-context-selection
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape (container: /workspaces/clawonshape)
+worktree: <workspace>/clawonshape (container: /workspaces/clawonshape)
 issue: edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#2-provider-reads-plugin-rest-read-only-existing-oauth-read-authority
 contract-version: work-context-1.0.0-draft (amended CR-1–CR-8)

@@ -167,7 +167,7 @@ Paste into #clawcad (the existing fresh session is ready):
 Validated host fallback if Discord fails:
 
 ```sh
-cd /home/kaos/Projects/01_pib/02_sw
+cd <workspace>
 podman exec -i clawcad-robotics-lead node --input-type=module < clawonshape/state/deployment/a2a-native-read.mjs
 ```
 

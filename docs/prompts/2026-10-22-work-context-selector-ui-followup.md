@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/21-selection-ui
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape-ui
+worktree: <workspace>/clawonshape-ui
 issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#accepted-interpretations-ts-plugin-dev-report-2026-10-22-cr-1cr-8
 contract-version: work-context-1.0.0-draft (amended, CR-1–CR-8); goal-1.2.0-draft

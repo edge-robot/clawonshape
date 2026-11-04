@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/18-goal-authorization
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape
+worktree: <workspace>/clawonshape
 issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#18
 architecture-ref: clawonshape/docs/interface/goal-workflow.md#9-normalized-status-model-goalview
 contract-version: goal-1.0.0-draft (amended); server contract 1.1.0-draft (amended)

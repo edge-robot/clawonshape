@@ -31,7 +31,7 @@ explizite Operatorfreigabe für das konkrete Candidate-Payload.
 
 ## Repositories und Push-Stand
 
-Workspace: `/home/kaos/Projects/01_pib/02_sw`.
+Workspace: `<workspace>`.
 
 | Repo / lokales Verzeichnis | Gepushter Branch | Commit der Implementierung |
 |---|---|---|
@@ -144,7 +144,7 @@ Private, ignorierte Host-Dateien unter `clawonshape/state/deployment/`:
   MCP-Akzeptanzersatz. Nicht für Mutationen verwenden.
 - `backups/self-hosted-mcp-20261012/`: Team-/Runtime-Backups, owner-only.
 
-Quadlets: `/home/kaos/.config/containers/systemd/clawonshape-mcp.container`
+Quadlets: `~/.config/containers/systemd/clawonshape-mcp.container`
 und `clawonshape-mcp-private.network`. Deployment immer über Clawake verwalten.
 Build läuft isoliert ohne Produktionsmounts; finaler Austausch erfolgte nach den
 Tests mit Stop → Digest-Update → Clawake Apply/Start → Health/Discovery.
@@ -270,7 +270,7 @@ UNKNOWN-Reconciliation und unabhängige Nachprüfung. Noch keine Live-Freigabe f
 Optionale operatorseitige Read-only-Prüfungen auf dem bestehenden Host:
 
 ```bash
-cd /home/kaos/Projects/01_pib/02_sw/clawake
+cd <workspace>/clawake
 .venv/bin/clawake onshape-mcp --config ../clawonshape/state/deployment/onshape-mcp/service.json --action status --execute
 .venv/bin/clawake onshape-mcp --config ../clawonshape/state/deployment/onshape-mcp/service.json --action probe --execute
 podman exec clawonshape-mcp curl --fail --silent http://127.0.0.1:8080/health/ready

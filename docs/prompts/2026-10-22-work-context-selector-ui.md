@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/21-selection-ui
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape-ui
+worktree: <workspace>/clawonshape-ui
 issue: edge-robot/clawonshape#17 (UI), backend edge-robot/clawonshape#21
 architecture-ref: clawonshape/docs/interface/work-context.md#6-normalized-views
 contract-version: work-context-1.0.0-draft; goal-1.2.0-draft
@@ -84,7 +84,7 @@ fixtures as mocked responses.
 
 ## Steps
 
-1. Verify the worktree `/home/kaos/Projects/01_pib/02_sw/clawonshape-ui` is on
+1. Verify the worktree `<workspace>/clawonshape-ui` is on
    `feat/21-selection-ui` at `base-commit` or later and clean.
 2. Add a mock gateway for the five `work-context-*` methods backed by the fixtures.
 3. Implement the selector dialog and the compact card per the bullets above.
@@ -107,7 +107,7 @@ fixtures as mocked responses.
 
 ## Branch and worktree rules
 
-Commit on `feat/21-selection-ui` in the worktree `/home/kaos/Projects/01_pib/02_sw/clawonshape-ui`
+Commit on `feat/21-selection-ui` in the worktree `<workspace>/clawonshape-ui`
 only, with the trailers `Refs: edge-robot/clawonshape#17`, `Refs: edge-robot/clawonshape#21`,
 `Prompt: docs/prompts/2026-10-22-work-context-selector-ui.md` and `Agent: openclaw-dev`. Author
 `Albert Kos <kickban3000@gmail.com>`. Do not work in the main checkout `clawonshape/` (the backend

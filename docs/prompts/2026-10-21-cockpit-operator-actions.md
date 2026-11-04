@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: demo/gateway-native-read-20261014
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape
+worktree: <workspace>/clawonshape
 issue: edge-robot/clawonshape#17
 architecture-ref: clawonshape/docs/ADR.md#adr-2026-10-16-proof-based-mutation-release-prepared-for-verifiable-presentations
 contract-version: 1.0.0-draft   # unchanged; this task does not touch the MCP contract
@@ -63,7 +63,7 @@ start over.
 
 ## Binding constraints and prohibitions
 
-- Work only in `/home/kaos/Projects/01_pib/02_sw/clawonshape` on branch
+- Work only in `<workspace>/clawonshape` on branch
   `demo/gateway-native-read-20261014`. Do not create branches, worktrees or stashes.
 - **Do not commit, push or open PRs.** Leave all changes in the working tree. The user commits
   after the architect accepts your report (`Refs: edge-robot/clawonshape#17`).
@@ -152,7 +152,7 @@ start over.
 ## Branch and worktree rules
 
 - Branch `demo/gateway-native-read-20261014`, main checkout
-  `/home/kaos/Projects/01_pib/02_sw/clawonshape`. No other branch or worktree.
+  `<workspace>/clawonshape`. No other branch or worktree.
 - No commits. The working tree is handed back to the user and architect once the report file
   exists.
 - If you find the branch HEAD is not `b63a82b`, or the first-pass cockpit changes are missing

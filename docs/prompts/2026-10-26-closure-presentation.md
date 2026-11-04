@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/21-work-context-selection
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape
+worktree: <workspace>/clawonshape
 issue: edge-robot/clawonshape#23 (closure), edge-robot/clawonshape#19 (spec)
 architecture-ref: clawonshape/docs/ADR.md#adr-2026-10-26-project-closure-onshape-rest-quota-and-large-models-limit-the-pib-use-case
 status: issued

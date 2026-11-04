@@ -44,7 +44,7 @@ FULL NPM TEST exit 1 — unchanged CR-UI-1
 test at tests/work-context.test.mjs:901:1
 ✖ W11 every code the work-context modules emit is in error-codes.json or an existing plugin code (1.469486ms)
   AssertionError [ERR_ASSERTION]: missing message for document_not_accessible
-      at TestContext.<anonymous> (file:///home/kaos/Projects/01_pib/02_sw/clawonshape-ui/tests/work-context.test.mjs:932:5)
+      at TestContext.<anonymous> (file://<workspace>/clawonshape-ui/tests/work-context.test.mjs:932:5)
       at async Test.run (node:internal/test_runner/test:1409:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
     generatedMessage: false,

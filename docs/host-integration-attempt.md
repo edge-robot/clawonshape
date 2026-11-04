@@ -1,6 +1,6 @@
 # Host integration access check — 2026-10-09
 
-The session workspace was expanded to `/home/kaos/Projects/01_pib/02_sw`. Clawake source, its Python environment and the historical inventory are now accessible. This did not grant access to the rootless container runtime or user systemd bus.
+The session workspace was expanded to `<workspace>`. Clawake source, its Python environment and the historical inventory are now accessible. This did not grant access to the rootless container runtime or user systemd bus.
 
 Observed from this Codex session:
 
@@ -13,7 +13,7 @@ Observed from this Codex session:
 Run the prepared diagnostic from a normal host terminal:
 
 ```sh
-cd /home/kaos/Projects/01_pib/02_sw
+cd <workspace>
 node clawonshape/scripts/host-diagnostics.mjs clawcad-mechanical-engineer
 ```
 

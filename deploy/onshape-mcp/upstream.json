@@ -6,7 +6,7 @@
   "toolchain": "1.99.0",
   "apiBase": "https://cad.onshape.com/api/v10",
   "mode": "external-token; optional bounded modify; deployed read-only",
-  "workingFork": "/home/kaos/Projects/01_pib/02_sw/onshape-mcp",
+  "workingFork": "https://github.com/edge-robot/onshape-mcp",
   "workingBranch": "claw-onshape/external-token",
   "workingForkCommit": "f27613e7854de1b4c8de2438c8f6c87761259cd5",
   "forkRepository": "https://github.com/edge-robot/onshape-mcp",

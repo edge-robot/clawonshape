@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/11-approval-v2-writer   # created by the architect from demo/gateway-native-read-20261014 @ bdc93f6 before issuing
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape   # devcontainer: /workspaces/clawonshape
+worktree: <workspace>/clawonshape   # devcontainer: /workspaces/clawonshape
 issue: edge-robot/clawonshape#14
 epic: edge-robot/clawonshape#11 (work package P3a)
 architecture-ref: clawonshape/docs/interface/onshape-mcp.md#4-channel-c-mutation-approval-approved-updatejson

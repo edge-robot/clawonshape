@@ -7,7 +7,7 @@ Status: implemented and offline verified; **architect review PENDING**.
 
 ## Repository, baseline and authority
 
-Repository/worktree: `/home/kaos/Projects/01_pib/02_sw/clawonshape-ui` only.  
+Repository/worktree: `<workspace>/clawonshape-ui` only.  
 Branch: `feat/21-selection-ui`.  
 Base and final HEAD: `6691cfc50a4848911eff83d43a1d1566303924d3` (changes uncommitted).
 Initial `git status --short` was empty; there were no user edits to preserve.
@@ -152,8 +152,8 @@ this consumer mock suite does not establish live provider behavior, auth enforce
 deployment or CAD correctness. Later live/product acceptance remains separate.
 
 Commit list: **none**. This session's Git administrative paths are still read-only:
-`/home/kaos/Projects/01_pib/02_sw/clawonshape/.git/worktrees/clawonshape-ui` and
-common `/home/kaos/Projects/01_pib/02_sw/clawonshape/.git`. They are under the excluded
+`<workspace>/clawonshape/.git/worktrees/clawonshape-ui` and
+common `<workspace>/clawonshape/.git`. They are under the excluded
 main checkout. As allowed by the handoff, the reviewed changes remain uncommitted;
 no Git write or permission expansion was attempted. An authorized operator can
 commit on feat/21-selection-ui after review, using author Albert Kos

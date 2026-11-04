@@ -8,7 +8,7 @@ to unchanged backend integration failure CR-UI-1. Architect review **PENDING**.
 
 ## Scope, baseline and X1
 
-Only the existing `/home/kaos/Projects/01_pib/02_sw/clawonshape-ui` worktree was used
+Only the existing `<workspace>/clawonshape-ui` worktree was used
 for installation, implementation, build and tests. Initial/final branch:
 `feat/21-selection-ui-v2`. Initial/final HEAD:
 `b34ad5d35cfac6c13c72ddce9bc1ac51efe24dbb` (changes uncommitted).

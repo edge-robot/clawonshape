@@ -51,7 +51,7 @@ noch fehlende Bambu-Einrichtung. Das sind verschiedene Demonstrationszustände.
 Produkttext für die echte Anwendung soll keine Entwurfs-/Architekturhinweise übernehmen.
 
 Die neu genannten Host-Screenshots `screenshot-2026-10-21_09-17-23.png` und
-`screenshot-2026-10-21_09-32-42.png` waren unter `/home/kaos/Pictures/` nicht
+`screenshot-2026-10-21_09-32-42.png` waren unter `~/Pictures/` nicht
 verfügbar. Ein genauer Abgleich steht aus. Für das Branch-Prinzip wurde ersatzweise
 die vorhandene Onshape-Referenz [mutation_user_journey.png](../mutation_user_journey.png)
 betrachtet. Der Baum zeigt Primary, Ausgangspunkt und einen seitlichen Candidate;

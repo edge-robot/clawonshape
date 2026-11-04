@@ -1,7 +1,7 @@
 ---
 target-repo: edge-robot/clawonshape
 branch: feat/18-goal-authorization
-worktree: /home/kaos/Projects/01_pib/02_sw/clawonshape (container: /workspaces/clawonshape)
+worktree: <workspace>/clawonshape (container: /workspaces/clawonshape)
 issue: edge-robot/clawonshape#18
 architecture-ref: clawonshape/docs/interface/goal-workflow.md
 contract-version: 1.1.0-draft   # amended 297512c; plugin-facing goal-1.0.0-draft amended
