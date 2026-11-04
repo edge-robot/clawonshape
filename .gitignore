@@ -21,3 +21,6 @@ coverage/
 /agents/*/workspace/memory/
 /agents/*/workspace/DREAMS.md
 /agents/*/workspace/artifacts/
+# Local agent knowledge and extra local agents (not part of the product, #26)
+/agents/*/workspace/knowledge/pib_wiki/
+/agents/*/workspace/assistant/
