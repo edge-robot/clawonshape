@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "agentId": "clawcad-mechanical-engineer",
+  "source": "native-openclaw-workshop",
+  "skills": [
+    {
+      "name": "onshape-edit-feature-parameters",
+      "description": "Plan bounded Onshape Candidate parameter changes through native MCP; execute only with technical approval and verify before/after evidence.",
+      "sha256": "30c7875871c2616c701ef213f21dbebf41971033f30609f3839414cbecaab4a7",
+      "resources": []
+    },
+    {
+      "name": "onshape-inspect-features",
+      "description": "Inspect current Onshape feature parameters and state through native MCP, including mounting-hole diameters and plate dimensions.",
+      "sha256": "e458e21c9ded18647ce2c091b3cf14d54ad153cf5c7a765497b3e3b672fede09",
+      "resources": []
+    },
+    {
+      "name": "onshape-verify-candidate",
+      "description": "Verify Onshape Candidate changes with live native MCP reads and independent control-plane evidence; reconcile uncertain outcomes without write retries.",
+      "sha256": "a344a2fd92f8aa038d9d88f7b7ad1c9580634824615726030ca709f145aefb2d",
+      "resources": []
+    }
+  ]
+}

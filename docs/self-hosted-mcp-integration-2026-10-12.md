@@ -94,7 +94,7 @@ debug binary and digest-pinned Debian runtime with CA certificates/curl.
 The runtime is immutable by digest, but apt package resolution is not independently
 version-locked; reproducing a later build can produce another image digest.
 
-Local working fork: `/home/kaos/Projects/01_pib/02_sw/onshape-mcp`, branch
+Local working fork: `<workspace>/onshape-mcp`, branch
 `claw-onshape/external-token`, upstream origin retained. Its README lists changes.
 The six modified Rust files match the tested temporary build checkout byte for
 byte. No credentials, target cache or temporary build outputs were copied into it.

@@ -2,4 +2,25 @@ node_modules/
 dist/
 *.tgz
 coverage/
-state/
+/state/
+/.backups/
+**/.openclaw/
+**/.codex/
+**/credentials/
+**/auth-profiles.json
+**/auth.json
+**/.env
+**/.env.*
+**/*.env
+!**/.env.example
+!**/*.env.example
+**/*.key
+**/*.pem
+/agents/*/workspace/USER.md
+/agents/*/workspace/MEMORY.md
+/agents/*/workspace/memory/
+/agents/*/workspace/DREAMS.md
+/agents/*/workspace/artifacts/
+# Local agent knowledge and extra local agents (not part of the product, #26)
+/agents/*/workspace/knowledge/pib_wiki/
+/agents/*/workspace/assistant/

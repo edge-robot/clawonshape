@@ -1,0 +1,31 @@
+{
+  "_comment": "work-context.md §6.2, state after W3 adopt (revision 0 -> 1)",
+  "selectionRevision": 1,
+  "validity": "valid",
+  "reason": null,
+  "selection": {
+    "documentId": "0123456789abcdef01234567",
+    "documentName": "Camera Mount",
+    "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+    "workspaceName": "Main",
+    "elementId": "fedcba9876543210fedcba98",
+    "partStudioName": "Mount Plate",
+    "partId": "JIF",
+    "partName": "Clamp left",
+    "bodyType": "solid",
+    "configuration": "default",
+    "observedMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "currentMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "onshapeUrl": "https://cad.onshape.com/documents/0123456789abcdef01234567/w/eeeeeeeeeeeeeeeeeeeeeeee/e/fedcba9876543210fedcba98"
+  },
+  "adoptedAt": 1761116460000,
+  "adoptedBy": {
+    "kind": "dashboard-operator"
+  },
+  "interlock": {
+    "blocked": false,
+    "code": null,
+    "goalId": null
+  },
+  "observedAt": 1761116460000
+}

@@ -1,0 +1,350 @@
+{
+  "version": 1,
+  "runtime_pins": "${HOME}/.config/clawake/clawonshape/pins.json",
+  "site_values": "${HOME}/.config/clawake/clawonshape/site.json",
+  "cluster": {
+    "name": "clawonshape",
+    "primary_host": "local"
+  },
+  "hosts": [
+    {
+      "name": "local"
+    }
+  ],
+  "networks": [
+    {
+      "name": "clawcad-demo",
+      "host": "local",
+      "quadlet_default_dependencies": false
+    },
+    {
+      "name": "clawonshape-mcp-private",
+      "host": "local",
+      "quadlet_default_dependencies": false
+    }
+  ],
+  "instances": [
+    {
+      "name": "clawcad-robotics-lead",
+      "host": "local",
+      "role": "product_owner",
+      "workspace_path": "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/workspace",
+      "team_definition_path": "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/definition",
+      "quadlet_path": "clawcad-robotics-lead.container",
+      "container_name": "clawcad-robotics-lead",
+      "networks": [
+        "clawcad-demo"
+      ],
+      "image": {
+        "repository": "ghcr.io/openclaw/openclaw"
+      },
+      "ports": [
+        {
+          "bind_address": "127.0.0.1",
+          "host_port": 19389,
+          "container_port": 18789
+        }
+      ],
+      "env_files": [
+        "${CLAWAKE_PROJECT_ROOT}/state/secrets/robotics-lead.env"
+      ],
+      "gateway_runtime": {
+        "enabled": true,
+        "bind": "lan"
+      },
+      "dashboard": {
+        "friendly_name": "clawcad-robotics-lead",
+        "owner": "ClawOnshape"
+      },
+      "openclaw": {
+        "lead_agent_id": "clawcad-robotics-lead",
+        "a2a": {
+          "enabled": true,
+          "peers": {
+            "mechanical": {
+              "instance": "clawcad-mechanical-engineer",
+              "inbound_token_env": "A2A_MECHANICAL_TO_LEAD",
+              "outbound_token_env": "A2A_LEAD_TO_MECHANICAL"
+            }
+          }
+        },
+        "discord": {
+          "enabled": true,
+          "token_env": "DISCORD_BOT_TOKEN",
+          "dm_policy": "allowlist",
+          "allow_from": "${site:discord.dm_allow}",
+          "group_policy": "allowlist",
+          "guilds": [
+            {
+              "id": "${site:discord.guild}",
+              "require_mention": true,
+              "channels": [
+                {
+                  "id": "${site:discord.lead_channel}",
+                  "users": "${site:discord.approvers}"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "mounts": [
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/delegation",
+          "target": "/run/claw-onshape-delegation",
+          "read_only": true
+        },
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/artifacts",
+          "target": "/workspace/artifacts/claw-onshape",
+          "read_only": true
+        }
+      ],
+      "quadlet_default_dependencies": false,
+      "agent_tool_allow": {
+        "clawcad-robotics-lead": [
+          "message",
+          "onshape_delegate_render",
+          "onshape_delegate_task",
+          "onshape_goal_status",
+          "onshape_goal_stop"
+        ]
+      },
+      "plugins": [
+        {
+          "id": "claw-onshape",
+          "config": {
+            "bindings": [
+              {
+                "agentId": "clawcad-mechanical-engineer",
+                "requesterSenderId": "${site:discord.requester}",
+                "messageChannel": "discord",
+                "agentAccountId": "default",
+                "discordChannelId": "${site:discord.lead_channel}",
+                "connectionRef": "owner-rest",
+                "documentId": "8b63eacf80efca72049f8017",
+                "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
+                "workspaceId": "9cc20006f770e86549af11f4",
+                "elementId": "7768b96c15d71e78cdbdd7d9"
+              }
+            ],
+            "liveReads": false,
+            "engineerAgentId": "clawcad-mechanical-engineer",
+            "delegation": {
+              "leadAgentId": "clawcad-robotics-lead",
+              "engineerAgentId": "clawcad-mechanical-engineer",
+              "peerSenderId": "lead",
+              "accountId": "default",
+              "keyFile": "/run/claw-onshape-delegation/key"
+            }
+          },
+          "enabled": true,
+          "custom_ui": false
+        }
+      ],
+      "global_tool_allow": [
+        "onshape_delegate_render",
+        "onshape_delegate_task",
+        "onshape_goal_status",
+        "onshape_goal_stop"
+      ],
+      "state_path": "${CLAWAKE_PROJECT_ROOT}/state/openclaw/robotics-lead",
+      "backup_policy": {
+        "enabled": true,
+        "pre_mutation": true,
+        "paths": [
+          "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/workspace",
+          "${CLAWAKE_PROJECT_ROOT}/state/openclaw/robotics-lead",
+          "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/definition",
+          "${CLAWAKE_PROJECT_ROOT}/state/secrets",
+          "${CLAWAKE_PROJECT_ROOT}/state/artifacts"
+        ]
+      },
+      "readiness": {
+        "channels": true
+      }
+    },
+    {
+      "name": "clawcad-mechanical-engineer",
+      "host": "local",
+      "role": "developer",
+      "workspace_path": "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/workspace",
+      "team_definition_path": "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/definition",
+      "quadlet_path": "clawcad-mechanical-engineer.container",
+      "container_name": "clawcad-mechanical-engineer",
+      "networks": [
+        "clawcad-demo",
+        "clawonshape-mcp-private"
+      ],
+      "image": {
+        "repository": "ghcr.io/openclaw/openclaw"
+      },
+      "ports": [
+        {
+          "bind_address": "127.0.0.1",
+          "host_port": 19489,
+          "container_port": 18789
+        }
+      ],
+      "env_files": [
+        "${CLAWAKE_PROJECT_ROOT}/state/secrets/mechanical-engineer.env"
+      ],
+      "gateway_runtime": {
+        "enabled": true,
+        "bind": "lan"
+      },
+      "dashboard": {
+        "friendly_name": "clawcad-mechanical-engineer",
+        "owner": "ClawOnshape"
+      },
+      "openclaw": {
+        "lead_agent_id": "clawcad-mechanical-engineer",
+        "a2a": {
+          "enabled": true,
+          "peers": {
+            "lead": {
+              "instance": "clawcad-robotics-lead",
+              "inbound_token_env": "A2A_LEAD_TO_MECHANICAL",
+              "outbound_token_env": "A2A_MECHANICAL_TO_LEAD"
+            }
+          }
+        },
+        "discord": {
+          "enabled": false
+        }
+      },
+      "mounts": [
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/delegation",
+          "target": "/run/claw-onshape-delegation",
+          "read_only": true
+        },
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/artifacts",
+          "target": "/workspace/artifacts/claw-onshape",
+          "read_only": false
+        },
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/oauth",
+          "target": "/run/claw-onshape-oauth",
+          "read_only": true
+        },
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/onshape-mcp",
+          "target": "/run/onshape-credentials",
+          "read_only": false
+        },
+        {
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/oauth/connections",
+          "target": "/home/node/.openclaw/claw-onshape/credentials",
+          "read_only": false
+        }
+      ],
+      "quadlet_default_dependencies": false,
+      "agent_tool_allow": {
+        "clawcad-mechanical-engineer": [
+          "onshape_inspect",
+          "onshape_status",
+          "onshape_render",
+          "onshape__onshape_auth_status",
+          "onshape__onshape_api_explain",
+          "onshape__onshape_api_schema",
+          "onshape__onshape_api_call",
+          "skill_workshop",
+          "onshape_complete_task",
+          "onshape_propose_update",
+          "onshape_mutation_context",
+          "onshape_reconcile_update",
+          "onshape_goal_propose",
+          "onshape_goal_status",
+          "onshape_goal_reconcile",
+          "onshape_goal_verify",
+          "onshape_goal_stop"
+        ]
+      },
+      "plugins": [
+        {
+          "id": "claw-onshape",
+          "config": {
+            "bindings": [
+              {
+                "agentId": "clawcad-mechanical-engineer",
+                "requesterSenderId": "${site:discord.requester}",
+                "messageChannel": "discord",
+                "agentAccountId": "default",
+                "discordChannelId": "${site:discord.lead_channel}",
+                "connectionRef": "owner-rest",
+                "documentId": "8b63eacf80efca72049f8017",
+                "primaryWorkspaceId": "1e76fac0ddca3ed10ecc9f28",
+                "workspaceId": "9cc20006f770e86549af11f4",
+                "elementId": "7768b96c15d71e78cdbdd7d9"
+              }
+            ],
+            "liveReads": true,
+            "engineerAgentId": "clawcad-mechanical-engineer",
+            "delegation": {
+              "leadAgentId": "clawcad-robotics-lead",
+              "engineerAgentId": "clawcad-mechanical-engineer",
+              "peerSenderId": "lead",
+              "accountId": "default",
+              "keyFile": "/run/claw-onshape-delegation/key"
+            },
+            "oauth": {
+              "clientId": "GAYRCCNXTMZQFIQUBVKEWRPQW2QDU5WLHJH6MOI=",
+              "clientSecretFile": "/run/claw-onshape-oauth/client-secret",
+              "dashboardRedirectUri": "http://localhost:19489/plugins/claw-onshape/oauth/callback",
+              "applicationPermissions": {
+                "canReadDocuments": true,
+                "canWriteDocuments": true,
+                "canDeleteDocumentsAndWorkspaces": true
+              }
+            },
+            "localMcp": {
+              "connectionRef": "owner-rest",
+              "credentialDirectory": "/run/onshape-credentials"
+            },
+            "goals": {
+              "enabled": true,
+              "approvalDirectory": "/run/onshape-credentials/mutation-approvals"
+            }
+          },
+          "enabled": true,
+          "custom_ui": true
+        }
+      ],
+      "global_tool_allow": [
+        "onshape_status",
+        "onshape_inspect",
+        "onshape_render",
+        "onshape__onshape_auth_status",
+        "onshape__onshape_api_explain",
+        "onshape__onshape_api_schema",
+        "onshape__onshape_api_call",
+        "skill_workshop",
+        "onshape_complete_task",
+        "onshape_propose_update",
+        "onshape_mutation_context",
+        "onshape_reconcile_update",
+        "onshape_goal_propose",
+        "onshape_goal_status",
+        "onshape_goal_reconcile",
+        "onshape_goal_verify",
+        "onshape_goal_stop"
+      ],
+      "onshape_mcp": true,
+      "onshape_mcp_enabled": true,
+      "state_path": "${CLAWAKE_PROJECT_ROOT}/state/openclaw/mechanical-engineer",
+      "backup_policy": {
+        "enabled": true,
+        "pre_mutation": true,
+        "paths": [
+          "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/workspace",
+          "${CLAWAKE_PROJECT_ROOT}/state/openclaw/mechanical-engineer",
+          "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/definition",
+          "${CLAWAKE_PROJECT_ROOT}/state/secrets",
+          "${CLAWAKE_PROJECT_ROOT}/state/artifacts"
+        ]
+      }
+    }
+  ]
+}

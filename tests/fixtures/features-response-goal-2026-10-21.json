@@ -1,0 +1,183 @@
+{
+  "_comment": "GW3 (goal-workflow.md §6). Two v16 getPartStudioFeatures reads of one Candidate, before and after a goal update of FabcDEF123_0. Synthetic IDs only. Object shape follows the recorded live read in docs/evidence/camera-mount-mcp-live-sprint-2026-10-12.json (BTMFeature-134, BTMParameterQuantity-147 with nodeId, value, units, isInteger, libraryRelationType, parameterName, namespace) and the v16 BTFeatureListResponse top level (sourceMicroversion, microversionSkew, serializationVersion, libraryVersion, featureStates). Between the reads the nodeIds of the untouched feature FholeAAA111_2 are re-issued; its canonical feature hash must not change.",
+  "before": {
+    "btType": "BTFeatureListResponse-2457",
+    "serializationVersion": "1.2.23",
+    "sourceMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "microversionSkew": false,
+    "libraryVersion": 3095,
+    "rollbackIndex": 3,
+    "isComplete": true,
+    "defaultFeatures": [],
+    "imports": [],
+    "features": [
+      {
+        "btType": "BTMFeature-134",
+        "featureId": "FabcDEF123_0",
+        "name": "Mount body",
+        "featureType": "extrude",
+        "namespace": "",
+        "nodeId": "MnodeExtrude0001",
+        "suppressed": false,
+        "returnAfterSubfeatures": false,
+        "subFeatures": [],
+        "parameters": [
+          {
+            "btType": "BTMParameterQuantity-147",
+            "parameterId": "depth",
+            "expression": "50 mm",
+            "nodeId": "MnodeDepth000001",
+            "value": 0,
+            "units": "",
+            "isInteger": false,
+            "libraryRelationType": "DEFAULT",
+            "parameterName": ""
+          }
+        ]
+      },
+      {
+        "btType": "BTMFeature-134",
+        "featureId": "FfedCBA321_1",
+        "name": "Edge fillet",
+        "featureType": "fillet",
+        "namespace": "",
+        "nodeId": "MnodeFillet00001",
+        "suppressed": false,
+        "returnAfterSubfeatures": false,
+        "subFeatures": [],
+        "parameters": [
+          {
+            "btType": "BTMParameterQuantity-147",
+            "parameterId": "radius",
+            "expression": "1 mm",
+            "nodeId": "MnodeRadius00001",
+            "value": 0,
+            "units": "",
+            "isInteger": false,
+            "libraryRelationType": "DEFAULT",
+            "parameterName": ""
+          }
+        ]
+      },
+      {
+        "btType": "BTMFeature-134",
+        "featureId": "FholeAAA111_2",
+        "name": "Mounting holes",
+        "featureType": "hole",
+        "namespace": "",
+        "nodeId": "MnodeHole0000001",
+        "suppressed": false,
+        "returnAfterSubfeatures": false,
+        "subFeatures": [],
+        "parameters": [
+          {
+            "btType": "BTMParameterQuantity-147",
+            "parameterId": "holeDiameter",
+            "expression": "4 mm",
+            "nodeId": "MnodeHoleDia0001",
+            "value": 0,
+            "units": "",
+            "isInteger": false,
+            "libraryRelationType": "DEFAULT",
+            "parameterName": ""
+          }
+        ]
+      }
+    ],
+    "featureStates": {
+      "FabcDEF123_0": {"btType": "BTFeatureState-1688", "featureStatus": "OK", "inactive": false},
+      "FfedCBA321_1": {"btType": "BTFeatureState-1688", "featureStatus": "OK", "inactive": false},
+      "FholeAAA111_2": {"btType": "BTFeatureState-1688", "featureStatus": "OK", "inactive": false}
+    }
+  },
+  "after": {
+    "btType": "BTFeatureListResponse-2457",
+    "serializationVersion": "1.2.23",
+    "sourceMicroversion": "bbbbbbbbbbbbbbbbbbbbbbbb",
+    "microversionSkew": true,
+    "libraryVersion": 3095,
+    "rollbackIndex": 3,
+    "isComplete": true,
+    "defaultFeatures": [],
+    "imports": [],
+    "features": [
+      {
+        "btType": "BTMFeature-134",
+        "featureId": "FabcDEF123_0",
+        "name": "Mount body",
+        "featureType": "extrude",
+        "namespace": "",
+        "nodeId": "MnodeExtrude0002",
+        "suppressed": false,
+        "returnAfterSubfeatures": false,
+        "subFeatures": [],
+        "parameters": [
+          {
+            "btType": "BTMParameterQuantity-147",
+            "parameterId": "depth",
+            "expression": "60 mm",
+            "nodeId": "MnodeDepth000002",
+            "value": 0,
+            "units": "",
+            "isInteger": false,
+            "libraryRelationType": "DEFAULT",
+            "parameterName": ""
+          }
+        ]
+      },
+      {
+        "btType": "BTMFeature-134",
+        "featureId": "FfedCBA321_1",
+        "name": "Edge fillet",
+        "featureType": "fillet",
+        "namespace": "",
+        "nodeId": "MnodeFillet00001",
+        "suppressed": false,
+        "returnAfterSubfeatures": false,
+        "subFeatures": [],
+        "parameters": [
+          {
+            "btType": "BTMParameterQuantity-147",
+            "parameterId": "radius",
+            "expression": "1 mm",
+            "nodeId": "MnodeRadius00001",
+            "value": 0,
+            "units": "",
+            "isInteger": false,
+            "libraryRelationType": "DEFAULT",
+            "parameterName": ""
+          }
+        ]
+      },
+      {
+        "btType": "BTMFeature-134",
+        "featureId": "FholeAAA111_2",
+        "name": "Mounting holes",
+        "featureType": "hole",
+        "namespace": "",
+        "nodeId": "MnodeHole0000009",
+        "suppressed": false,
+        "returnAfterSubfeatures": false,
+        "subFeatures": [],
+        "parameters": [
+          {
+            "btType": "BTMParameterQuantity-147",
+            "parameterId": "holeDiameter",
+            "expression": "4 mm",
+            "nodeId": "MnodeHoleDia0009",
+            "value": 0,
+            "units": "",
+            "isInteger": false,
+            "libraryRelationType": "DEFAULT",
+            "parameterName": ""
+          }
+        ]
+      }
+    ],
+    "featureStates": {
+      "FabcDEF123_0": {"btType": "BTFeatureState-1688", "featureStatus": "OK", "inactive": false},
+      "FfedCBA321_1": {"btType": "BTFeatureState-1688", "featureStatus": "OK", "inactive": false},
+      "FholeAAA111_2": {"btType": "BTFeatureState-1688", "featureStatus": "OK", "inactive": false}
+    }
+  }
+}

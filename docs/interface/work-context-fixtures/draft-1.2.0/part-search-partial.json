@@ -1,0 +1,65 @@
+{
+  "_comment": "work-context.md §12.1/§12.2/§12.4 PartSearch, query '' in the bound Primary of a large document: bound studio scanned with one skipped entry, one studio failed (oversize), one beyond the automatic scan limit",
+  "documentId": "0123456789abcdef01234567",
+  "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+  "observedMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+  "query": "",
+  "studios": [
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "name": "Mount Plate",
+      "goalEligible": true,
+      "reason": null,
+      "configurationChecked": true,
+      "scan": "scanned",
+      "scanError": null,
+      "skippedEntries": 1
+    },
+    {
+      "elementId": "abababababababababababab",
+      "name": "Fasteners",
+      "goalEligible": false,
+      "reason": "element_not_provisioned",
+      "configurationChecked": false,
+      "scan": "failed",
+      "scanError": "provider_response_too_large",
+      "skippedEntries": 0
+    },
+    {
+      "elementId": "cdcdcdcdcdcdcdcdcdcdcdcd",
+      "name": "Imported Assembly",
+      "goalEligible": false,
+      "reason": "element_not_provisioned",
+      "configurationChecked": false,
+      "scan": "not_scanned",
+      "scanError": null,
+      "skippedEntries": 0
+    }
+  ],
+  "hits": [
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "partId": "JIF",
+      "name": "Clamp left",
+      "partNumber": null,
+      "bodyType": "solid",
+      "hidden": false,
+      "selectable": true,
+      "reason": null
+    },
+    {
+      "elementId": "fedcba9876543210fedcba98",
+      "partId": "JIG",
+      "name": "Clamp right",
+      "partNumber": null,
+      "bodyType": "solid",
+      "hidden": false,
+      "selectable": true,
+      "reason": null
+    }
+  ],
+  "truncated": true,
+  "truncatedReason": "part_search_truncated",
+  "failedStudios": 1,
+  "observedAt": 1761140000000
+}

@@ -1,19 +1,24 @@
 {
   "name": "@edge-robot/claw-onshape",
-  "version": "0.2.2",
+  "version": "0.3.0-rc.4",
   "type": "module",
   "private": true,
+  "license": "Apache-2.0",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=24.16.0"
   },
   "files": [
     "dist",
     "openclaw.plugin.json",
     "README.md",
     "docs",
-    "agents",
-    "deploy/roles",
-    "spec.md"
+    "!docs/product",
+    "spec.md",
+    "skills",
+    "scripts/sync-engineer-workshop-skills.mjs",
+    "agents/robotics-lead/definition",
+    "agents/mechanical-engineer/definition",
+    "scripts/workshop-skills.mjs"
   ],
   "openclaw": {
     "extensions": [
@@ -21,19 +26,25 @@
     ]
   },
   "peerDependencies": {
-    "openclaw": "2026.9.9"
+    "openclaw": ">=2026.9.9 <2026.11.0"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@types/node": "24.10.0"
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.10.0",
+    "openclaw": "2026.10.10",
+    "typescript": "5.9.3"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "pretest": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "test:cockpit": "npm run build && node scripts/test-cockpit-browser.mjs",
     "test:host": "node scripts/host-smoke.mjs",
     "test:native-files": "node scripts/native-secret-file-check.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome ci ."
   }
 }

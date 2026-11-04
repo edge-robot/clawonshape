@@ -1,0 +1,31 @@
+{
+  "_comment": "work-context.md §5.2: part missing at the current revision; a non-terminal goal blocks a new adoption",
+  "selectionRevision": 1,
+  "validity": "invalid",
+  "reason": "selection_part_missing",
+  "selection": {
+    "documentId": "0123456789abcdef01234567",
+    "documentName": "Camera Mount",
+    "workspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+    "workspaceName": "Main",
+    "elementId": "fedcba9876543210fedcba98",
+    "partStudioName": "Mount Plate",
+    "partId": "JIF",
+    "partName": "Clamp left",
+    "bodyType": "solid",
+    "configuration": "default",
+    "observedMicroversion": "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "currentMicroversion": "bbbbbbbbbbbbbbbbbbbbbbbb",
+    "onshapeUrl": "https://cad.onshape.com/documents/0123456789abcdef01234567/w/eeeeeeeeeeeeeeeeeeeeeeee/e/fedcba9876543210fedcba98"
+  },
+  "adoptedAt": 1761116460000,
+  "adoptedBy": {
+    "kind": "dashboard-operator"
+  },
+  "interlock": {
+    "blocked": true,
+    "code": "goal_active_conflict",
+    "goalId": "6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b"
+  },
+  "observedAt": 1761116460000
+}

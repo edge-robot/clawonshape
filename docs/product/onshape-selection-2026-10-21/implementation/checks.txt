@@ -1,0 +1,71 @@
+COC-CONTEXT-SELECTION-UI-20261022
+2026-10-22; Node v26.8.2; npm 11.19.1
+Offline checks only; no integration or live acceptance.
+
+TYPECHECK (exit 0)
+
+> @edge-robot/claw-onshape@0.3.0-rc.1 typecheck
+> tsc --noEmit
+
+
+BIOME (exit 0)
+
+> @edge-robot/claw-onshape@0.3.0-rc.1 check
+> biome ci .
+
+Checked 66 files in 1488ms. No fixes applied.
+
+NPM TEST (exit 0; summary)
+ℹ tests 199
+ℹ suites 0
+ℹ pass 199
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6483.802863
+
+BROWSER (exit 0)
+
+> @edge-robot/claw-onshape@0.3.0-rc.1 test:cockpit
+> npm run build && node scripts/test-cockpit-browser.mjs
+
+
+> @edge-robot/claw-onshape@0.3.0-rc.1 build
+> node scripts/build.mjs
+
+(node:167552) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Serverless Chromium fixture passed. Synthetic screenshots: /tmp/clawonshape-ui-cockpit-regression/goal-ui-{workspace,confirm,active,completed,cad-payload-evidence,print-blocked}-{1440x900,1366x768,390x844}.png
+Selector browser acceptance passed (31 checks). Screenshots: docs/product/onshape-selection-2026-10-21/implementation
+  U1/U2/U6: bounds, search, null vs empty, hidden/same-name IDs, keyboard, explicit adopt, compact Workspace/CAD, restore and cancel/close/Escape
+  U3 selection_observation_stale: /Stand hat sich geändert/
+  U3 selection_part_missing: /Bauteil nicht mehr vorhanden/
+  U3 selection_part_unsupported: /Bauteilart nicht unterstützt/
+  U3 configuration_unsupported: /Konfiguriertes Part Studio nicht unterstützt/
+  U3 element_not_provisioned: /Part Studio nicht für Ziele freigegeben/
+  U3 selection_target_not_allowed: /Auswahl außerhalb der erlaubten Zuordnung/
+  U3 selection_revision_conflict: /Eine andere Auswahl wurde übernommen/
+  U3 preview_unavailable: /Vorschau nicht verfügbar/
+  U3 invalid_arguments: /Auswahlanfrage ungültig/
+  U3 authorization_changed: /Zugriff geändert/
+  U3 live_reads_disabled: /Live-Lesen deaktiviert/
+  U3 not_configured: /Keine Zuordnung eingerichtet/
+  U3 provider_protocol_error: /Onshape-Antwort nicht lesbar/
+  U3 goal_active_conflict: /Schließe zuerst das aktuelle Ziel ab/
+  U3 mutation_reconciliation_required: /Unklaren Änderungs- oder Candidate-Ausgang zuerst abgleichen/
+  U3 goal_state_invalid: /Arbeitsstatus nicht lesbar/
+  U3 failed adoption preserves the existing non-empty confirmed record
+  U3 stale catalog retries once; explicit catalog recovery
+  U4 invalid/selection_part_missing: view reason, no cached image, interlock independent
+  U4 invalid/selection_part_unsupported: view reason, no cached image, interlock independent
+  U4 invalid/configuration_unsupported: view reason, no cached image, interlock independent
+  U4 unverified/authorization_changed: view reason, no cached image, interlock independent
+  U4 unverified/live_reads_disabled: view reason, no cached image, interlock independent
+  U4 unverified/provider_protocol_error: view reason, no cached image, interlock independent
+  U4 valid/revision_advanced: view reason, no cached image, interlock independent
+  U5 target.focus literal name, exact Part Studio element, feature-condition limit before confirmation
+  U3/U6 preview access/membership/stale errors invalidate draft; pending adopt blocks dismissal and closes on success
+  U3/U6 async: newer preview wins; wrong Part/microversion suppressed; cancel/refresh/dispose fences; old catalog discarded; wrong catalog microversion blocked
+  U4 status failure clears trusted selection; read-only operator cannot adopt
+  U1/U2/U6 full choose/adopt/compact/reopen/cancel journey and backward focus wrapping at all three required viewports

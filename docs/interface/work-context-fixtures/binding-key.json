@@ -1,0 +1,15 @@
+{
+  "_comment": "work-context.md §3 bindingKey test vector",
+  "binding": {
+    "agentId": "mechanical-engineer",
+    "requesterSenderId": "requester-fixture",
+    "messageChannel": "discord",
+    "agentAccountId": "engineer-account-fixture",
+    "connectionRef": "default",
+    "documentId": "0123456789abcdef01234567",
+    "primaryWorkspaceId": "eeeeeeeeeeeeeeeeeeeeeeee",
+    "elementId": "fedcba9876543210fedcba98"
+  },
+  "canonical": "{\"agentAccountId\":\"engineer-account-fixture\",\"agentId\":\"mechanical-engineer\",\"connectionRef\":\"default\",\"documentId\":\"0123456789abcdef01234567\",\"elementId\":\"fedcba9876543210fedcba98\",\"messageChannel\":\"discord\",\"primaryWorkspaceId\":\"eeeeeeeeeeeeeeeeeeeeeeee\",\"requesterSenderId\":\"requester-fixture\"}",
+  "bindingKey": "eb81454c3e0689fb6e564670317dc7c95bb49a15e2c40d54c17d6e91a3e9b0cb"
+}

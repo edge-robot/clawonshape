@@ -1,0 +1,15 @@
+{
+  "_comment": "work-context.md §5.2: no selection (element-only binding or after clear)",
+  "selectionRevision": 0,
+  "validity": "none",
+  "reason": null,
+  "selection": null,
+  "adoptedAt": null,
+  "adoptedBy": null,
+  "interlock": {
+    "blocked": false,
+    "code": null,
+    "goalId": null
+  },
+  "observedAt": 1761116400000
+}

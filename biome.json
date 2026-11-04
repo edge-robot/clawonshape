@@ -1,0 +1,134 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "src/**",
+      "ui/**",
+      "scripts/**/*.mjs",
+      "tests/**/*.mjs",
+      "*.json",
+      "!package-lock.json",
+      "!!tests/contract",
+      "!!docs",
+      "!!dist",
+      "!!state"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "bracketSpacing": false
+    }
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noUselessCatch": "error"
+      },
+      "correctness": {
+        "noUnsafeFinally": "error",
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error"
+      },
+      "performance": {
+        "noBarrelFile": "off",
+        "noNamespaceImport": "off"
+      },
+      "security": {
+        "noGlobalEval": "error"
+      },
+      "style": {
+        "noEnum": "error",
+        "noNamespace": "error",
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "noParameterProperties": "error",
+        "noRestrictedImports": "off",
+        "useBlockStatements": "error",
+        "useConst": "error",
+        "useExportType": "error",
+        "useImportType": "error",
+        "useNodejsImportProtocol": "error",
+        "useThrowOnlyError": "error"
+      },
+      "suspicious": {
+        "noConsole": "off",
+        "noConstEnum": "error",
+        "noDoubleEquals": "error",
+        "noEmptyBlockStatements": "error",
+        "noEvolvingTypes": "error",
+        "noExplicitAny": "error",
+        "noImplicitAnyLet": "error",
+        "noTsIgnore": "error",
+        "noVar": "error",
+        "useErrorMessage": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "openclaw": "Import only public openclaw/plugin-sdk/* subpaths, never the openclaw root."
+                },
+                "patterns": [
+                  {
+                    "group": ["@modelcontextprotocol/**", "*mcp*sdk*", "@*mcp*/**", "*mcp-client*"],
+                    "message": "The plugin is not an MCP client (edge-robot/clawonshape#2)."
+                  },
+                  {
+                    "group": ["openclaw/**", "!openclaw/plugin-sdk/*"],
+                    "message": "Import only public openclaw/plugin-sdk/* subpaths, never openclaw/dist/** or other internals."
+                  }
+                ]
+              }
+            }
+          },
+          "suspicious": {
+            "noConsole": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["tests/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noEmptyBlockStatements": "off"
+          }
+        }
+      }
+    }
+  ]
+}

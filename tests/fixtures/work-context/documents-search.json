@@ -1,0 +1,12 @@
+{
+  "href": "https://cad.onshape.com/api/v10/documents?q=mount&sortColumn=modifiedAt&sortOrder=desc&offset=0&limit=20",
+  "items": [
+    {"jsonType": "document-summary", "id": "1111111111111111111111aa", "name": "Mount Bracket Library", "modifiedAt": "2026-10-20T08:30:00Z", "trash": false, "owner": {"id": "ffffffffffffffffffffffff", "name": "fixture-owner", "type": 0}, "createdBy": {"id": "ffffffffffffffffffffffff", "name": "fixture-owner", "email": "owner@example.invalid"}, "permissionSet": ["READ", "WRITE", "DELETE"], "defaultWorkspace": {"id": "1111111111111111111111ee", "name": "Main"}, "thumbnail": {"href": "https://cad.onshape.com/api/thumbnails/fixture"}},
+    {"jsonType": "folder", "id": "3333333333333333333333cc", "name": "Mount folder", "modifiedAt": "2026-10-21T08:30:00Z"},
+    {"jsonType": "document-summary", "id": "0123456789abcdef01234567", "name": "Camera Mount", "modifiedAt": "2026-10-22T10:00:00Z", "trash": false, "owner": {"id": "ffffffffffffffffffffffff", "name": "fixture-owner", "type": 0}, "createdBy": {"id": "ffffffffffffffffffffffff", "name": "fixture-owner", "email": "owner@example.invalid"}, "permissionSet": ["READ", "WRITE"], "defaultWorkspace": {"id": "eeeeeeeeeeeeeeeeeeeeeeee", "name": "Main"}},
+    {"jsonType": "document-summary", "id": "4444444444444444444444dd", "name": "Mount (deleted)", "modifiedAt": "2026-10-19T08:30:00Z", "trash": true, "defaultWorkspace": {"id": "4444444444444444444444ee"}},
+    {"jsonType": "document-summary", "id": "2222222222222222222222bb", "name": "\u0007Mount", "modifiedAt": "last week", "owner": {"id": "ffffffffffffffffffffffff", "name": "fixture-owner"}, "permissionSet": ["READ"]}
+  ],
+  "next": "https://cad.onshape.com/api/v10/documents?q=mount&sortColumn=modifiedAt&sortOrder=desc&offset=20&limit=20",
+  "previous": null
+}
