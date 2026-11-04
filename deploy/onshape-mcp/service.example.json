@@ -1,0 +1,14 @@
+{
+  "name": "clawonshape-mcp",
+  "network": "clawonshape-mcp-private",
+  "image": {
+    "repository": "localhost/clawonshape-mcp",
+    "tag": "<short-sha>-goal-grant-curl",
+    "digest": "<sha256 digest printed by podman image inspect after build.sh>"
+  },
+  "credential_directory": "<workspace>/clawonshape/state/secrets/onshape-mcp",
+  "config_file": "<workspace>/clawonshape/state/deployment/onshape-mcp/config.toml",
+  "quadlet_root": "<home>/.config/containers/systemd",
+  "client_container": "clawcad-mechanical-engineer",
+  "dispatch_journal_directory": "<home>/.local/state/clawake/clawonshape/onshape-mcp-journal"
+}

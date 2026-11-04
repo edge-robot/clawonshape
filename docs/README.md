@@ -28,7 +28,8 @@ Documents fall into two classes:
 
 | Document | Content |
 |---|---|
-| [prompts/2026-10-19-team-onboarding.md](prompts/2026-10-19-team-onboarding.md) | Bring up the team on a fresh machine (use the pins of the accepted matrix row) |
+| [fresh-machine-setup.md](fresh-machine-setup.md) | Bring up the team on a new machine from the GitHub repositories |
+| [prompts/2026-10-19-team-onboarding.md](prompts/2026-10-19-team-onboarding.md) | Guided long form for the onboarding agent (pins outdated; fresh-machine-setup.md wins) |
 | [project-closure-2026-10-26.md](project-closure-2026-10-26.md) | Closure scope, delivered state and limits |
 
 ## History

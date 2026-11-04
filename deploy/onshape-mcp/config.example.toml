@@ -1,9 +1,25 @@
-# Non-secret operator configuration, file must be 0600.
+# onshape-mcp operator configuration (non-secret). Copy to
+# state/deployment/onshape-mcp/config.toml with mode 0600 and replace the <…> placeholders.
+# IDs come from the Onshape URL …/documents/<document>/w/<workspace>/e/<element>.
+# Paths are container paths; Clawake mounts them (see service.example.json).
 [external_token]
 file = "/run/onshape-credentials/access-token.json"
-document_id = "8b63eacf80efca72049f8017"
-workspace_id = "1e76fac0ddca3ed10ecc9f28"
-element_id = "7768b96c15d71e78cdbdd7d9"
+document_id = "<onshape-document-id>"
+workspace_id = "<onshape-candidate-workspace-id>"
+element_id = "<onshape-part-studio-element-id>"
+read_api_version = "v16"
+mutation_approval_file = "/run/onshape-credentials/mutation-approvals/approved-update.json"
+goal_grant_file = "/run/onshape-credentials/mutation-approvals/goal-grant.json"
+dispatch_journal_dir = "/var/lib/onshape-mcp/journal"
+
+# Bounded mutation (contract docs/interface/onshape-mcp.md, goal-workflow.md). Remove this table
+# to run read-only. The Primary (Main) workspace must be excluded.
+[external_token.mutation]
+document_id = "<onshape-document-id>"
+element_id = "<onshape-part-studio-element-id>"
+excluded_workspace_ids = ["<onshape-primary-workspace-id>"]
+allowed_operations = ["updatePartStudioFeature"]
+write_mode = "modify"
 
 [api]
 timeout = 30

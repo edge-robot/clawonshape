@@ -11,6 +11,10 @@ status: draft
 ---
 # Bring up the robotics team on a fresh machine
 
+> **2026-11-04:** the pins, blockers and paths below are outdated. Follow
+> [../fresh-machine-setup.md](../fresh-machine-setup.md) for pins, secrets and commands; use this
+> runbook only for its guided conversation and the Discord steps (Phase 5).
+
 ## Goal
 
 Starting from a machine that has nothing except Linux, an internet connection and the
