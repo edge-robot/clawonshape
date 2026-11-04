@@ -108,7 +108,9 @@ test('package entry loads; manifest/optional tool/CLI metadata agree (mock regis
   const pkg = JSON.parse(await readFile('package.json'));
   const manifest = JSON.parse(await readFile('openclaw.plugin.json'));
   assert.deepEqual(pkg.openclaw.extensions, ['./dist/index.js']);
-  assert.equal(pkg.peerDependencies.openclaw, '2026.9.9');
+  // 2026.9.9 stays the rollback runtime; 2026.10.10 is the dev/test pin (#25).
+  assert.equal(pkg.peerDependencies.openclaw, '>=2026.9.9 <2026.11.0');
+  assert.equal(pkg.devDependencies.openclaw, '2026.10.10');
   assert.equal(plugin.id, manifest.id);
   const host = capture();
   assert.equal(host.factories.length, manifest.contracts.tools.length);

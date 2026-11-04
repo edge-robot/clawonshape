@@ -25,12 +25,12 @@
     ]
   },
   "peerDependencies": {
-    "openclaw": "2026.9.9"
+    "openclaw": ">=2026.9.9 <2026.11.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@types/node": "24.10.0",
-    "openclaw": "2026.9.9",
+    "openclaw": "2026.10.10",
     "typescript": "5.9.3"
   },
   "scripts": {
