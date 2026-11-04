@@ -37,17 +37,38 @@ selector v1 rejected), `2026-10-21-goal-workflow-live-acceptance.md` (stage 2 de
 - **F3 (minor UX):** in the document list the reason line "Anderes Dokument · nur ansehen; keine
   Zielzuordnung." is cut off by the scroll box and repeated below the workspace card.
 
+- **F5: OAuth refresh is rejected (#24).** At 09:49:08Z the refresh failed with
+  `oauth_refresh_response_invalid`: Onshape returned HTTP 200, and `parseTokens` rejected the
+  response. The token is nulled before the exchange, so the connection was dead until the user
+  reconnected in the afternoon. That reconnect cost 5 calls. This defect has been known since
+  2026-10-12. Workaround: reconnect right before a session and keep the session under one hour.
+- **F4: unattributed counter increase (revised).** The Onshape usage counter went from 800 (after L1, about
+  10:00) to 832 (about 16:00) with no live test in between, i.e. about 5 calls per hour.
+  - Candidate sources: OAuth token refresh, the Engineer's MCP session every 30 minutes (heartbeat
+    cadence; `onshape_auth_status` with `validate=true` would call `users/sessioninfo`), an open
+    dashboard tab, and readiness reads.
+  - Per K2, the plugin's own status paths make no call without a selection.
+  - The Onshape connection was dead from 09:49Z on (F5), so neither the plugin nor onshape-mcp could
+    call Onshape for most of that window.
+  - The more likely explanation is delayed accounting in the Onshape portal: the 800 reading right
+    after L1 was not yet final.
+  - An overnight reading confirms or refutes this.
+  - Side observation: the Lead's existing main session still reports `gpt-5.6-sol`, so existing
+    sessions keep their model until they are reset; the Engineer's main session runs on
+    `gpt-5.6-terra`.
+- The bound target `wegwerf-document / Part Studio 1` is the Camera Mount Plate (user, 2026-10-26).
+
 ## Checks: selector v2 and browsing (user, Engineer dashboard)
 
 | # | Check | Result |
 |---|---|---|
 | L1 | Selector opens; one "Schließen" at the bottom; layout steps document → workspace → part | **layout pass; part search fails on a large document (F2).** One bottom exit, steps 1–3, bound `wegwerf-document` marked "Zugeordnet", `pib-kaos` listed as "Nur ansehen" with its `Main` default workspace. Part search in `pib-kaos / Main` shows "Onshape-Antwort nicht lesbar" (`provider_protocol_error`). |
-| L2 | Document search (≥ 2 characters, paged), bound document marked first; other documents "nur ansehen" (WC7) | pending |
-| L3 | Workspace list with roles; read-only/protection fields plausible (WC8) | pending |
-| L4 | Part search across Part Studios, grouped; Part Studio preview 128 px (WC9) | pending |
-| L5 | Part preview; "Dieses Bauteil übernehmen" at the part; compact card; goal panel shows `target.focus` | pending |
-| L6 | Reload/Escape; inaccessible document error (WC10, opportunistic) | pending |
-| L7 | API usage after the selector steps (WC11) | pending |
+| L2 | Document search (≥ 2 characters, paged), bound document marked first; other documents "nur ansehen" (WC7) | 12 calls (838 → 850); functional result: to be confirmed by the user |
+| L3 | Workspace list with roles; read-only/protection fields plausible (WC8) | 5 calls (850 → 855); functional result: to be confirmed by the user |
+| L4 | Part search across Part Studios, grouped; Part Studio preview 128 px (WC9) | 2 calls (855 → 857); functional result: to be confirmed by the user |
+| L5 | Part preview; "Dieses Bauteil übernehmen" at the part; compact card; goal panel shows `target.focus` | 6 calls (857 → 863); functional result: to be confirmed by the user |
+| L6 | Reload/Escape; inaccessible document error (WC10, opportunistic) | 9 calls (863 → 872); functional result: to be confirmed by the user |
+| L7 | API usage after the selector steps (WC11) | **832 → 838 for the reconnect (5–6 calls); L2–L6 = 34 calls (838 → 872)**, consistent with the K2 baseline (an operator session costs about 40) |
 
 ## Checks: goal workflow (stage 2, on `openai/gpt-5.6-terra`)
 
