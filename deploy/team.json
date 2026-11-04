@@ -28,8 +28,8 @@
       "name": "clawcad-robotics-lead",
       "host": "local",
       "role": "product_owner",
-      "workspace_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/robotics-lead/workspace",
-      "team_definition_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/robotics-lead/definition",
+      "workspace_path": "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/workspace",
+      "team_definition_path": "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/definition",
       "quadlet_path": "clawcad-robotics-lead.container",
       "container_name": "clawcad-robotics-lead",
       "networks": [
@@ -46,7 +46,7 @@
         }
       ],
       "env_files": [
-        "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/robotics-lead.env"
+        "${CLAWAKE_PROJECT_ROOT}/state/secrets/robotics-lead.env"
       ],
       "gateway_runtime": {
         "enabled": true,
@@ -90,12 +90,12 @@
       },
       "mounts": [
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/delegation",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/delegation",
           "target": "/run/claw-onshape-delegation",
           "read_only": true
         },
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/artifacts",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/artifacts",
           "target": "/workspace/artifacts/claw-onshape",
           "read_only": true
         }
@@ -148,16 +148,16 @@
         "onshape_goal_status",
         "onshape_goal_stop"
       ],
-      "state_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/openclaw/robotics-lead",
+      "state_path": "${CLAWAKE_PROJECT_ROOT}/state/openclaw/robotics-lead",
       "backup_policy": {
         "enabled": true,
         "pre_mutation": true,
         "paths": [
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/robotics-lead/workspace",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/openclaw/robotics-lead",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/robotics-lead/definition",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/artifacts"
+          "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/workspace",
+          "${CLAWAKE_PROJECT_ROOT}/state/openclaw/robotics-lead",
+          "${CLAWAKE_PROJECT_ROOT}/agents/robotics-lead/definition",
+          "${CLAWAKE_PROJECT_ROOT}/state/secrets",
+          "${CLAWAKE_PROJECT_ROOT}/state/artifacts"
         ]
       },
       "readiness": {
@@ -168,8 +168,8 @@
       "name": "clawcad-mechanical-engineer",
       "host": "local",
       "role": "developer",
-      "workspace_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/mechanical-engineer/workspace",
-      "team_definition_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/mechanical-engineer/definition",
+      "workspace_path": "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/workspace",
+      "team_definition_path": "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/definition",
       "quadlet_path": "clawcad-mechanical-engineer.container",
       "container_name": "clawcad-mechanical-engineer",
       "networks": [
@@ -187,7 +187,7 @@
         }
       ],
       "env_files": [
-        "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/mechanical-engineer.env"
+        "${CLAWAKE_PROJECT_ROOT}/state/secrets/mechanical-engineer.env"
       ],
       "gateway_runtime": {
         "enabled": true,
@@ -215,27 +215,27 @@
       },
       "mounts": [
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/delegation",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/delegation",
           "target": "/run/claw-onshape-delegation",
           "read_only": true
         },
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/artifacts",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/artifacts",
           "target": "/workspace/artifacts/claw-onshape",
           "read_only": false
         },
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/oauth",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/oauth",
           "target": "/run/claw-onshape-oauth",
           "read_only": true
         },
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/onshape-mcp",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/onshape-mcp",
           "target": "/run/onshape-credentials",
           "read_only": false
         },
         {
-          "source": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets/oauth/connections",
+          "source": "${CLAWAKE_PROJECT_ROOT}/state/secrets/oauth/connections",
           "target": "/home/node/.openclaw/claw-onshape/credentials",
           "read_only": false
         }
@@ -333,16 +333,16 @@
       ],
       "onshape_mcp": true,
       "onshape_mcp_enabled": true,
-      "state_path": "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/openclaw/mechanical-engineer",
+      "state_path": "${CLAWAKE_PROJECT_ROOT}/state/openclaw/mechanical-engineer",
       "backup_policy": {
         "enabled": true,
         "pre_mutation": true,
         "paths": [
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/mechanical-engineer/workspace",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/openclaw/mechanical-engineer",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/agents/mechanical-engineer/definition",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/secrets",
-          "/home/kaos/Projects/01_pib/02_sw/clawonshape/state/artifacts"
+          "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/workspace",
+          "${CLAWAKE_PROJECT_ROOT}/state/openclaw/mechanical-engineer",
+          "${CLAWAKE_PROJECT_ROOT}/agents/mechanical-engineer/definition",
+          "${CLAWAKE_PROJECT_ROOT}/state/secrets",
+          "${CLAWAKE_PROJECT_ROOT}/state/artifacts"
         ]
       }
     }
